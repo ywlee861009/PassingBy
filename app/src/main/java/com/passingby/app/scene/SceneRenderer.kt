@@ -159,17 +159,20 @@ class SceneRenderer(private val state: SceneState) {
             val dx = (f.driftMax * sin(t * DRIFT_X)).toFloat()
             val dy = (f.driftMax * sin(t * DRIFT_Y + 1.0)).toFloat()
             val o = f.opening
+            // 아래에서 올라온 벽 패널이 창을 가린 만큼 풍경을 위로 올려 땅이 보이게 한다. 옆에서 들어올 때는 그대로 둔다.
+            val shift = if (state.seatFromEnd) 0f else (o.bottom - (h - state.seatEdgePx)).coerceIn(0f, o.height())
             canvas.save()
             canvas.translate(dx, dy)
             canvas.save()
             canvas.clipPath(f.glassPath)
             canvas.save()
-            canvas.translate(o.left, o.top)
+            canvas.translate(o.left, o.top - shift)
             drawScene(canvas, o.width().toInt(), o.height().toInt(), p)
             canvas.restore()
             f.drawGlass(canvas, p)
             canvas.restore()
             f.drawFrame(canvas, p)
+            f.drawSeat(canvas, state.seatFromEnd, state.seatEdgePx)
             canvas.restore()
         } else {
             drawScene(canvas, w, h, p)

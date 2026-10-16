@@ -31,7 +31,7 @@ import com.passingby.app.scene.Weather
 import com.passingby.app.ui.journey.JourneyViewModel
 
 /**
- * 개발용 패널. 사용자 UI가 아니며 [com.passingby.app.BuildConfig.DEV_TOOLS]가 켜진 빌드에서만 보인다.
+ * 개발용 패널. 사용자 UI가 아니며 [com.passingby.app.BuildConfig.DEV_TOOLS]가 켜진 빌드에서 화면을 길게 누르면 보인다.
  * 줄마다 가로로 밀어 볼 수 있어 가로 화면에서도 넘치지 않는다.
  */
 @Composable
@@ -49,9 +49,6 @@ fun DevPanel(vm: JourneyViewModel, onInteract: () -> Unit, modifier: Modifier = 
                 Chip(k.label, vm.land == k) { vm.selectLand(k); onInteract() }
             }
             Gap()
-            Chip("완행", !vm.fast) { vm.selectFast(false); onInteract() }
-            Chip("고속", vm.fast) { vm.selectFast(true); onInteract() }
-            Gap()
             Chip("창틀", vm.windowFrame) { vm.toggleWindowFrame(); onInteract() }
             Chip("구조", vm.boxes) { vm.toggleBoxes(); onInteract() }
         }
@@ -67,10 +64,8 @@ fun DevPanel(vm: JourneyViewModel, onInteract: () -> Unit, modifier: Modifier = 
             }
         }
         ChipRow {
-            for (m in MINUTES) {
-                Chip("${m}분", vm.minutes == m) { vm.selectMinutes(m); onInteract() }
-            }
-            Chip("처음부터", false) { vm.restart(); onInteract() }
+            Chip("도착 20초 전", false) { vm.seekNearEnd(); onInteract() }
+            Chip("쉬는 시간 끝", false) { vm.skipRest(); onInteract() }
             Gap()
             for (s in SCALES) {
                 Chip("×${s.toInt()}", vm.timeScale == s) { vm.selectScale(s); onInteract() }
@@ -87,7 +82,6 @@ fun DevPanel(vm: JourneyViewModel, onInteract: () -> Unit, modifier: Modifier = 
     }
 }
 
-private val MINUTES = intArrayOf(25, 50, 90)
 private val SCALES = doubleArrayOf(1.0, 10.0, 30.0)
 
 @Composable

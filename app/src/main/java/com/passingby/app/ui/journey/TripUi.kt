@@ -1,0 +1,430 @@
+package com.passingby.app.ui.journey
+
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicText
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import com.passingby.app.content.Leg
+import com.passingby.app.ui.theme.Pb
+import com.passingby.app.ui.theme.PbType
+import java.util.Locale
+
+// ── 정차 카드 ──
+
+/** 정차·출발 전 승차권 카드(명세 5.1). 절취선 모티프는 이 카드에만 쓴다. */
+@Composable
+fun TicketCard(
+    leg: Leg,
+    minutes: Int,
+    today: Pair<Int, Int>,
+    restDone: Boolean,
+    paper: Color,
+    panel: Color,
+    onMinutes: (Int) -> Unit,
+    onDepart: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Sheet(paper, modifier) {
+        BasicText(
+            if (restDone) "쉬는 시간이 끝났어요 · ${leg.fromName}" else "${leg.route.vehicle} · ${leg.ordinal}",
+            style = PbType.kicker.copy(color = Pb.InkSoft),
+        )
+        BasicText(leg.title, style = PbType.title.copy(color = Pb.Ink))
+        Perforation(panel)
+        MinuteSelector(minutes, onMinutes)
+        PrimaryButton("${minutes}분 출발하기", onDepart, Modifier.fillMaxWidth())
+        BasicText(
+            todayLine(today) ?: "도착하면 알려드릴게요. 그동안 창밖만 보셔도 괜찮아요.",
+            style = PbType.body.copy(color = Pb.InkSoft),
+        )
+    }
+}
+
+/** 도착 카드(명세 5.4). */
+@Composable
+fun ArrivalCard(
+    leg: Leg,
+    tripMinutes: Int,
+    today: Pair<Int, Int>,
+    paper: Color,
+    onRest: () -> Unit,
+    onGetOff: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Sheet(paper, modifier) {
+        BasicText("${leg.toName}에 도착했어요", style = PbType.voice.copy(color = Pb.Ink))
+        BasicText(
+            listOfNotNull("${tripMinutes}분 머물렀어요", todayLine(today)).joinToString(" · "),
+            style = PbType.body.copy(color = Pb.InkSoft),
+        )
+        Spacer(Modifier.height(4.dp))
+        PrimaryButton("${REST_MINUTES}분 쉬고 이어 가기", onRest, Modifier.fillMaxWidth())
+        QuietButton("여기서 내리기", onGetOff, Modifier.fillMaxWidth())
+    }
+}
+
+/** 쉬는 중 카드. 도착역 플랫폼에 선 채로 쉬는 시간이 흐른다. 끝나도 자동으로 출발하지 않는다. */
+@Composable
+fun RestCard(
+    leg: Leg,
+    minutes: Int,
+    restLeftSec: Int,
+    paper: Color,
+    onDepart: () -> Unit,
+    onGetOff: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val next = leg.route.legFrom(leg.to, leg.direction)
+    Sheet(paper, modifier) {
+        BasicText("${leg.toName}에서 쉬는 중", style = PbType.kicker.copy(color = Pb.InkSoft))
+        BasicText(
+            clock(restLeftSec),
+            style = PbType.timerMid.copy(color = Pb.Ink),
+            modifier = Modifier.semantics { contentDescription = "쉬는 시간 ${spoken(restLeftSec)} 남음" },
+        )
+        BasicText("다음 구간 ${next.title} · ${minutes}분", style = PbType.body.copy(color = Pb.InkSoft))
+        Spacer(Modifier.height(4.dp))
+        PrimaryButton("지금 출발하기", onDepart, Modifier.fillMaxWidth())
+        QuietButton("여기서 내리기", onGetOff, Modifier.fillMaxWidth())
+    }
+}
+
+@Composable
+private fun Sheet(paper: Color, modifier: Modifier, content: @Composable ColumnScope.() -> Unit) {
+    Column(
+        modifier
+            .clip(RoundedCornerShape(20.dp))
+            .background(paper)
+            .padding(horizontal = 20.dp, vertical = 18.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+        content = content,
+    )
+}
+
+/** 승차권 절취선. 양쪽 끝의 반원 홈은 벽색으로 칠해 카드가 뚫린 것처럼 보인다. */
+@Composable
+private fun Perforation(panel: Color) {
+    Canvas(
+        Modifier
+            .fillMaxWidth()
+            .height(12.dp),
+    ) {
+        val y = size.height / 2
+        val notch = 8.dp.toPx()
+        val inset = 20.dp.toPx()
+        drawLine(
+            Pb.Line, Offset(0f, y), Offset(size.width, y), strokeWidth = 1.dp.toPx(),
+            pathEffect = PathEffect.dashPathEffect(floatArrayOf(5.dp.toPx(), 4.dp.toPx())),
+        )
+        if (panel.alpha > 0f) {
+            drawCircle(panel, notch, Offset(-inset, y))
+            drawCircle(panel, notch, Offset(size.width + inset, y))
+        }
+    }
+}
+
+@Composable
+private fun MinuteSelector(selected: Int, onSelect: (Int) -> Unit) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .selectableGroup(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        for (m in MINUTE_OPTIONS) {
+            val on = m == selected
+            Box(
+                Modifier
+                    .weight(1f)
+                    .height(48.dp)
+                    .clip(CircleShape)
+                    .background(if (on) Pb.Ink else Color.Transparent)
+                    .border(1.dp, if (on) Pb.Ink else Pb.Line, CircleShape)
+                    .selectable(on, role = Role.RadioButton) { onSelect(m) },
+                contentAlignment = Alignment.Center,
+            ) {
+                BasicText("${m}분", style = PbType.label.copy(color = if (on) Pb.Paper else Pb.Ink))
+            }
+        }
+    }
+}
+
+@Composable
+fun PrimaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Box(
+        modifier
+            .heightIn(min = 52.dp)
+            .clip(CircleShape)
+            .background(Pb.Accent)
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(horizontal = 20.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        BasicText(text, style = PbType.button.copy(color = Pb.OnAccent, textAlign = TextAlign.Center))
+    }
+}
+
+@Composable
+private fun QuietButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Box(
+        modifier
+            .heightIn(min = 48.dp)
+            .clip(CircleShape)
+            .clickable(role = Role.Button, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        BasicText(text, style = PbType.label.copy(color = Pb.InkSoft))
+    }
+}
+
+// ── 주행 오버레이 ──
+
+/** 풍경 위 반투명 캡슐(명세 6장). */
+@Composable
+fun Capsule(text: String, modifier: Modifier = Modifier) {
+    Box(
+        modifier
+            .heightIn(min = 44.dp)
+            .clip(CircleShape)
+            .background(Pb.Scrim)
+            .padding(horizontal = 18.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        BasicText(text, style = PbType.label.copy(color = Pb.OnScrim))
+    }
+}
+
+/** 여행 끝내기 버튼(아이콘만). */
+@Composable
+fun CloseButton(onClick: () -> Unit, modifier: Modifier = Modifier, background: Color = Pb.Scrim, tint: Color = Pb.OnScrim) {
+    Box(
+        modifier
+            .size(48.dp)
+            .clip(CircleShape)
+            .background(background)
+            .clickable(role = Role.Button, onClick = onClick)
+            .semantics { contentDescription = "여행 끝내기" },
+        contentAlignment = Alignment.Center,
+    ) {
+        Canvas(Modifier.size(14.dp)) {
+            val s = 1.8.dp.toPx()
+            drawLine(tint, Offset.Zero, Offset(size.width, size.height), s, StrokeCap.Round)
+            drawLine(tint, Offset(size.width, 0f), Offset(0f, size.height), s, StrokeCap.Round)
+        }
+    }
+}
+
+/** 잠깐 멈추기 / 다시 출발. 글자 버튼이라 아이콘 없이도 뜻이 분명하다. */
+@Composable
+fun PauseButton(paused: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Box(
+        modifier
+            .heightIn(min = 48.dp)
+            .clip(CircleShape)
+            .background(Color(0x33FFFFFF))
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(horizontal = 18.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        BasicText(if (paused) "다시 출발" else "잠깐 멈추기", style = PbType.label.copy(color = Pb.OnScrim))
+    }
+}
+
+/**
+ * 구간 진행 바. 지나온 부분은 굵고 밝게, 남은 부분은 가늘고 흐리게 그려 색에만 기대지 않는다(명세 6장).
+ */
+@Composable
+fun LegProgress(leg: Leg, progress: Float, modifier: Modifier = Modifier, labelColor: Color = Pb.OnScrimSoft) {
+    val percent = (progress * 100).toInt()
+    Column(
+        modifier.semantics {
+            contentDescription = "${leg.fromName}에서 ${leg.toName}까지"
+            stateDescription = "${percent}% 왔어요"
+        },
+    ) {
+        Canvas(
+            Modifier
+                .fillMaxWidth()
+                .height(16.dp),
+        ) {
+            val y = size.height / 2
+            val r = 5.dp.toPx()
+            val x0 = r
+            val x1 = size.width - r
+            val xp = x0 + (x1 - x0) * progress.coerceIn(0f, 1f)
+            drawLine(Color.White.copy(alpha = .35f), Offset(x0, y), Offset(x1, y), 2.dp.toPx(), StrokeCap.Round)
+            drawLine(Color.White, Offset(x0, y), Offset(xp, y), 3.dp.toPx(), StrokeCap.Round)
+            drawCircle(Color.White, 3.dp.toPx(), Offset(x0, y))
+            drawCircle(Color.White, 3.dp.toPx(), Offset(x1, y), style = Stroke(1.5.dp.toPx()))
+            drawCircle(Pb.Marker, r, Offset(xp, y))
+            drawCircle(Color.White, r, Offset(xp, y), style = Stroke(1.5.dp.toPx()))
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            BasicText(leg.fromName, style = PbType.body.copy(color = labelColor))
+            BasicText(leg.toName, style = PbType.body.copy(color = labelColor))
+        }
+    }
+}
+
+/** 남은 시간 묶음: "대전까지" + 큰 숫자. 멈춘 동안에는 "신호 대기 중"을 덧붙인다. */
+@Composable
+fun Remaining(leg: Leg, remainingSec: Int, paused: Boolean, timer: TextStyle, color: Color = Pb.OnScrim, soft: Color = Pb.OnScrimSoft) {
+    Column {
+        BasicText(
+            if (paused) "${leg.toName}까지 · 신호 대기 중" else "${leg.toName}까지",
+            style = PbType.label.copy(color = soft),
+        )
+        BasicText(
+            clock(remainingSec),
+            style = timer.copy(color = color),
+            modifier = Modifier.semantics { contentDescription = "${leg.toName}까지 ${spoken(remainingSec)} 남음" },
+        )
+    }
+}
+
+/** 세로 화면 하단 묶음. */
+@Composable
+fun StackedPanel(leg: Leg, remainingSec: Int, progress: Float, paused: Boolean, onPause: () -> Unit, modifier: Modifier = Modifier) {
+    Column(
+        modifier
+            .clip(RoundedCornerShape(24.dp))
+            .background(Pb.Scrim)
+            .padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        Remaining(leg, remainingSec, paused, PbType.timerLarge)
+        LegProgress(leg, progress)
+        PauseButton(paused, onPause)
+    }
+}
+
+/** 가로·큰 화면 하단 한 줄: 왼쪽 시간, 가운데 진행 바, 오른쪽 조작. */
+@Composable
+fun RowPanel(leg: Leg, remainingSec: Int, progress: Float, paused: Boolean, onPause: () -> Unit, modifier: Modifier = Modifier) {
+    Row(
+        modifier
+            .clip(RoundedCornerShape(24.dp))
+            .background(Pb.Scrim)
+            .padding(horizontal = 20.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(20.dp),
+    ) {
+        Remaining(leg, remainingSec, paused, PbType.timerMid)
+        LegProgress(leg, progress, Modifier.weight(1f))
+        PauseButton(paused, onPause)
+    }
+}
+
+/**
+ * 반접기(테이블탑) 아래쪽 반 화면. 시야 밖 평면이라 늘 보이게 두고, 조작이 없으면 어둡게 낮춘다(명세 5.3).
+ */
+@Composable
+fun TabletopPanel(
+    leg: Leg,
+    remainingSec: Int,
+    progress: Float,
+    paused: Boolean,
+    onPause: () -> Unit,
+    onClose: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier
+            .clip(RoundedCornerShape(24.dp))
+            .background(Color(0x66000000))
+            .padding(horizontal = 24.dp, vertical = 18.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(24.dp),
+    ) {
+        Remaining(leg, remainingSec, paused, PbType.timerMid)
+        LegProgress(leg, progress, Modifier.weight(1f))
+        PauseButton(paused, onPause)
+        CloseButton(onClose, background = Color(0x33FFFFFF))
+    }
+}
+
+/** 첫 여행 안내·뒤로가기 안내 같은 짧은 알림. */
+@Composable
+fun Notice(text: String, modifier: Modifier = Modifier) {
+    Box(
+        modifier
+            .clip(CircleShape)
+            .background(Pb.Scrim)
+            .padding(horizontal = 18.dp, vertical = 12.dp),
+    ) {
+        BasicText(text, style = PbType.body.copy(color = Pb.OnScrim))
+    }
+}
+
+/** 여행 끝내기 확인. */
+@Composable
+fun EndTripDialog(leg: Leg, paper: Color, onKeep: () -> Unit, onEnd: () -> Unit) {
+    Sheet(paper, Modifier.width(320.dp)) {
+        BasicText("여행을 끝낼까요?", style = PbType.title.copy(color = Pb.Ink))
+        BasicText(
+            "${leg.fromName}역으로 돌아가요. 이번 구간은 기록되지 않아요.",
+            style = PbType.body.copy(color = Pb.InkSoft),
+        )
+        Spacer(Modifier.height(4.dp))
+        PrimaryButton("계속 가기", onKeep, Modifier.fillMaxWidth())
+        QuietButton("끝내기", onEnd, Modifier.fillMaxWidth())
+    }
+}
+
+// ── 포맷 ──
+
+private val MINUTE_OPTIONS = intArrayOf(25, 50, 90)
+const val REST_MINUTES = 5
+
+private fun todayLine(today: Pair<Int, Int>): String? =
+    if (today.first > 0) "오늘 ${today.first}회 · ${today.second}분" else null
+
+/** 18:42, 1:29:59 */
+fun clock(sec: Int): String {
+    val s = sec.coerceAtLeast(0)
+    return if (s >= 3600) {
+        String.format(Locale.US, "%d:%02d:%02d", s / 3600, s / 60 % 60, s % 60)
+    } else {
+        String.format(Locale.US, "%d:%02d", s / 60, s % 60)
+    }
+}
+
+/** 스크린리더용 "18분 42초". */
+private fun spoken(sec: Int): String {
+    val m = sec / 60
+    val s = sec % 60
+    return if (m > 0) "${m}분 ${s}초" else "${s}초"
+}

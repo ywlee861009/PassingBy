@@ -47,6 +47,11 @@ class TrainWindowFrame {
         style = Paint.Style.STROKE
         color = Color.argb(235, 14, 14, 16)
     }
+    /** 벽 패널과 유리가 만나는 틈. */
+    private val seamPaint = Paint().apply { color = Color.argb(235, 14, 14, 16) }
+    /** 옆에서 들어온 벽 패널이 창 쪽으로 드리우는 그림자. 패널 가장자리를 원점으로 그린다. */
+    private val sideShadowPaint = Paint()
+    private var sideShadowW = 0f
     private val ledgePaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val ledgeLinePaint = Paint().apply { color = Color.argb(34, 255, 255, 255) }
     private val ledgeShadowPaint = Paint()
@@ -95,6 +100,12 @@ class TrainWindowFrame {
         ledgeShadowPaint.shader = LinearGradient(
             0f, ledgeShadow.top, 0f, ledgeShadow.bottom,
             Color.argb(90, 0, 0, 0), Color.TRANSPARENT, Shader.TileMode.CLAMP,
+        )
+
+        sideShadowW = m * .05f
+        sideShadowPaint.shader = LinearGradient(
+            -sideShadowW, 0f, 0f, 0f,
+            Color.TRANSPARENT, Color.argb(110, 0, 0, 0), Shader.TileMode.CLAMP,
         )
 
         // 유리: 위쪽 창틀이 드리운 그림자와 비스듬한 반사광. 둘 다 크기에만 의존한다.
@@ -149,6 +160,44 @@ class TrainWindowFrame {
         canvas.drawPath(recessPath, recessPaint)
         canvas.drawRoundRect(recessOuter, outerRadius, outerRadius, edgePaint)
         canvas.drawRoundRect(opening, radius, radius, gasketPaint)
+        drawLedge(canvas)
+    }
+
+    /**
+     * 정차 중 창을 가리는 벽 패널. 벽과 같은 칠이라 이어진 벽처럼 보인다.
+     * 아래에서 올라올 때는 윗면이 창턱이 되고, 옆에서 들어올 때는 창 쪽 모서리에 그늘진 홈을 둔다.
+     * [drawFrame] 다음에 불러야 한다(벽 칠을 거기서 정한다).
+     * @param edgePx 화면 아래(또는 끝) 가장자리에서 패널 가장자리까지의 거리.
+     */
+    fun drawSeat(canvas: Canvas, fromEnd: Boolean, edgePx: Float) {
+        val margin = m * .01f
+        if (fromEnd) {
+            val left = w - edgePx
+            if (left >= recessOuter.right) return
+            canvas.drawRect(left, -margin, w + margin, h + margin, panelPaint)
+            // 틈선을 위아래 벽까지 그으면 전봇대처럼 보여서, 창 높이 안에서만 부드러운 그림자로 둔다.
+            canvas.save()
+            canvas.translate(left, 0f)
+            canvas.drawRect(-sideShadowW, recessOuter.top, 0f, recessOuter.bottom, sideShadowPaint)
+            canvas.restore()
+            canvas.drawRect(left, -margin, left + max(1f, m * .003f), h + margin, ledgeLinePaint)
+            drawLedge(canvas)
+        } else {
+            val top = h - edgePx
+            if (top >= recessOuter.bottom) return
+            canvas.drawRect(-margin, top, w + margin, h + margin, panelPaint)
+            canvas.drawRect(-margin, top - m * .014f, w + margin, top, seamPaint)
+            val sill = m * .03f
+            canvas.save()
+            canvas.translate(0f, top + sill - ledgeShadow.top)
+            canvas.drawRect(ledgeShadow, ledgeShadowPaint)
+            canvas.restore()
+            canvas.drawRect(-margin, top, w + margin, top + sill, ledgePaint)
+            canvas.drawRect(-margin, top, w + margin, top + max(1f, m * .002f), ledgeLinePaint)
+        }
+    }
+
+    private fun drawLedge(canvas: Canvas) {
         canvas.drawRect(ledgeShadow, ledgeShadowPaint)
         canvas.drawRect(ledge, ledgePaint)
         canvas.drawRect(ledge.left, ledge.top, ledge.right, ledge.top + max(1f, m * .002f), ledgeLinePaint)

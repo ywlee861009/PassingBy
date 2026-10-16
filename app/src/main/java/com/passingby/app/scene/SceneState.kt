@@ -66,6 +66,14 @@ class SceneState {
     var lastDt = 0f
         private set
 
+    /**
+     * 정차 중 창을 가리며 아래에서 올라오는(가로 화면은 옆에서 들어오는) 벽 패널. 카드는 이 패널 위에 놓인다.
+     * [seatEdgePx]는 화면 아래(또는 끝) 가장자리에서 패널 가장자리까지의 거리(px)이며, UI가 매 프레임 정한다.
+     * 창 크기를 바꾸면 풍경을 다시 구워야 하므로 창은 그대로 두고 패널로 가린다(명세 5.3).
+     */
+    var seatFromEnd = false
+    var seatEdgePx = 0f
+
     var showBoxes = false
     /** 위치별 도시화 정도. 여정이 정하고, 개발용으로 시골·도시 고정도 넣을 수 있다. */
     var urban: UrbanField = SceneKind.COUNTRY.field
