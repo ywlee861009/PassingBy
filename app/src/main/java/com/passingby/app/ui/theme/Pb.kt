@@ -2,14 +2,17 @@ package com.passingby.app.ui.theme
 
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
+import com.passingby.app.R
 
 /**
  * Passing By 디자인 토큰(명세 4.4).
  * 카드 바탕은 고정색이 아니라 하늘 팔레트의 실내 벽색에서 매번 뽑는다([com.passingby.app.ui.journey.JourneyViewModel.paper]).
- * 서체 파일(Pretendard·마루 부리)은 아직 넣지 않아 시스템 산세리프·세리프를 쓴다.
+ * 본문은 Pretendard(SIL OFL 1.1, 원문은 assets/licenses). 역 이름·도착 문구의 부리 계열은
+ * 마루 부리 라이선스를 확인하기 전까지 시스템 세리프를 쓴다. 한자·일본어는 Pretendard에 없어 시스템 글꼴로 넘어간다.
  */
 object Pb {
     /** 승차권 종이색. 밤에는 실내 벽색 쪽으로 어두워진다. */
@@ -29,14 +32,19 @@ object Pb {
     val Marker = Color(0xFFE8936A)
 }
 
+val Pretendard = FontFamily(
+    Font(R.font.pretendard_regular, FontWeight.Normal),
+    Font(R.font.pretendard_medium, FontWeight.Medium),
+)
+
 object PbType {
-    val kicker = TextStyle(fontSize = 13.sp, lineHeight = 18.sp)
-    val title = TextStyle(fontSize = 22.sp, lineHeight = 28.sp, fontWeight = FontWeight.Medium)
-    val body = TextStyle(fontSize = 14.sp, lineHeight = 20.sp)
-    val label = TextStyle(fontSize = 15.sp, lineHeight = 20.sp)
-    val button = TextStyle(fontSize = 16.sp, lineHeight = 20.sp, fontWeight = FontWeight.Medium)
+    val kicker = TextStyle(fontFamily = Pretendard, fontSize = 13.sp, lineHeight = 18.sp)
+    val title = TextStyle(fontFamily = Pretendard, fontSize = 22.sp, lineHeight = 28.sp, fontWeight = FontWeight.Medium)
+    val body = TextStyle(fontFamily = Pretendard, fontSize = 14.sp, lineHeight = 20.sp)
+    val label = TextStyle(fontFamily = Pretendard, fontSize = 15.sp, lineHeight = 20.sp)
+    val button = TextStyle(fontFamily = Pretendard, fontSize = 16.sp, lineHeight = 20.sp, fontWeight = FontWeight.Medium)
     /** 역 이름·도착 문구. 부리 계열 서체가 들어오면 여기만 바꾼다. */
     val voice = TextStyle(fontFamily = FontFamily.Serif, fontSize = 24.sp, lineHeight = 32.sp)
-    val timerLarge = TextStyle(fontSize = 56.sp, lineHeight = 62.sp, fontWeight = FontWeight.Medium, fontFeatureSettings = "tnum")
-    val timerMid = TextStyle(fontSize = 34.sp, lineHeight = 40.sp, fontWeight = FontWeight.Medium, fontFeatureSettings = "tnum")
+    val timerLarge = TextStyle(fontFamily = Pretendard, fontSize = 56.sp, lineHeight = 62.sp, fontWeight = FontWeight.Medium, fontFeatureSettings = "tnum")
+    val timerMid = TextStyle(fontFamily = Pretendard, fontSize = 34.sp, lineHeight = 40.sp, fontWeight = FontWeight.Medium, fontFeatureSettings = "tnum")
 }

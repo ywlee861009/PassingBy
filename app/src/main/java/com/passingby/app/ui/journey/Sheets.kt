@@ -141,6 +141,7 @@ fun SettingsSheetContent(
     onBuy: (Course) -> Unit,
     onRestore: () -> Unit,
     onDevUnlock: () -> Unit,
+    onLicenses: () -> Unit,
 ) {
     BasicText("설정", style = PbType.title.copy(color = Pb.Ink))
 
@@ -218,6 +219,7 @@ fun SettingsSheetContent(
         }
     }
     QuietButton("구매 복원", onRestore, Modifier.fillMaxWidth(), color = Pb.Ink)
+    QuietButton("오픈소스 라이선스", onLicenses, Modifier.fillMaxWidth())
     if (BuildConfig.DEV_TOOLS) {
         Toggle("개발용: 모든 코스 열기", "결제 상품 등록 전 확인용. 출시 빌드에는 나오지 않아요.", devUnlock) { onDevUnlock() }
     }
@@ -276,3 +278,79 @@ fun Toggle(label: String, description: String, value: Boolean, onChange: (Boolea
         }
     }
 }
+
+/** 여행 수첩: 오늘·지금까지의 기록과 코스마다 들른 역 도장. */
+@Composable
+fun JournalSheetContent(
+    today: Pair<Int, Int>,
+    lifetime: Pair<Int, Int>,
+    visited: Set<String>,
+    completions: (Course) -> Int,
+    owns: (Course) -> Boolean,
+) {
+    BasicText("여행 수첩", style = PbType.title.copy(color = Pb.Ink))
+    BasicText(
+        "오늘 ${today.first}회 · ${today.second}분   지금까지 ${lifetime.first}회 · ${hours(lifetime.second)}",
+        style = PbType.body.copy(color = Pb.InkSoft),
+    )
+    for (c in Course.ALL) {
+        val done = completions(c)
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(14.dp))
+                .border(1.dp, Pb.Line, RoundedCornerShape(14.dp))
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                BasicText(
+                    "${c.number}코스 · ${c.region}",
+                    style = PbType.label.copy(color = Pb.Ink),
+                    modifier = Modifier.weight(1f),
+                )
+                BasicText(
+                    when {
+                        done > 0 -> "완주 ${done}회"
+                        owns(c) -> "아직 완주 전"
+                        else -> "잠김"
+                    },
+                    style = PbType.kicker.copy(color = Pb.InkSoft),
+                )
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                for ((i, st) in c.stations.withIndex()) {
+                    Stamp(st.name, "${c.id}:$i" in visited)
+                }
+            }
+        }
+    }
+}
+
+/** 역 도장. 들른 역은 채운 원, 안 들른 역은 테두리만(색에만 기대지 않음). */
+@Composable
+private fun Stamp(name: String, on: Boolean) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Box(
+            Modifier
+                .size(30.dp)
+                .clip(CircleShape)
+                .background(if (on) Pb.Accent else Color.Transparent)
+                .border(1.5.dp, if (on) Pb.Accent else Pb.Line, CircleShape),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (on) BasicText(name.take(1), style = PbType.kicker.copy(color = Pb.OnAccent))
+        }
+        BasicText(name, style = PbType.kicker.copy(color = if (on) Pb.Ink else Pb.InkSoft))
+    }
+}
+
+/** 오픈소스 라이선스(글꼴). */
+@Composable
+fun LicenseSheetContent(text: String) {
+    BasicText("오픈소스 라이선스", style = PbType.title.copy(color = Pb.Ink))
+    BasicText("Pretendard — SIL Open Font License 1.1", style = PbType.label.copy(color = Pb.Ink))
+    BasicText(text, style = PbType.kicker.copy(color = Pb.InkSoft))
+}
+
+private fun hours(min: Int): String = if (min >= 60) "${min / 60}시간 ${min % 60}분" else "${min}분"

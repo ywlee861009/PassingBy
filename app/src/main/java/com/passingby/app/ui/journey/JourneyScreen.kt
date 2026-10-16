@@ -45,6 +45,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -314,6 +315,7 @@ fun JourneyScreen(vm: JourneyViewModel = viewModel()) {
                     onBuy = { activity?.let { vm.buy(it) } },
                     onCourses = { sheet = SheetKind.COURSES },
                     onSettings = { sheet = SheetKind.SETTINGS },
+                    onJournal = { sheet = SheetKind.JOURNAL },
                 )
             }
         }
@@ -440,20 +442,29 @@ fun JourneyScreen(vm: JourneyViewModel = viewModel()) {
             modifier = Modifier.fillMaxSize(),
         ) {
             val shown = remember { mutableStateOf(sheet) }
+            val licenseText = remember {
+                runCatching { context.assets.open("licenses/pretendard.txt").bufferedReader().use { it.readText() } }.getOrDefault("")
+            }
             if (sheet != SheetKind.NONE) shown.value = sheet
+            // 시트 종류가 바뀌면 스크롤 위치를 처음부터 다시 잡는다.
+            key(shown.value) {
             BottomSheet(Color(vm.paper), maxHeight * .88f, onDismiss = { sheet = SheetKind.NONE }) {
                 when (shown.value) {
                     SheetKind.COURSES -> CourseSheetContent(vm.course, vm::owns, vm::priceOf) {
                         vm.selectCourse(it)
                         sheet = SheetKind.NONE
                     }
+                    SheetKind.JOURNAL -> JournalSheetContent(vm.today, vm.lifetime, vm.visited, vm::completions, vm::owns)
+                    SheetKind.LICENSES -> LicenseSheetContent(licenseText)
                     else -> SettingsSheetContent(
                         vm.fixedWeather, vm.soundOn, vm.soundLevel, vm.ledgeInfo, vm.overlayAlways, vm.powerSave, vm::owns, vm::priceOf, vm.devUnlockAll,
                         onWeather = vm::selectWeather, onSound = { vm.toggleSound() }, onSoundLevel = vm::selectSoundLevel,
                         onLedge = vm::setLedge, onOverlay = vm::setOverlay, onPower = vm::setPower,
                         onBuy = { c -> activity?.let { vm.buy(it, c) } }, onRestore = vm::restorePurchases, onDevUnlock = vm::toggleDevUnlock,
+                        onLicenses = { sheet = SheetKind.LICENSES },
                     )
                 }
+            }
             }
         }
 
@@ -521,7 +532,7 @@ private fun rememberSystemPowerSave(): Boolean {
     return on
 }
 
-private enum class SheetKind { NONE, COURSES, SETTINGS }
+private enum class SheetKind { NONE, COURSES, SETTINGS, JOURNAL, LICENSES }
 
 /** 스크린리더(터치 탐색)가 켜져 있으면 true. 이때는 주행 중 오버레이를 늘 보여 준다(명세 6장). */
 @Composable

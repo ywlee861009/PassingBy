@@ -49,6 +49,33 @@ class TripStore(private val context: Context) {
             .apply()
     }
 
+    // ── 여행 수첩 ──
+
+    /** 들른 역("코스id:정방향 역 번호"). */
+    var visited: Set<String>
+        get() = prefs.getStringSet(KEY_VISITED, emptySet()) ?: emptySet()
+        private set(v) = prefs.edit().putStringSet(KEY_VISITED, v).apply()
+
+    fun visit(courseId: String, station: Int) {
+        val key = "$courseId:$station"
+        if (key !in visited) visited = visited + key
+    }
+
+    /** 코스를 끝까지 달린 횟수. */
+    fun completions(courseId: String): Int = prefs.getInt(KEY_DONE + courseId, 0)
+
+    /** 지금까지 도착한 횟수와 집중한 분. */
+    fun lifetime(): Pair<Int, Int> = prefs.getInt(KEY_ALL_TRIPS, 0) to prefs.getInt(KEY_ALL_MINUTES, 0)
+
+    fun recordCompletion(courseId: String, minutes: Int) {
+        val (trips, total) = lifetime()
+        prefs.edit()
+            .putInt(KEY_DONE + courseId, completions(courseId) + 1)
+            .putInt(KEY_ALL_TRIPS, trips + 1)
+            .putInt(KEY_ALL_MINUTES, total + minutes)
+            .apply()
+    }
+
     // ── 코스 잠금 ──
 
     /** 열린 유료 코스 id. 결제 확인·구매 복원으로 채워진다. */
@@ -145,6 +172,10 @@ class TripStore(private val context: Context) {
         const val KEY_DAY = "day"
         const val KEY_DAY_TRIPS = "day_trips"
         const val KEY_DAY_MINUTES = "day_minutes"
+        const val KEY_VISITED = "visited"
+        const val KEY_DONE = "done_"
+        const val KEY_ALL_TRIPS = "all_trips"
+        const val KEY_ALL_MINUTES = "all_minutes"
         const val KEY_UNLOCKED = "unlocked"
         const val KEY_DEV_UNLOCK = "dev_unlock_all"
         const val KEY_LEDGE = "ledge_info"

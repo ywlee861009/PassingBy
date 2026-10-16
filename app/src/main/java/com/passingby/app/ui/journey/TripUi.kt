@@ -66,6 +66,7 @@ fun TicketCard(
     onBuy: () -> Unit,
     onCourses: () -> Unit,
     onSettings: () -> Unit,
+    onJournal: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val first = course.ordered(direction).first().name
@@ -80,6 +81,7 @@ fun TicketCard(
                 style = PbType.kicker.copy(color = Pb.InkSoft),
                 modifier = Modifier.weight(1f),
             )
+            SmallLink("수첩", onJournal)
             SmallLink("설정", onSettings)
         }
         Row(verticalAlignment = Alignment.CenterVertically) {

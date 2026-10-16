@@ -103,6 +103,11 @@ class JourneyViewModel(app: Application) : AndroidViewModel(app) {
         private set
     var today by mutableStateOf(store.today())
         private set
+    /** 여행 수첩: 들른 역과 누적 기록. 바뀔 때마다 새로 읽는다. */
+    var visited by mutableStateOf(store.visited)
+        private set
+    var lifetime by mutableStateOf(store.lifetime())
+        private set
     /** 장면이 순간 이동할 때(여행 중간에 끝내기) 늘어난다. 화면은 이 값이 바뀌면 검은 화면에서 서서히 밝아진다. */
     var cutTick by mutableIntStateOf(0)
         private set
@@ -245,6 +250,15 @@ class JourneyViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** 여행 수첩에 역 도장을 찍는다. [i]는 지금 방향 기준 역 번호. */
+    private fun stamp(i: Int) {
+        val forward = if (direction > 0) i else course.stations.size - 1 - i
+        store.visit(course.id, forward)
+        visited = store.visited
+    }
+
+    fun completions(c: Course): Int = store.completions(c.id)
+
     /** 무료이거나 열린 코스인지. */
     fun owns(c: Course): Boolean = c.free || devUnlockAll || c.id in unlocked
 
@@ -328,6 +342,7 @@ class JourneyViewModel(app: Application) : AndroidViewModel(app) {
         clock.seek(0.0, 1.0)
         restDone = false
         phase = TripPhase.RUNNING
+        stamp(0)
         save()
     }
 
@@ -393,7 +408,10 @@ class JourneyViewModel(app: Application) : AndroidViewModel(app) {
         clock.seek(plan.durationSec, 0.0)
         phase = TripPhase.ARRIVED
         store.recordArrival(tripMinutes)
+        store.recordCompletion(course.id, tripMinutes)
+        stamp(stations.size - 1)
         today = store.today()
+        lifetime = store.lifetime()
         if (!late) signal(ARRIVAL_PATTERN)
         save()
     }
@@ -450,7 +468,10 @@ class JourneyViewModel(app: Application) : AndroidViewModel(app) {
                     remainingSec = left
                     progress = (t / plan.durationSec).toFloat().coerceIn(0f, 1f)
                     val stop = plan.stoppedAt(t)
-                    if (stop >= 0 && stoppedAt < 0) sound.chime()
+                    if (stop >= 0 && stoppedAt < 0) {
+                        sound.chime()
+                        stamp(stop)
+                    }
                     stoppedAt = stop
                     val next = if (stop >= 0) stop + 1 else plan.segmentAt(t) + 1
                     nextStop = min(next, plan.segments)
