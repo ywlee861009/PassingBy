@@ -384,6 +384,14 @@ internal fun computeTones(base: Int, strength: Float, p: Palette, out: IntArray)
     out[TONE_DARK] = mix(base, p.c[Palette.TOP], .4f * strength)
     out[TONE_LIGHT] = mix(base, sunlight, la)
     out[TONE_LIGHT_BOOST] = mix(base, sunlight, min(.85f, la * 2.4f))
+    // 눈이 쌓이면 빛 받는 윗면(잎·가지 위)이 하얗게 덮인다.
+    val cover = p.f[Palette.SNOW]
+    if (cover > .001f) {
+        val sw = p.c[Palette.SNOW_WHITE]
+        out[TONE_BASE] = mix(out[TONE_BASE], sw, cover * .2f)
+        out[TONE_LIGHT] = mix(out[TONE_LIGHT], sw, cover * .75f)
+        out[TONE_LIGHT_BOOST] = mix(out[TONE_LIGHT_BOOST], sw, cover * .75f)
+    }
 }
 
 /**

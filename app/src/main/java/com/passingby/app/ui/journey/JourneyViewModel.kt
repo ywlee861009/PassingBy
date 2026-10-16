@@ -11,6 +11,7 @@ import com.passingby.app.scene.SceneKind
 import com.passingby.app.scene.SceneRenderer
 import com.passingby.app.scene.SceneState
 import com.passingby.app.scene.TimeOfDay
+import com.passingby.app.scene.Weather
 import java.util.Locale
 
 /**
@@ -32,7 +33,7 @@ class JourneyViewModel : ViewModel() {
         private set
     var fast by mutableStateOf(true)
         private set
-    var raining by mutableStateOf(false)
+    var weather by mutableStateOf(scene.weather)
         private set
     var boxes by mutableStateOf(false)
         private set
@@ -63,9 +64,9 @@ class JourneyViewModel : ViewModel() {
         scene.speedTarget = if (value) SceneState.FAST_SPEED else SceneState.SLOW_SPEED
     }
 
-    fun toggleRain() {
-        raining = !raining
-        scene.raining = raining
+    fun selectWeather(w: Weather) {
+        weather = w
+        scene.weather = w
     }
 
     fun toggleBoxes() {

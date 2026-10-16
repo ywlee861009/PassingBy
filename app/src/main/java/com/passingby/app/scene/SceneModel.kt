@@ -203,3 +203,14 @@ internal fun desaturate(c: Int, k: Float): Int {
     val l = (0.3f * ((c shr 16) and 0xff) + 0.59f * ((c shr 8) and 0xff) + 0.11f * (c and 0xff)).toInt()
     return mix(c, -0x1000000 or (l shl 16) or (l shl 8) or l, k)
 }
+
+/**
+ * 날씨. [rain]·[snow]는 목표 세기(0~1)이고, 실제 세기는 [SceneState]에서 서서히 따라간다.
+ */
+enum class Weather(val label: String, val rain: Float, val snow: Float) {
+    CLEAR("맑음", 0f, 0f),
+    DRIZZLE("부슬비", .4f, 0f),
+    SHOWER("소나기", 1f, 0f),
+    LIGHT_SNOW("적은 눈", 0f, .35f),
+    HEAVY_SNOW("함박눈", 0f, 1f),
+}

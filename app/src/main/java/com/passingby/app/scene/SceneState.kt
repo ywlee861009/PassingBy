@@ -1,5 +1,6 @@
 package com.passingby.app.scene
 
+import kotlin.math.max
 import kotlin.math.min
 
 enum class RenderMode(val label: String) {
@@ -25,8 +26,19 @@ class SceneState {
     val effective = Palette()
     private var transition = 1f
 
-    var raining = false
+    var weather = Weather.CLEAR
+    /** 실제 비·눈 세기(0~1). 날씨를 바꾸면 몇 초에 걸쳐 따라간다. */
     var rainAmount = 0f
+        private set
+    var snowAmount = 0f
+        private set
+    /** 땅에 쌓인 눈(0~1). 눈이 계속 와야 수십 초에 걸쳐 쌓이고, 그치면 천천히 녹는다. */
+    var snowCover = 0f
+        private set
+    /** 유리의 젖음·눈 붙음(0~1). 비가 그쳐도 한동안 남아 있다. */
+    var glassWet = 0f
+        private set
+    var glassSnow = 0f
         private set
 
     var speedTarget = FAST_SPEED
@@ -72,9 +84,33 @@ class SceneState {
         transition = min(1f, transition + dt / 1.4f)
         val e = transition * transition * (3 - 2 * transition)
         lerpInto(current, from, target, e)
-        rainAmount += ((if (raining) 1f else 0f) - rainAmount) * min(1f, dt * 1.5f)
+        rainAmount = approach(rainAmount, weather.rain, dt * .6f)
+        snowAmount = approach(snowAmount, weather.snow, dt * .5f)
+        val coverCap = if (snowAmount > .05f) .35f + .65f * snowAmount else 0f
+        snowCover = if (snowCover < coverCap) min(coverCap, snowCover + dt * snowAmount / 40f) else max(coverCap, snowCover - dt / 40f)
+        val wetTarget = min(1f, rainAmount * 1.3f)
+        glassWet = approach(glassWet, wetTarget, dt * if (wetTarget > glassWet) .25f else .04f)
+        glassSnow = approach(glassSnow, snowAmount, dt * if (snowAmount > glassSnow) .04f else .03f)
         wetInto(effective, current, rainAmount)
+        snowInto(effective, snowAmount, snowCover)
     }
+
+    /** 개발용: 시간대 전환 애니메이션을 건너뛴다. */
+    fun snapTimeOfDay() {
+        transition = 1f
+    }
+
+    /** 개발용: 서서히 쌓이는 효과를 기다리지 않고 현재 날씨의 최종 상태로 바로 맞춘다. */
+    fun snapWeather() {
+        rainAmount = weather.rain
+        snowAmount = weather.snow
+        snowCover = if (weather.snow > 0f) .35f + .65f * weather.snow else 0f
+        glassWet = min(1f, weather.rain * 1.3f)
+        glassSnow = weather.snow
+    }
+
+    private fun approach(v: Float, target: Float, step: Float) =
+        if (v < target) min(target, v + step) else max(target, v - step)
 
     companion object {
         const val FAST_SPEED = 300.0

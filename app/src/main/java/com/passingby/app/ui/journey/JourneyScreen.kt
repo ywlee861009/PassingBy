@@ -50,6 +50,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.passingby.app.scene.RenderMode
 import com.passingby.app.scene.SceneKind
 import com.passingby.app.scene.TimeOfDay
+import com.passingby.app.scene.Weather
 import kotlinx.coroutines.delay
 import kotlin.math.abs
 
@@ -174,9 +175,13 @@ private fun Controls(vm: JourneyViewModel, onInteract: () -> Unit, modifier: Mod
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            for (w in Weather.entries) {
+                Chip(w.label, vm.weather == w) { vm.selectWeather(w); onInteract() }
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Chip("완행", !vm.fast) { vm.selectFast(false); onInteract() }
             Chip("고속", vm.fast) { vm.selectFast(true); onInteract() }
-            Chip("비", vm.raining) { vm.toggleRain(); onInteract() }
             Chip("창틀", vm.windowFrame) { vm.toggleWindowFrame(); onInteract() }
             Chip("구조", vm.boxes) { vm.toggleBoxes(); onInteract() }
         }

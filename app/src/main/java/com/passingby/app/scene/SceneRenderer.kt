@@ -101,15 +101,47 @@ class SceneRenderer(private val state: SceneState) {
     private val starY = FloatArray(STARS) { Math.pow(hash01(it, 2), 1.4).toFloat() }
     private val starPhase = FloatArray(STARS) { (hash01(it, 3) * 6.28).toFloat() }
     private val starSize = FloatArray(STARS) { if (hash01(it, 4) < .15) 2f else 1.2f }
-    private val dropX = FloatArray(DROPS)
-    private val dropY = FloatArray(DROPS)
-    private val dropV = FloatArray(DROPS) { 900f + random.nextFloat() * 500f }
-    private val rainPts = FloatArray(DROPS * 4)
-    private val glassX = FloatArray(GLASS)
-    private val glassY = FloatArray(GLASS)
-    private val glassR = FloatArray(GLASS) { 1.2f + random.nextFloat() * 3f }
-    private val glassVx = FloatArray(GLASS) { -(6f + random.nextFloat() * 14f) }
-    private val glassVy = FloatArray(GLASS) { 3f + random.nextFloat() * 10f }
+    // 내리는 비
+    private val dropX = FloatArray(MAX_DROPS)
+    private val dropY = FloatArray(MAX_DROPS)
+    private val dropV = FloatArray(MAX_DROPS) { 900f + random.nextFloat() * 500f }
+    private val rainPts = FloatArray(MAX_DROPS * 4)
+    // 내리는 눈(원경·중경은 점, 근경은 짧은 줄)
+    private val flakeX = FloatArray(MAX_FLAKES)
+    private val flakeY = FloatArray(MAX_FLAKES)
+    private val flakePhase = FloatArray(MAX_FLAKES) { random.nextFloat() * 6.28f }
+    private val flakeFar = FloatArray(MAX_FLAKES * 2)
+    private val flakeMid = FloatArray(MAX_FLAKES * 2)
+    private val flakeNear = FloatArray(MAX_FLAKES * 4)
+    private val flakePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { strokeCap = Paint.Cap.ROUND }
+    // 유리의 물방울
+    private val gAlive = BooleanArray(GLASS_DROPS)
+    private val gSlide = BooleanArray(GLASS_DROPS)
+    private val gx = FloatArray(GLASS_DROPS)
+    private val gy = FloatArray(GLASS_DROPS)
+    private val gr = FloatArray(GLASS_DROPS)
+    private val gAge = FloatArray(GLASS_DROPS)
+    private val gLife = FloatArray(GLASS_DROPS)
+    private val gVy = FloatArray(GLASS_DROPS)
+    private val gTx = FloatArray(GLASS_DROPS)
+    private val gTy = FloatArray(GLASS_DROPS)
+    private var gSpawn = 0f
+    // 유리에 붙은 눈송이
+    private val sAlive = BooleanArray(GLASS_FLAKES)
+    private val sx = FloatArray(GLASS_FLAKES)
+    private val sy = FloatArray(GLASS_FLAKES)
+    private val sr = FloatArray(GLASS_FLAKES)
+    private val sAge = FloatArray(GLASS_FLAKES)
+    private val sLife = FloatArray(GLASS_FLAKES)
+    private var sSpawn = 0f
+    private val glassHi = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val glassTrail = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeCap = Paint.Cap.ROUND
+    }
+    private val snowGlassPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val pilePath = Path()
+    private val pilePaint = Paint(Paint.ANTI_ALIAS_FLAG)
 
     fun render(canvas: Canvas, w: Int, h: Int) {
         if (w <= 0 || h <= 0) return
@@ -156,8 +188,9 @@ class SceneRenderer(private val state: SceneState) {
         drawClouds(canvas, p)
         if (state.sceneKind == SceneKind.CITY) drawCity(canvas, p) else drawCountry(canvas, p)
         drawPoles(canvas, p)
-        drawRain(canvas)
+        drawFalling(canvas, p)
         canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), vignettePaint)
+        drawGlassWeather(canvas, p)
     }
 
     fun release() {
@@ -176,14 +209,16 @@ class SceneRenderer(private val state: SceneState) {
             intArrayOf(0, 0, 0x47000000), floatArrayOf(0f, inner / outer, 1f), Shader.TileMode.CLAMP,
         )
         shaderLayoutValid = false
-        for (i in 0 until DROPS) {
+        for (i in 0 until MAX_DROPS) {
             dropX[i] = random.nextFloat() * (w + 300 * layout.u)
             dropY[i] = random.nextFloat() * h
         }
-        for (i in 0 until GLASS) {
-            glassX[i] = random.nextFloat() * w
-            glassY[i] = random.nextFloat() * h
+        for (i in 0 until MAX_FLAKES) {
+            flakeX[i] = random.nextFloat() * (w + 80 * layout.u)
+            flakeY[i] = random.nextFloat() * h
         }
+        gAlive.fill(false)
+        sAlive.fill(false)
     }
 
     /** 방식별로 필요한 메모리만 들고 있는다. 바꾸면 다른 방식의 비트맵은 놓아준다. */
@@ -667,52 +702,240 @@ class SceneRenderer(private val state: SceneState) {
         canvas.drawPath(path, wirePaint)
     }
 
-    private fun drawRain(canvas: Canvas) {
-        val amount = state.rainAmount
-        if (amount <= .01f) return
+    /** 창밖에 내리는 비·눈. 세기에 따라 개수·길이·굵기가 달라진다. */
+    private fun drawFalling(canvas: Canvas, p: Palette) {
         val dt = state.lastDt
         val u = layout.u
         val w = layout.w.toFloat()
         val h = layout.h.toFloat()
-        val vx = -(220 + state.speed * .9).toFloat() * u
-        val k = .022f
-        rainPaint.color = Color.argb((.42f * amount * 255).toInt(), 225, 232, 245)
-        rainPaint.strokeWidth = 1.2f * u
-        for (i in 0 until DROPS) {
-            val f = dropV[i] / 1100f
-            dropY[i] += dropV[i] * u * dt
-            dropX[i] += vx * dt * f
-            if (dropY[i] > h || dropX[i] < -40 * u) {
-                dropY[i] = -20 * u - random.nextFloat() * h * .3f
-                dropX[i] = random.nextFloat() * (w + 300 * u)
-            }
-            val o = i * 4
-            rainPts[o] = dropX[i]
-            rainPts[o + 1] = dropY[i]
-            rainPts[o + 2] = dropX[i] - vx * k * f
-            rainPts[o + 3] = dropY[i] - dropV[i] * u * k
-        }
-        canvas.drawLines(rainPts, rainPaint)
 
-        glassFill.color = Color.argb((.10f * amount * 255).toInt(), 255, 255, 255)
-        glassStroke.color = Color.argb((.22f * amount * 255).toInt(), 255, 255, 255)
-        glassStroke.strokeWidth = u * .6f
-        for (i in 0 until GLASS) {
-            glassX[i] += glassVx[i] * u * dt
-            glassY[i] += glassVy[i] * u * dt
-            if (glassX[i] < -5 * u) glassX[i] = w + 5 * u
-            if (glassY[i] > h + 5 * u) glassY[i] = -5 * u
-            val r = glassR[i] * u
-            canvas.drawCircle(glassX[i], glassY[i], r, glassFill)
-            canvas.drawCircle(glassX[i], glassY[i], r, glassStroke)
+        val rain = state.rainAmount
+        if (rain > .01f) {
+            val n = (MAX_DROPS * rain).toInt()
+            val vx = -(220 + state.speed * .9).toFloat() * u
+            val k = .012f + .012f * rain
+            val fade = min(1f, rain * 3f)
+            rainPaint.color = Color.argb(((.2f + .25f * rain) * fade * 255).toInt(), 225, 232, 245)
+            rainPaint.strokeWidth = (.8f + .5f * rain) * u
+            for (i in 0 until n) {
+                val f = dropV[i] / 1100f
+                dropY[i] += dropV[i] * u * dt
+                dropX[i] += vx * dt * f
+                if (dropY[i] > h || dropX[i] < -40 * u) {
+                    dropY[i] = -20 * u - random.nextFloat() * h * .3f
+                    dropX[i] = random.nextFloat() * (w + 300 * u)
+                }
+                val o = i * 4
+                rainPts[o] = dropX[i]
+                rainPts[o + 1] = dropY[i]
+                rainPts[o + 2] = dropX[i] - vx * k * f
+                rainPts[o + 3] = dropY[i] - dropV[i] * u * k
+            }
+            canvas.drawLines(rainPts, 0, n * 4, rainPaint)
+        }
+
+        val snow = state.snowAmount
+        if (snow > .01f) {
+            val n = (MAX_FLAKES * snow).toInt()
+            val t = state.elapsedSec
+            var nf = 0
+            var nm = 0
+            var nn = 0
+            for (i in 0 until n) {
+                // 다섯 개 중 둘은 원경, 둘은 중경, 하나는 근경. 가까울수록 크고 빠르게 스쳐 간다.
+                val d = when (i % 5) {
+                    0, 1 -> 0
+                    2, 3 -> 1
+                    else -> 2
+                }
+                val vx = (-(state.speed * FLAKE_PAR[d] + 12) * u + sin(t * 1.3 + flakePhase[i]) * 10 * u).toFloat()
+                val vy = FLAKE_FALL[d] * u
+                flakeX[i] += vx * dt
+                flakeY[i] += vy * dt
+                if (flakeX[i] < -30 * u) {
+                    flakeX[i] = w + random.nextFloat() * 80 * u
+                    flakeY[i] = random.nextFloat() * h
+                }
+                if (flakeY[i] > h + 5 * u) {
+                    flakeY[i] = -5 * u
+                    flakeX[i] = random.nextFloat() * (w + 80 * u)
+                }
+                when (d) {
+                    0 -> {
+                        flakeFar[nf * 2] = flakeX[i]
+                        flakeFar[nf * 2 + 1] = flakeY[i]
+                        nf++
+                    }
+                    1 -> {
+                        flakeMid[nm * 2] = flakeX[i]
+                        flakeMid[nm * 2 + 1] = flakeY[i]
+                        nm++
+                    }
+                    else -> {
+                        val o = nn * 4
+                        flakeNear[o] = flakeX[i]
+                        flakeNear[o + 1] = flakeY[i]
+                        flakeNear[o + 2] = flakeX[i] - vx * NEAR_BLUR
+                        flakeNear[o + 3] = flakeY[i] - vy * NEAR_BLUR
+                        nn++
+                    }
+                }
+            }
+            val fade = min(1f, snow * 3f)
+            val col = mix(p.c[Palette.SNOW_WHITE], Color.WHITE, .55f)
+            flakePaint.color = col
+            flakePaint.alpha = (.5f * fade * 255).toInt()
+            flakePaint.strokeWidth = 1.3f * u
+            canvas.drawPoints(flakeFar, 0, nf * 2, flakePaint)
+            flakePaint.alpha = (.72f * fade * 255).toInt()
+            flakePaint.strokeWidth = 2.2f * u
+            canvas.drawPoints(flakeMid, 0, nm * 2, flakePaint)
+            flakePaint.alpha = (.85f * fade * 255).toInt()
+            flakePaint.strokeWidth = 3f * u
+            canvas.drawLines(flakeNear, 0, nn * 4, flakePaint)
+        }
+    }
+
+    /**
+     * 유리 위의 날씨. 비: 물방울이 생겼다 마르고, 소나기 때는 큰 물방울이 맞바람에 밀려 비스듬히 흘러내린다.
+     * 눈: 눈송이가 붙었다 녹고, 창 아래쪽에 눈이 살짝 쌓인다(가장자리일수록 조금 더).
+     */
+    private fun drawGlassWeather(canvas: Canvas, p: Palette) {
+        val dt = state.lastDt
+        val u = layout.u
+        val w = layout.w.toFloat()
+        val h = layout.h.toFloat()
+
+        val wet = state.glassWet
+        val rain = state.rainAmount
+        gSpawn += dt * wet * (6 + 28 * rain)
+        while (gSpawn >= 1f) {
+            gSpawn -= 1f
+            spawnGlassDrop(rain, w, h, u)
+        }
+        val drift = ((state.speed * .06 + 8) * u * dt).toFloat()
+        for (i in 0 until GLASS_DROPS) {
+            if (!gAlive[i]) continue
+            gAge[i] += dt
+            if (!gSlide[i] && gr[i] > 2.2f * u && rain > .55f && random.nextFloat() < dt * .35f) {
+                gSlide[i] = true
+                gTx[i] = gx[i]
+                gTy[i] = gy[i]
+                gVy[i] = 0f
+            }
+            val a: Float
+            if (gSlide[i]) {
+                gVy[i] = min(gVy[i] + 70 * u * dt, 160 * u)
+                gy[i] += gVy[i] * dt
+                gx[i] -= drift
+                gr[i] -= .25f * u * dt
+                if (gy[i] > h + 10 * u || gr[i] < .5f * u) {
+                    gAlive[i] = false
+                    continue
+                }
+                a = 1f
+                glassTrail.color = Color.argb((.13f * a * 255).toInt(), 255, 255, 255)
+                glassTrail.strokeWidth = gr[i] * .55f
+                canvas.drawLine(gTx[i], gTy[i], gx[i], gy[i] - gr[i], glassTrail)
+            } else {
+                if (gAge[i] > gLife[i]) {
+                    gAlive[i] = false
+                    continue
+                }
+                a = min(1f, gAge[i] * 2f) * min(1f, (gLife[i] - gAge[i]) / 1.5f) * min(1f, wet * 2f)
+            }
+            val r = gr[i]
+            glassFill.color = Color.argb((.10f * a * 255).toInt(), 255, 255, 255)
+            glassStroke.color = Color.argb((.24f * a * 255).toInt(), 255, 255, 255)
+            glassStroke.strokeWidth = .5f * u
+            glassHi.color = Color.argb((.5f * a * 255).toInt(), 255, 255, 255)
+            canvas.drawCircle(gx[i], gy[i], r, glassFill)
+            canvas.drawCircle(gx[i], gy[i], r, glassStroke)
+            canvas.drawCircle(gx[i] - r * .35f, gy[i] - r * .35f, r * .3f, glassHi)
+        }
+
+        val gs = state.glassSnow
+        sSpawn += dt * gs * (4 + 22 * state.snowAmount)
+        while (sSpawn >= 1f) {
+            sSpawn -= 1f
+            spawnGlassFlake(w, h, u)
+        }
+        val flakeCol = mix(p.c[Palette.SNOW_WHITE], Color.WHITE, .6f)
+        for (i in 0 until GLASS_FLAKES) {
+            if (!sAlive[i]) continue
+            sAge[i] += dt
+            if (sAge[i] > sLife[i]) {
+                sAlive[i] = false
+                continue
+            }
+            // 붙자마자 선명했다가 마지막 6초 동안 녹아 사라진다.
+            val a = min(1f, sAge[i] * 3f) * min(1f, (sLife[i] - sAge[i]) / 6f)
+            snowGlassPaint.color = flakeCol
+            snowGlassPaint.alpha = (.28f * a * 255).toInt()
+            canvas.drawCircle(sx[i], sy[i], sr[i] * 1.5f, snowGlassPaint)
+            snowGlassPaint.alpha = (.75f * a * 255).toInt()
+            canvas.drawCircle(sx[i], sy[i], sr[i] * .7f, snowGlassPaint)
+        }
+        if (gs > .02f) {
+            val pileH = gs * .05f * layout.g
+            val path = pilePath
+            path.rewind()
+            path.moveTo(0f, h)
+            val edge = w * .12f
+            var x = 0f
+            while (true) {
+                val corner = max(0f, 1 - x / edge) + max(0f, 1 - (w - x) / edge)
+                val y = h - pileH * (.55f + .45f * valueNoise(x / (45.0 * u), 97).toFloat()) * (1 + .6f * corner)
+                path.lineTo(x, y)
+                if (x >= w) break
+                x = min(x + 10 * u, w)
+            }
+            path.lineTo(w, h)
+            path.close()
+            pilePaint.color = flakeCol
+            pilePaint.alpha = 235
+            canvas.drawPath(path, pilePaint)
+        }
+    }
+
+    private fun spawnGlassDrop(rain: Float, w: Float, h: Float, u: Float) {
+        for (i in 0 until GLASS_DROPS) {
+            if (gAlive[i]) continue
+            gAlive[i] = true
+            gSlide[i] = false
+            gx[i] = random.nextFloat() * w
+            gy[i] = random.nextFloat() * h * .95f
+            gr[i] = (.7f + random.nextFloat() * (1.2f + 2.4f * rain)) * u
+            gAge[i] = 0f
+            gLife[i] = 5f + random.nextFloat() * 12f
+            return
+        }
+    }
+
+    private fun spawnGlassFlake(w: Float, h: Float, u: Float) {
+        for (i in 0 until GLASS_FLAKES) {
+            if (sAlive[i]) continue
+            sAlive[i] = true
+            sx[i] = random.nextFloat() * w
+            sy[i] = random.nextFloat() * h * .92f
+            sr[i] = (.7f + random.nextFloat() * 2f) * u
+            sAge[i] = 0f
+            sLife[i] = 14f + random.nextFloat() * 26f
+            return
         }
     }
 
     private companion object {
         const val STEP_PX = 3f
         const val STARS = 110
-        const val DROPS = 240
-        const val GLASS = 28
+        const val MAX_DROPS = 420
+        const val MAX_FLAKES = 600
+        const val GLASS_DROPS = 70
+        const val GLASS_FLAKES = 90
+        /** 근경 눈송이를 속도 방향으로 늘려 그리는 길이(초). */
+        const val NEAR_BLUR = .018f
+        val FLAKE_PAR = doubleArrayOf(.12, .45, 1.1)
+        val FLAKE_FALL = floatArrayOf(22f, 34f, 52f)
         const val MAX_WINDOWS = 1024
         const val MAX_POLES = 16
         /** 창틀 이동 각속도(rad/s). 주기 약 170초, 230초. */
