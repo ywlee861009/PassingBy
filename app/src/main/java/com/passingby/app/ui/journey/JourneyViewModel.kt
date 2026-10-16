@@ -401,11 +401,18 @@ class JourneyViewModel(app: Application) : AndroidViewModel(app) {
 
     /** 개발용: 여행 중이어도 끊고 코스를 바꾼다. */
     fun forceCourse(c: Course) {
-        if (moving() || phase == TripPhase.ARRIVED || phase == TripPhase.RESTING) {
+        if (phase != TripPhase.DOCKED) {
             phase = TripPhase.DOCKED
             clock.seek(0.0, 0.0)
         }
-        selectCourse(c)
+        if (c != course) {
+            selectCourse(c)
+        } else {
+            tripMinutes = minutes
+            rebuildPlan()
+            cutTick++
+            save()
+        }
     }
 
     fun selectLand(k: SceneKind?) {

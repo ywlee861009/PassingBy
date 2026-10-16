@@ -125,7 +125,84 @@ object Themes {
         SignStyle(Color.rgb(36, 84, 160), Color.rgb(250, 250, 250), Color.rgb(250, 250, 250)),
     )
 
-    private val ALL = listOf(KOREA, JAPAN, CHINA_NORTH, CHINA_SOUTH)
+    private val PASTEL = intArrayOf(
+        Color.rgb(232, 200, 112), Color.rgb(224, 168, 160), Color.rgb(156, 184, 208),
+        Color.rgb(240, 236, 228), Color.rgb(200, 120, 88), Color.rgb(176, 196, 160),
+    )
+
+    /** 포르투갈: 완만한 산, 해송·유칼립투스, 흰 벽에 주황 기와, 파스텔 시가지, 파란 타일 이름판. */
+    val PORTUGAL = Theme(
+        "portugal",
+        arrayOf(
+            TerrainLayer(0.035, .61f, .2f, 1.0 / 320, 0.6, 15, Palette.FAR, .48f, .4f),
+            TerrainLayer(0.075, .68f, .14f, 1.0 / 220, 0.35, 27, Palette.FAR, .22f, .35f),
+            TerrainLayer(
+                0.2, .77f, .09f, 1.0 / 230, 0.0, 41, Palette.MID, .08f, .2f, spriteHaze = .35f,
+                objects = ObjectRule(
+                    64.0, 5.0, 18f, 32f, town = true, sink = 2f,
+                    kinds = arrayOf(SpriteKind.PINE, SpriteKind.POPLAR, SpriteKind.ROUND, SpriteKind.ROUND),
+                ),
+            ),
+            TerrainLayer(
+                0.55, .875f, .035f, 1.0 / 330, 0.0, 55, Palette.NEAR, 0f, 0f,
+                objects = ObjectRule(
+                    105.0, 3.0, 50f, 96f, town = false, sink = 6f,
+                    kinds = arrayOf(SpriteKind.ROUND, SpriteKind.PINE, SpriteKind.POPLAR, SpriteKind.POPLAR, SpriteKind.BUSH, SpriteKind.REED),
+                ),
+            ),
+        ),
+        CityLayer(0.075, .70f, 26.0, 3, 12f, 24f, 18f, 56f, 65, WindowStyle.DOTS, 4.5f, 3.6f, facades = PASTEL, cap = RoofCap.TILE),
+        CityLayer(0.2, .80f, 52.0, 3, 18f, 34f, 16f, 34f, 75, WindowStyle.GRID, 3.6f, 3.8f, apt = .15f, aptH = 26f, aptVar = 10f, facades = PASTEL, cap = RoofCap.TILE),
+        CityLayer(0.55, .885f, 50.0, 2, 18f, 32f, 10f, 22f, 85, WindowStyle.SHOP, 4.6f, 4.2f, facades = PASTEL),
+        ObjectRule(105.0, 1.4, 50f, 90f, town = false, sink = 6f, kinds = arrayOf(SpriteKind.ROUND, SpriteKind.POPLAR)),
+        HouseStyle(
+            RoofStyle.TILE,
+            intArrayOf(Color.rgb(244, 240, 232), Color.rgb(236, 224, 196), Color.rgb(240, 236, 228)),
+            intArrayOf(Color.rgb(200, 100, 60), Color.rgb(184, 90, 54), Color.rgb(206, 116, 72)),
+        ),
+        BarrierStyle.NONE,
+        SignStyle(Color.rgb(40, 86, 160), Color.rgb(250, 250, 250), Color.rgb(236, 236, 236)),
+    )
+
+    /** 프랑스: 낮은 구릉, 플라타너스·포플러·사이프러스, 석조 마을, 망사르드 지붕의 파리 시가지, 짙은 남색 이름판. */
+    val FRANCE = Theme(
+        "france",
+        arrayOf(
+            TerrainLayer(0.035, .61f, .16f, 1.0 / 340, 0.6, 16, Palette.FAR, .5f, .4f),
+            TerrainLayer(0.075, .69f, .1f, 1.0 / 240, 0.3, 28, Palette.FAR, .24f, .35f),
+            TerrainLayer(
+                0.2, .78f, .06f, 1.0 / 260, 0.0, 42, Palette.MID, .08f, .2f, spriteHaze = .35f,
+                objects = ObjectRule(
+                    60.0, 5.0, 18f, 32f, town = true, sink = 2f,
+                    kinds = arrayOf(SpriteKind.ROUND, SpriteKind.POPLAR, SpriteKind.CYPRESS, SpriteKind.ROUND),
+                ),
+            ),
+            TerrainLayer(
+                0.55, .88f, .03f, 1.0 / 330, 0.0, 56, Palette.NEAR, 0f, 0f,
+                objects = ObjectRule(
+                    105.0, 3.0, 52f, 96f, town = false, sink = 6f,
+                    kinds = arrayOf(SpriteKind.ROUND, SpriteKind.POPLAR, SpriteKind.CYPRESS, SpriteKind.BUSH, SpriteKind.BUSH, SpriteKind.REED),
+                ),
+            ),
+        ),
+        CityLayer(0.075, .70f, 30.0, 2, 12f, 26f, 20f, 70f, 66, WindowStyle.DOTS, 4.5f, 3.6f, cap = RoofCap.MANSARD),
+        CityLayer(
+            0.2, .80f, 54.0, 3, 22f, 40f, 30f, 38f, 76, WindowStyle.GRID, 3.6f, 3.6f,
+            facades = intArrayOf(Color.rgb(222, 206, 176), Color.rgb(232, 222, 200), Color.rgb(210, 196, 168)),
+            cap = RoofCap.MANSARD,
+        ),
+        CityLayer(0.55, .885f, 56.0, 2, 20f, 36f, 10f, 22f, 86, WindowStyle.SHOP, 4.6f, 4.2f),
+        ObjectRule(105.0, 1.8, 52f, 90f, town = false, sink = 6f, kinds = arrayOf(SpriteKind.ROUND, SpriteKind.ROUND, SpriteKind.POPLAR)),
+        HouseStyle(
+            RoofStyle.GABLE,
+            intArrayOf(Color.rgb(218, 200, 168), Color.rgb(230, 220, 198), Color.rgb(200, 184, 156)),
+            intArrayOf(Color.rgb(90, 96, 104), Color.rgb(184, 106, 72), Color.rgb(176, 96, 64)),
+        ),
+        BarrierStyle.NONE,
+        SignStyle(Color.rgb(30, 54, 104), Color.rgb(250, 250, 250), Color.rgb(250, 250, 250)),
+    )
+
+    private val ALL = listOf(KOREA, JAPAN, CHINA_NORTH, CHINA_SOUTH, PORTUGAL, FRANCE)
 
     fun byId(id: String): Theme = ALL.firstOrNull { it.id == id } ?: KOREA
 }

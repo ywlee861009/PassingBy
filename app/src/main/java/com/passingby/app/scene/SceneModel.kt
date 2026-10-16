@@ -234,7 +234,11 @@ class CityLayer(
     val aptVar: Float = 22f,
     /** 건물 바탕색 후보. 있으면 팔레트 색과 섞어 건물마다 다른 외벽색을 준다(파스텔 시가지 등). */
     val facades: IntArray? = null,
+    val cap: RoofCap = RoofCap.STRUCTURES,
 )
+
+/** 도시 건물 지붕. 옥상 구조물(기본), 주황 기와, 망사르드. */
+enum class RoofCap { STRUCTURES, TILE, MANSARD }
 
 object CityScenery {
     val far = CityLayer(0.075, .70f, 30.0, 3, 12f, 28f, 26f, 120f, 61, WindowStyle.DOTS, 4.5f, 3.6f)

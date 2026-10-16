@@ -147,6 +147,17 @@ class Course(
                 Station("레구아", "Régua", "Peso da Régua"),
             ),
             REGIONAL, "course_portugal", snowy = false,
+            features = listOf(
+                // 리스본을 떠나며 테주강 하구.
+                Feature(Feature.Kind.RIVER, 0, .05f, .22f),
+                Feature(Feature.Kind.FIELD, 0, .58f, .8f, FieldStyle.VINE),
+                // 아베이루 석호와 대서양.
+                Feature(Feature.Kind.SEA, 1, .42f, .6f),
+                // 포르투에서 도루강을 따라 포도밭 계곡으로.
+                Feature(Feature.Kind.RIVER, 2, .1f, .96f),
+                Feature(Feature.Kind.FIELD, 2, .14f, .95f, FieldStyle.VINE),
+            ),
+            landmarks = listOf(LandmarkSpot(LandmarkKind.ARCH_BRIDGE, 1, .992f)),
         )
         val FRANCE = Course(
             "france", 6, "프랑스", "고속열차",
@@ -158,6 +169,20 @@ class Course(
                 Station("마르세유", "Marseille", "Saint-Charles"),
             ),
             FAST, "course_france", snowy = false,
+            features = listOf(
+                Feature(Feature.Kind.FIELD, 0, .18f, .5f, FieldStyle.WHEAT),
+                // 부르고뉴 포도밭.
+                Feature(Feature.Kind.FIELD, 0, .6f, .84f, FieldStyle.VINE),
+                // 론강 계곡.
+                Feature(Feature.Kind.RIVER, 1, .2f, .6f),
+                Feature(Feature.Kind.FIELD, 1, .65f, .86f, FieldStyle.VINE),
+                // 프로방스 라벤더.
+                Feature(Feature.Kind.FIELD, 2, .2f, .5f, FieldStyle.LAVENDER),
+                Feature(Feature.Kind.FIELD, 2, .55f, .72f, FieldStyle.VINE),
+                // 마르세유에 다가가면 지중해.
+                Feature(Feature.Kind.SEA, 2, .88f, 1.2f),
+            ),
+            landmarks = listOf(LandmarkSpot(LandmarkKind.EIFFEL, 0, -.014f)),
         )
 
         val ALL = listOf(KOREA, JAPAN, CHINA_NORTH, CHINA_SOUTH, PORTUGAL, FRANCE)

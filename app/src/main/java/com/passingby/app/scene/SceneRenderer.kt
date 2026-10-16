@@ -663,7 +663,30 @@ class SceneRenderer(private val state: SceneState) {
 
                 bldgPaint.color = col
                 canvas.drawRect(x, yt, x + bwPx, yb, bldgPaint)
-                if (layer.style != WindowStyle.SHOP) {
+                if (layer.cap == RoofCap.TILE) {
+                    // 남유럽 시가지: 낮은 주황 기와 박공.
+                    bldgPaint.color = themed(TILE_ROOF, p, .2f)
+                    housePath.rewind()
+                    housePath.moveTo(x - u, yt)
+                    housePath.lineTo(x + bwPx * .5f, yt - min(bwPx * .22f, 9 * u))
+                    housePath.lineTo(x + bwPx + u, yt)
+                    housePath.close()
+                    canvas.drawPath(housePath, bldgPaint)
+                    bldgPaint.color = col
+                } else if (layer.cap == RoofCap.MANSARD) {
+                    // 파리 시가지: 회색 망사르드 지붕과 굴뚝.
+                    bldgPaint.color = themed(MANSARD_ROOF, p, .2f)
+                    val mh = min(bhPx * .16f, 9 * u)
+                    housePath.rewind()
+                    housePath.moveTo(x, yt + mh)
+                    housePath.lineTo(x + bwPx * .08f, yt)
+                    housePath.lineTo(x + bwPx * .92f, yt)
+                    housePath.lineTo(x + bwPx, yt + mh)
+                    housePath.close()
+                    canvas.drawPath(housePath, bldgPaint)
+                    canvas.drawRect(x + bwPx * .7f, yt - 3 * u, x + bwPx * .7f + 2.4f * u, yt, bldgPaint)
+                    bldgPaint.color = col
+                } else if (layer.style != WindowStyle.SHOP) {
                     if (!isApt && r4 < .16 && bh > 55) {
                         // 첨탑·안테나
                         canvas.drawRect(x + bwPx * .5f - .7f * u, yt - 14 * u, x + bwPx * .5f + .7f * u, yt, bldgPaint)
@@ -965,6 +988,8 @@ class SceneRenderer(private val state: SceneState) {
         val seaTop = layout.yAt(.655f)
         val riverTop = layout.yAt(.772f)
         val bottom = layout.yAt(.9f)
+        // 바다는 중경 건물 바닥선 위까지만 채워, 해안 도시와 해변이 땅 위에 서게 한다.
+        val seaBottom = layout.yAt(.792f)
         val top = mix(p.c[Palette.HAZE], p.c[Palette.BOT], .35f)
         val deep = mix(mix(p.c[Palette.FAR], p.c[Palette.TOP], .3f), p.c[Palette.HAZE], .25f)
         if (top != waterKeyA || deep != waterKeyB || waterTop != seaTop) {
@@ -982,16 +1007,23 @@ class SceneRenderer(private val state: SceneState) {
             val amount = max(sea, river)
             if (amount > .02f) {
                 waterPaint.alpha = (smooth01((amount - .25f) / .5f) * 255).toInt()
-                canvas.drawRect(x, if (sea >= river) seaTop else riverTop, x + strip + 1, bottom, waterPaint)
+                if (sea >= river) {
+                    canvas.drawRect(x, seaTop, x + strip + 1, seaBottom, waterPaint)
+                } else {
+                    canvas.drawRect(x, riverTop, x + strip + 1, bottom, waterPaint)
+                }
             }
             x += strip
         }
         waterPaint.alpha = 255
-        drawGlints(canvas, p, speed, off, seaTop, riverTop, bottom)
+        drawGlints(canvas, p, speed, off, seaTop, seaBottom, riverTop, bottom)
     }
 
     /** 물 위 반짝임. 레이어 좌표에 고정된 짧은 선이라 물과 함께 흘러간다. 밤에는 아주 약하다. */
-    private fun drawGlints(canvas: Canvas, p: Palette, speed: Double, off: Double, seaTop: Float, riverTop: Float, bottom: Float) {
+    private fun drawGlints(
+        canvas: Canvas, p: Palette, speed: Double, off: Double,
+        seaTop: Float, seaBottom: Float, riverTop: Float, bottom: Float,
+    ) {
         val z = state.zones
         val u = layout.u
         val w = layout.w.toFloat()
@@ -1007,10 +1039,11 @@ class SceneRenderer(private val state: SceneState) {
             val river = !sea && (z.river(xw) > .6f || inRanges(z.bridges, xw, BRIDGE_RIVER))
             if (!sea && !river) continue
             val y0 = if (sea) seaTop else riverTop
+            val y1 = if (sea) seaBottom else bottom
             for (row in 0..2) {
                 if (hash01(k * 5 + row, 913) > .55) continue
                 val f = (row + hash01(k * 5 + row, 914).toFloat()) / 3f
-                val y = y0 + (bottom - y0) * f * f
+                val y = y0 + (y1 - y0) * f * f
                 val x = (((k + hash01(k * 5 + row, 915)) * cell - off) * u).toFloat()
                 val len = (4 + 8 * f) * u
                 canvas.drawRect(x, y, x + len, y + max(1f, .6f * u), fieldPaint)
@@ -1714,6 +1747,8 @@ class SceneRenderer(private val state: SceneState) {
         const val TRUSS_PANEL = 70.0
         const val TUNNEL_LAMP = 120.0
         val TUNNEL_DARK = Color.rgb(20, 18, 17)
+        val TILE_ROOF = Color.rgb(196, 102, 64)
+        val MANSARD_ROOF = Color.rgb(96, 104, 116)
         /** 플랫폼 반 길이(장면 단위, 선로 레이어 좌표). */
         const val PLATFORM_HALF = 560f
         const val PILLAR_GAP = 140f
