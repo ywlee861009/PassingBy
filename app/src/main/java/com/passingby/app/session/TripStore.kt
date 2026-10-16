@@ -45,6 +45,40 @@ class TripStore(private val context: Context) {
             .apply()
     }
 
+    // ── 코스 잠금 ──
+
+    /** 열린 유료 코스 id. 결제 확인·구매 복원으로 채워진다. */
+    var unlocked: Set<String>
+        get() = prefs.getStringSet(KEY_UNLOCKED, emptySet()) ?: emptySet()
+        set(v) = prefs.edit().putStringSet(KEY_UNLOCKED, v).apply()
+
+    /** 개발용: 모든 코스 열기. */
+    var devUnlockAll: Boolean
+        get() = prefs.getBoolean(KEY_DEV_UNLOCK, false)
+        set(v) = prefs.edit().putBoolean(KEY_DEV_UNLOCK, v).apply()
+
+    // ── 설정 ──
+
+    /** 창 아래 벽에 다음 역까지 남은 분을 늘 표시(기본 꺼짐, 명세 6장). */
+    var ledgeInfo: Boolean
+        get() = prefs.getBoolean(KEY_LEDGE, false)
+        set(v) = prefs.edit().putBoolean(KEY_LEDGE, v).apply()
+
+    /** 주행 중에도 오버레이를 숨기지 않는다. */
+    var overlayAlways: Boolean
+        get() = prefs.getBoolean(KEY_OVERLAY, false)
+        set(v) = prefs.edit().putBoolean(KEY_OVERLAY, v).apply()
+
+    /** 절전 모드(30fps). */
+    var powerSave: Boolean
+        get() = prefs.getBoolean(KEY_POWER, false)
+        set(v) = prefs.edit().putBoolean(KEY_POWER, v).apply()
+
+    /** 창밖 날씨. null이면 무작위, 아니면 [com.passingby.app.scene.Weather] 이름. */
+    var weather: String?
+        get() = prefs.getString(KEY_WEATHER, null)
+        set(v) = prefs.edit().putString(KEY_WEATHER, v).apply()
+
     // ── 진행 중인 여행 ──
 
     class Active(
@@ -97,6 +131,12 @@ class TripStore(private val context: Context) {
         const val KEY_DAY = "day"
         const val KEY_DAY_TRIPS = "day_trips"
         const val KEY_DAY_MINUTES = "day_minutes"
+        const val KEY_UNLOCKED = "unlocked"
+        const val KEY_DEV_UNLOCK = "dev_unlock_all"
+        const val KEY_LEDGE = "ledge_info"
+        const val KEY_OVERLAY = "overlay_always"
+        const val KEY_POWER = "power_save"
+        const val KEY_WEATHER = "weather"
         const val KEY_A_PHASE = "a_phase"
         const val KEY_A_MINUTES = "a_minutes"
         const val KEY_A_BASE = "a_base"

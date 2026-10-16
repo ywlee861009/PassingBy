@@ -1,5 +1,6 @@
 package com.passingby.app.ui.journey
 
+import android.app.Activity
 import android.app.Application
 import android.content.Context
 import android.media.AudioAttributes
@@ -17,6 +18,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.toArgb
 import androidx.lifecycle.AndroidViewModel
+import com.passingby.app.billing.Billing
 import com.passingby.app.content.Course
 import com.passingby.app.content.Station
 import com.passingby.app.journey.CoursePlan
@@ -125,6 +127,40 @@ class JourneyViewModel(app: Application) : AndroidViewModel(app) {
     private var weather = WeatherDirector(weatherSeed, course.snowy)
     private var restEndReal = 0L
 
+    // ── 코스 잠금·결제 ──
+    var unlocked by mutableStateOf(store.unlocked)
+        private set
+    var devUnlockAll by mutableStateOf(store.devUnlockAll)
+        private set
+    /** 상품 ID → 표시 가격. 스토어에서 받아 오기 전에는 비어 있다. */
+    var prices by mutableStateOf<Map<String, String>>(emptyMap())
+        private set
+    private val billing = Billing(
+        app,
+        Course.ALL.mapNotNull { it.productId },
+        onPrices = { prices = it },
+        onOwned = { ids ->
+            val courses = Course.ALL.filter { it.productId in ids }.map { it.id }.toSet()
+            if (!unlocked.containsAll(courses)) {
+                unlocked = unlocked + courses
+                store.unlocked = unlocked
+            }
+        },
+    )
+
+    // ── 설정 ──
+    var ledgeInfo by mutableStateOf(store.ledgeInfo)
+        private set
+    var overlayAlways by mutableStateOf(store.overlayAlways)
+        private set
+    var powerSave by mutableStateOf(store.powerSave)
+        private set
+    /** 잠깐 띄우는 안내 문구. [messageTick]이 바뀔 때마다 새로 보여 준다. */
+    var message by mutableStateOf<String?>(null)
+        private set
+    var messageTick by mutableIntStateOf(0)
+        private set
+
     // ── 개발용 ──
     var hud by mutableStateOf("")
         private set
@@ -150,6 +186,8 @@ class JourneyViewModel(app: Application) : AndroidViewModel(app) {
 
     init {
         restore()
+        store.weather?.let { name -> runCatching { Weather.valueOf(name) }.getOrNull() }?.let { applyWeather(it) }
+        billing.connect()
         applyLand()
         applyStations()
         updateTicks(clock.seconds())
@@ -192,8 +230,50 @@ class JourneyViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /** 정차·도착·휴식 중 어디서든 출발한다. 도착·휴식 중이면 종착역에서 역방향으로 떠난다. */
+    /** 무료이거나 열린 코스인지. */
+    fun owns(c: Course): Boolean = c.free || devUnlockAll || c.id in unlocked
+
+    fun priceOf(c: Course): String? = c.productId?.let { prices[it] }
+
+    /** 지금 고른(미리 보는) 코스를 산다. 스토어에 상품이 아직 없으면 안내만 띄운다. */
+    fun buy(activity: Activity, c: Course = course) {
+        val id = c.productId ?: return
+        if (!billing.purchase(activity, id)) notify("아직 구매할 수 없어요. 스토어에 코스가 등록되면 열려요.")
+    }
+
+    fun restorePurchases() {
+        billing.restore()
+        notify("구매 내역을 다시 확인했어요")
+    }
+
+    fun setLedge(v: Boolean) {
+        ledgeInfo = v
+        store.ledgeInfo = v
+    }
+
+    fun setOverlay(v: Boolean) {
+        overlayAlways = v
+        store.overlayAlways = v
+    }
+
+    fun setPower(v: Boolean) {
+        powerSave = v
+        store.powerSave = v
+    }
+
+    fun toggleDevUnlock() {
+        devUnlockAll = !devUnlockAll
+        store.devUnlockAll = devUnlockAll
+    }
+
+    private fun notify(text: String) {
+        message = text
+        messageTick++
+    }
+
+    /** 정차·도착·휴식 중 어디서든 출발한다. 도착·휴식 중이면 종착역에서 역방향으로 떠난다. 잠긴 코스는 출발하지 않는다. */
     fun depart() {
+        if (!owns(course)) return
         if (phase == TripPhase.ARRIVED || phase == TripPhase.RESTING) dockAtTerminus()
         tripMinutes = minutes
         weatherSeed = Random.nextInt()
@@ -461,7 +541,13 @@ class JourneyViewModel(app: Application) : AndroidViewModel(app) {
         scene.mode = m
     }
 
+    /** 창밖 날씨. null이면 무작위. 설정에 남는다. */
     fun selectWeather(w: Weather?) {
+        applyWeather(w)
+        store.weather = w?.name
+    }
+
+    private fun applyWeather(w: Weather?) {
         fixedWeather = w
         scene.autoWeather = w == null
         if (w != null) scene.weather = w
@@ -506,6 +592,7 @@ class JourneyViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     override fun onCleared() {
+        billing.end()
         renderer.release()
     }
 

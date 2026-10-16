@@ -1,6 +1,11 @@
 package com.passingby.app.ui.journey
 
 import android.app.Activity
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.os.PowerManager
 import android.os.Build
 import android.view.accessibility.AccessibilityManager
 import androidx.activity.compose.BackHandler
@@ -12,6 +17,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
@@ -66,6 +72,7 @@ import androidx.window.layout.FoldingFeature
 import androidx.window.layout.WindowInfoTracker
 import com.passingby.app.BuildConfig
 import com.passingby.app.ui.debug.DevPanel
+import com.passingby.app.ui.theme.PbType
 import kotlinx.coroutines.delay
 import kotlin.math.abs
 
@@ -91,15 +98,24 @@ fun JourneyScreen(vm: JourneyViewModel = viewModel()) {
         activity?.let { applyRefreshCap(it, vm.cap60) }
     }
 
+    // 절전 모드(설정 또는 기기 절전)에서는 1초에 30번만 장면을 갱신·그린다(명세 11장).
+    val systemSaver = rememberSystemPowerSave()
+    val saving by rememberUpdatedState(vm.powerSave || systemSaver)
+
     // 매 프레임 값이 바뀌는 상태. 그리기 단계에서만 읽으므로 재구성은 일어나지 않는다.
     var frameTick by remember { mutableLongStateOf(0L) }
     LaunchedEffect(Unit) {
         var last = 0L
         while (true) {
             withFrameNanos { now ->
-                if (last != 0L) vm.onFrame(now - last, view.display?.refreshRate ?: 60f)
-                last = now
-                frameTick = now
+                if (last == 0L) {
+                    last = now
+                    frameTick = now
+                } else if (!saving || now - last >= SAVER_FRAME_NANOS) {
+                    vm.onFrame(now - last, view.display?.refreshRate ?: 60f)
+                    last = now
+                    frameTick = now
+                }
             }
         }
     }
@@ -116,6 +132,14 @@ fun JourneyScreen(vm: JourneyViewModel = viewModel()) {
     var confirmEnd by remember { mutableStateOf(false) }
     var backArmed by remember { mutableStateOf(false) }
     var hint by remember { mutableStateOf(false) }
+    var sheet by remember { mutableStateOf(SheetKind.NONE) }
+    var notice by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(vm.messageTick) {
+        val m = vm.message ?: return@LaunchedEffect
+        notice = m
+        delay(MESSAGE_MS)
+        notice = null
+    }
 
     LaunchedEffect(overlay, interactions, phase) {
         if (overlay && phase == TripPhase.RUNNING) {
@@ -149,6 +173,7 @@ fun JourneyScreen(vm: JourneyViewModel = viewModel()) {
             interactions++
         }
     }
+    BackHandler(enabled = sheet != SheetKind.NONE) { sheet = SheetKind.NONE }
     LaunchedEffect(backArmed) {
         if (backArmed) {
             delay(BACK_ARM_MS)
@@ -264,8 +289,13 @@ fun JourneyScreen(vm: JourneyViewModel = viewModel()) {
                     terminus, vm.course.title(-vm.direction), vm.minutes, vm.restLeftSec, paper, vm::depart, vm::getOff,
                 )
                 else -> TicketCard(
-                    vm.course, vm.direction, vm.minutes, vm.today, vm.restDone, paper, Color(vm.panel),
+                    vm.course, vm.direction, vm.minutes, vm.today, vm.restDone,
+                    owned = vm.owns(vm.course), price = vm.priceOf(vm.course),
+                    paper = paper, panel = Color(vm.panel),
                     onMinutes = vm::selectMinutes, onDepart = vm::depart,
+                    onBuy = { activity?.let { vm.buy(it) } },
+                    onCourses = { sheet = SheetKind.COURSES },
+                    onSettings = { sheet = SheetKind.SETTINGS },
                 )
             }
         }
@@ -303,7 +333,7 @@ fun JourneyScreen(vm: JourneyViewModel = viewModel()) {
             }
         } else {
             AnimatedVisibility(
-                visible = moving && (overlay || screenReader),
+                visible = moving && (overlay || screenReader || vm.overlayAlways),
                 enter = fadeIn(tween(300)),
                 exit = fadeOut(tween(300)),
                 modifier = Modifier.fillMaxSize(),
@@ -337,13 +367,32 @@ fun JourneyScreen(vm: JourneyViewModel = viewModel()) {
             }
         }
 
+        // ── 창턱 안내: 창 아래 벽에 다음 역까지 남은 분(명세 6장) ──
+        if (vm.ledgeInfo && moving && form != FormFactor.TABLETOP && !(overlay || vm.overlayAlways || screenReader)) {
+            val next = vm.stations[vm.nextStop].name
+            val mins = (vm.nextStopSec + 59) / 60
+            BasicText(
+                when {
+                    vm.stoppedAt >= 0 -> "${vm.stations[vm.stoppedAt].name} 정차 중"
+                    vm.nextStop == vm.stations.size - 1 -> "종착 ${next}까지 ${mins}분"
+                    else -> "${next}까지 ${mins}분"
+                },
+                style = PbType.body.copy(color = Color(0x99E9E1D6)),
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .windowInsetsPadding(insets)
+                    .padding(bottom = 6.dp),
+            )
+        }
+
         // ── 안내 ──
-        val notice = when {
+        val message = when {
             backArmed -> "한 번 더 누르면 여행이 끝나요"
+            notice != null -> notice
             hint && form != FormFactor.TABLETOP -> "화면을 누르면 메뉴가 보여요"
             else -> null
         }
-        if (notice != null) Notice(notice, Modifier.align(Alignment.Center))
+        if (message != null) Notice(message, Modifier.align(Alignment.Center))
 
         // ── 개발용 ──
         if (BuildConfig.DEV_TOOLS && vm.showHud && vm.hud.isNotEmpty()) {
@@ -359,6 +408,30 @@ fun JourneyScreen(vm: JourneyViewModel = viewModel()) {
         }
         if (BuildConfig.DEV_TOOLS && devPanel) {
             DevPanel(vm, onInteract = { interactions++ }, modifier = Modifier.align(Alignment.TopCenter))
+        }
+
+        // ── 시트 ──
+        AnimatedVisibility(
+            visible = sheet != SheetKind.NONE,
+            enter = fadeIn(tween(200)) + slideInVertically(tween(260)) { it / 3 },
+            exit = fadeOut(tween(180)),
+            modifier = Modifier.fillMaxSize(),
+        ) {
+            val shown = remember { mutableStateOf(sheet) }
+            if (sheet != SheetKind.NONE) shown.value = sheet
+            BottomSheet(Color(vm.paper), maxHeight * .88f, onDismiss = { sheet = SheetKind.NONE }) {
+                when (shown.value) {
+                    SheetKind.COURSES -> CourseSheetContent(vm.course, vm::owns, vm::priceOf) {
+                        vm.selectCourse(it)
+                        sheet = SheetKind.NONE
+                    }
+                    else -> SettingsSheetContent(
+                        vm.fixedWeather, vm.ledgeInfo, vm.overlayAlways, vm.powerSave, vm::owns, vm::priceOf, vm.devUnlockAll,
+                        onWeather = vm::selectWeather, onLedge = vm::setLedge, onOverlay = vm::setOverlay, onPower = vm::setPower,
+                        onBuy = { c -> activity?.let { vm.buy(it, c) } }, onRestore = vm::restorePurchases, onDevUnlock = vm::toggleDevUnlock,
+                    )
+                }
+            }
         }
 
         if (cut.value > 0f) {
@@ -407,6 +480,26 @@ private fun rememberFold(activity: Activity?): Fold {
 
 private val NO_FOLD = Fold(null, null)
 
+/** 기기 절전 모드가 켜져 있으면 true. 켜고 끌 때 방송을 받아 갱신한다. */
+@Composable
+private fun rememberSystemPowerSave(): Boolean {
+    val context = LocalContext.current
+    val pm = remember(context) { context.getSystemService(PowerManager::class.java) }
+    var on by remember { mutableStateOf(pm?.isPowerSaveMode == true) }
+    DisposableEffect(context) {
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(c: Context?, i: Intent?) {
+                on = pm?.isPowerSaveMode == true
+            }
+        }
+        context.registerReceiver(receiver, IntentFilter(PowerManager.ACTION_POWER_SAVE_MODE_CHANGED))
+        onDispose { context.unregisterReceiver(receiver) }
+    }
+    return on
+}
+
+private enum class SheetKind { NONE, COURSES, SETTINGS }
+
 /** 스크린리더(터치 탐색)가 켜져 있으면 true. 이때는 주행 중 오버레이를 늘 보여 준다(명세 6장). */
 @Composable
 private fun rememberTouchExploration(): Boolean {
@@ -422,6 +515,8 @@ private fun rememberTouchExploration(): Boolean {
 }
 
 private val CARD_MARGIN = 16.dp
+private const val SAVER_FRAME_NANOS = 31_000_000L
+private const val MESSAGE_MS = 3_200L
 private const val SEAT_MS = 700
 private const val OVERLAY_HIDE_MS = 4_000L
 private const val HINT_MS = 4_000L

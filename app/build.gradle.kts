@@ -53,4 +53,5 @@ dependencies {
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.foundation)
     implementation(libs.androidx.window)
+    implementation(libs.billing)
 }

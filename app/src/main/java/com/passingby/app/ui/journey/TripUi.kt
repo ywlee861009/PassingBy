@@ -36,6 +36,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.passingby.app.content.Course
@@ -45,7 +46,10 @@ import java.util.Locale
 
 // ── 정차 카드 ──
 
-/** 정차·출발 전 승차권 카드(명세 5.1). 절취선 모티프는 이 카드에만 쓴다. */
+/**
+ * 정차·출발 전 승차권 카드(명세 5.1). 절취선 모티프는 이 카드에만 쓴다.
+ * 잠긴 코스를 미리 보는 중이면 시간 선택 대신 코스 열기 버튼을 보여 준다.
+ */
 @Composable
 fun TicketCard(
     course: Course,
@@ -53,27 +57,63 @@ fun TicketCard(
     minutes: Int,
     today: Pair<Int, Int>,
     restDone: Boolean,
+    owned: Boolean,
+    price: String?,
     paper: Color,
     panel: Color,
     onMinutes: (Int) -> Unit,
     onDepart: () -> Unit,
+    onBuy: () -> Unit,
+    onCourses: () -> Unit,
+    onSettings: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val first = course.ordered(direction).first().name
     Sheet(paper, modifier) {
-        BasicText(
-            if (restDone) "쉬는 시간이 끝났어요 · $first" else "${course.number}코스 · ${course.region} · ${course.vehicle}",
-            style = PbType.kicker.copy(color = Pb.InkSoft),
-        )
-        BasicText(course.title(direction), style = PbType.title.copy(color = Pb.Ink))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            BasicText(
+                when {
+                    restDone -> "쉬는 시간이 끝났어요 · $first"
+                    !owned -> "${course.number}코스 · ${course.region} · 미리 보는 중"
+                    else -> "${course.number}코스 · ${course.region} · ${course.vehicle}"
+                },
+                style = PbType.kicker.copy(color = Pb.InkSoft),
+                modifier = Modifier.weight(1f),
+            )
+            SmallLink("설정", onSettings)
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            BasicText(course.title(direction), style = PbType.title.copy(color = Pb.Ink), modifier = Modifier.weight(1f))
+            SmallLink("코스 바꾸기", onCourses)
+        }
         BasicText(course.stopsLine(direction), style = PbType.body.copy(color = Pb.InkSoft))
         Perforation(panel)
-        MinuteSelector(minutes, onMinutes)
-        PrimaryButton("${minutes}분 출발하기", onDepart, Modifier.fillMaxWidth())
-        BasicText(
-            todayLine(today) ?: "도착하면 알려드릴게요. 그동안 창밖만 보셔도 괜찮아요.",
-            style = PbType.body.copy(color = Pb.InkSoft),
-        )
+        if (owned) {
+            MinuteSelector(minutes, onMinutes)
+            PrimaryButton("${minutes}분 출발하기", onDepart, Modifier.fillMaxWidth())
+            BasicText(
+                todayLine(today) ?: "도착하면 알려드릴게요. 그동안 창밖만 보셔도 괜찮아요.",
+                style = PbType.body.copy(color = Pb.InkSoft),
+            )
+        } else {
+            PrimaryButton("코스 열기 · ${price ?: "가격 준비 중"}", onBuy, Modifier.fillMaxWidth())
+            BasicText("한 번 열면 계속 탈 수 있어요.", style = PbType.body.copy(color = Pb.InkSoft))
+        }
+    }
+}
+
+/** 카드 안 작은 글자 버튼. 누르는 영역은 48dp를 지킨다. */
+@Composable
+private fun SmallLink(text: String, onClick: () -> Unit) {
+    Box(
+        Modifier
+            .heightIn(min = 48.dp)
+            .clip(CircleShape)
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(horizontal = 10.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        BasicText(text, style = PbType.kicker.copy(color = Pb.Ink, textDecoration = TextDecoration.Underline))
     }
 }
 
