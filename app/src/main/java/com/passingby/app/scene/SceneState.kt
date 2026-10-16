@@ -45,6 +45,7 @@ class SceneState {
         private set
 
     var showBoxes = false
+    var windowFrame = true
 
     init {
         val p = Palette.of(timeOfDay)

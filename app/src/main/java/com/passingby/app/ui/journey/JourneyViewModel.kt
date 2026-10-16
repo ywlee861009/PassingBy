@@ -33,6 +33,8 @@ class JourneyViewModel : ViewModel() {
         private set
     var boxes by mutableStateOf(false)
         private set
+    var windowFrame by mutableStateOf(scene.windowFrame)
+        private set
     var cap60 by mutableStateOf(false)
         private set
     var showHud by mutableStateOf(true)
@@ -61,6 +63,11 @@ class JourneyViewModel : ViewModel() {
     fun toggleBoxes() {
         boxes = !boxes
         scene.showBoxes = boxes
+    }
+
+    fun toggleWindowFrame() {
+        windowFrame = !windowFrame
+        scene.windowFrame = windowFrame
     }
 
     fun toggleCap60() {

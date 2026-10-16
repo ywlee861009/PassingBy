@@ -12,6 +12,7 @@ import android.graphics.Shader
 import java.util.Random
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import kotlin.math.PI
 import kotlin.math.floor
 import kotlin.math.max
 import kotlin.math.min
@@ -41,7 +42,9 @@ class SceneRenderer(private val state: SceneState) {
     @Volatile private var tileSet: TileSet? = null
     @Volatile private var tileBakePending = false
 
-    private var frame = 0L
+    private val windowFrame = TrainWindowFrame()
+
+    private var frameCount = 0L
     /** 마지막 render()가 그리기 명령을 기록하는 데 걸린 시간. GPU 시간은 포함하지 않는다. */
     var lastDrawNanos = 0L
         private set
@@ -105,14 +108,42 @@ class SceneRenderer(private val state: SceneState) {
     fun render(canvas: Canvas, w: Int, h: Int) {
         if (w <= 0 || h <= 0) return
         val t0 = System.nanoTime()
-        frame++
+        frameCount++
+        val p = state.effective
+        if (state.windowFrame) {
+            val f = windowFrame
+            f.layout(w, h)
+            // 번인 완화: 창틀 전체를 몇 픽셀 안에서 아주 천천히 움직인다(주기 수 분).
+            val t = state.elapsedSec
+            val dx = (f.driftMax * sin(t * DRIFT_X)).toFloat()
+            val dy = (f.driftMax * sin(t * DRIFT_Y + 1.0)).toFloat()
+            val o = f.opening
+            canvas.save()
+            canvas.translate(dx, dy)
+            canvas.save()
+            canvas.clipPath(f.glassPath)
+            canvas.save()
+            canvas.translate(o.left, o.top)
+            drawScene(canvas, o.width().toInt(), o.height().toInt(), p)
+            canvas.restore()
+            f.drawGlass(canvas, p)
+            canvas.restore()
+            f.drawFrame(canvas, p)
+            canvas.restore()
+        } else {
+            drawScene(canvas, w, h, p)
+        }
+        lastDrawNanos = System.nanoTime() - t0
+    }
+
+    /** 창밖 풍경. 창틀이 있으면 창 구멍 크기로, 없으면 화면 전체 크기로 그린다. */
+    private fun drawScene(canvas: Canvas, w: Int, h: Int, p: Palette) {
         if (layout.update(w, h)) {
             onResize()
             applyMode()
         } else if (state.mode != appliedMode) {
             applyMode()
         }
-        val p = state.effective
         drawSky(canvas, p)
         drawStars(canvas, p)
         drawSun(canvas, p)
@@ -123,7 +154,6 @@ class SceneRenderer(private val state: SceneState) {
         drawPoles(canvas, p)
         drawRain(canvas)
         canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), vignettePaint)
-        lastDrawNanos = System.nanoTime() - t0
     }
 
     fun release() {
@@ -265,7 +295,7 @@ class SceneRenderer(private val state: SceneState) {
         val paint = layerPaints[i]
         updateLayerPaint(i, l, p, paint)
         if (appliedMode == RenderMode.BAKED) {
-            bakers[i].draw(canvas, offU, paint, frame)
+            bakers[i].draw(canvas, offU, paint, frameCount)
         } else {
             drawTerrainSpan(canvas, l, offU, 0f, layout.w.toFloat(), paint)
         }
@@ -471,6 +501,9 @@ class SceneRenderer(private val state: SceneState) {
         const val GLASS = 28
         const val MAX_TUFTS = 600
         const val MAX_POLES = 16
+        /** 창틀 이동 각속도(rad/s). 주기 약 170초, 230초. */
+        const val DRIFT_X = 2 * PI / 170
+        const val DRIFT_Y = 2 * PI / 230
         val WIRE_DX = floatArrayOf(-15f, 15f, -10f, 10f)
         val WIRE_DY = floatArrayOf(0f, 0f, 22f, 22f)
     }

@@ -27,7 +27,12 @@ class Palette {
         const val GROUND = 8
         const val POLE = 9
         const val CLOUD = 10
-        const val C_COUNT = 11
+        /** 여기까지가 창밖 색. 비 효과는 창밖 색에만 적용한다. */
+        const val EXTERIOR_COUNT = 11
+        /** 실내 벽(창틀) 색. 창밖보다 어둡게 둬서 눈부심과 OLED 번인을 줄인다. */
+        const val PANEL = 11
+        const val PANEL_SHADE = 12
+        const val C_COUNT = 13
 
         const val SUN_X = 0
         const val SUN_Y = 1
@@ -40,23 +45,23 @@ class Palette {
 
         fun of(t: TimeOfDay): Palette = PRESETS[t.ordinal]
 
-        // 색 순서: TOP, BOT, HAZE, SUN, FAR, MID, NEAR, TREE, GROUND, POLE, CLOUD
+        // 색 순서: TOP, BOT, HAZE, SUN, FAR, MID, NEAR, TREE, GROUND, POLE, CLOUD, PANEL, PANEL_SHADE
         // 수치 순서: SUN_X, SUN_Y, SUN_R, SUN_A, CLOUD_A, STARS, LIT
         private val PRESETS = arrayOf(
             preset(
-                intArrayOf(0x2f3a66, 0xf0b8a2, 0xe6b6aa, 0xfff1dc, 0x8a83aa, 0x5d6c87, 0x3f5466, 0x2b3b4b, 0x26303c, 0x182029, 0xf7d4c8),
+                intArrayOf(0x2f3a66, 0xf0b8a2, 0xe6b6aa, 0xfff1dc, 0x8a83aa, 0x5d6c87, 0x3f5466, 0x2b3b4b, 0x26303c, 0x182029, 0xf7d4c8, 0x57545e, 0x2c2a31),
                 floatArrayOf(.78f, .66f, 15f, 1f, .8f, .2f, .35f),
             ),
             preset(
-                intArrayOf(0x4b97d6, 0xd3eaf5, 0xcde3ee, 0xfffbe9, 0x86a8c4, 0x79a476, 0x548a55, 0x2d5e3f, 0x4d5e3f, 0x262b2f, 0xffffff),
+                intArrayOf(0x4b97d6, 0xd3eaf5, 0xcde3ee, 0xfffbe9, 0x86a8c4, 0x79a476, 0x548a55, 0x2d5e3f, 0x4d5e3f, 0x262b2f, 0xffffff, 0x74716a, 0x3b3936),
                 floatArrayOf(.8f, .22f, 17f, 1f, .95f, 0f, 0f),
             ),
             preset(
-                intArrayOf(0x2a2c5a, 0xf49b5d, 0xee9c76, 0xffdc9e, 0x93627f, 0x5c4568, 0x3a2f4e, 0x281f3c, 0x241c33, 0x150f20, 0xf6b08e),
+                intArrayOf(0x2a2c5a, 0xf49b5d, 0xee9c76, 0xffdc9e, 0x93627f, 0x5c4568, 0x3a2f4e, 0x281f3c, 0x241c33, 0x150f20, 0xf6b08e, 0x5e4f47, 0x2d2420),
                 floatArrayOf(.7f, .74f, 22f, 1f, .88f, .08f, .65f),
             ),
             preset(
-                intArrayOf(0x060a1c, 0x1d2848, 0x26325a, 0xe6ecf8, 0x2e3a60, 0x1b2443, 0x121a32, 0x0b1126, 0x0c1226, 0x05080e, 0x2c3760),
+                intArrayOf(0x060a1c, 0x1d2848, 0x26325a, 0xe6ecf8, 0x2e3a60, 0x1b2443, 0x121a32, 0x0b1126, 0x0c1226, 0x05080e, 0x2c3760, 0x4a4038, 0x221d19),
                 floatArrayOf(.24f, .24f, 12f, 1f, .65f, 1f, 1f),
             ),
         )
@@ -85,13 +90,13 @@ internal fun lerpInto(out: Palette, a: Palette, b: Palette, t: Float) {
     for (i in 0 until Palette.F_COUNT) out.f[i] = a.f[i] + (b.f[i] - a.f[i]) * t
 }
 
-/** 비가 오면 모든 색을 채도 낮은 회청색 쪽으로 당기고 해·별을 가린다. */
+/** 비가 오면 창밖 색을 채도 낮은 회청색 쪽으로 당기고 해·별을 가린다. 실내 벽 색은 그대로 둔다. */
 internal fun wetInto(out: Palette, src: Palette, amount: Float) {
     out.copyFrom(src)
     if (amount <= 0.001f) return
-    for (i in 0 until Palette.C_COUNT) {
+    for (i in 0 until Palette.EXTERIOR_COUNT) {
         val c = src.c[i]
-        val l = 0.3f * ((c shr 16) and 0xff) + 0.59f * ((c shr 8) and 0xff) + 0.11f * (c and 0xff)
+        val l =0.3f * ((c shr 16) and 0xff) + 0.59f * ((c shr 8) and 0xff) + 0.11f * (c and 0xff)
         val r = (l * .78f + 18).toInt().coerceIn(0, 255)
         val g = (l * .8f + 22).toInt().coerceIn(0, 255)
         val b = (l * .86f + 30).toInt().coerceIn(0, 255)

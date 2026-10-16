@@ -171,6 +171,7 @@ private fun Controls(vm: JourneyViewModel, onInteract: () -> Unit, modifier: Mod
             Chip("완행", !vm.fast) { vm.selectFast(false); onInteract() }
             Chip("고속", vm.fast) { vm.selectFast(true); onInteract() }
             Chip("비", vm.raining) { vm.toggleRain(); onInteract() }
+            Chip("창틀", vm.windowFrame) { vm.toggleWindowFrame(); onInteract() }
             Chip("구조", vm.boxes) { vm.toggleBoxes(); onInteract() }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
