@@ -13,6 +13,7 @@ import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.ViewModelProvider
 import com.passingby.app.content.Course
 import com.passingby.app.scene.SceneKind
+import com.passingby.app.session.AppVisibility
 import com.passingby.app.scene.TimeOfDay
 import com.passingby.app.scene.Weather
 import com.passingby.app.ui.journey.JourneyViewModel
@@ -57,6 +58,16 @@ class MainActivity : ComponentActivity() {
             vm.scene.snapTimeOfDay()
             vm.scene.snapWeather()
         }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        AppVisibility.foreground = true
+    }
+
+    override fun onStop() {
+        AppVisibility.foreground = false
+        super.onStop()
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {

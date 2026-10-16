@@ -1,15 +1,19 @@
 package com.passingby.app.ui.journey
 
+import android.Manifest
 import android.app.Activity
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.PackageManager
 import android.os.PowerManager
 import android.os.Build
 import android.view.accessibility.AccessibilityManager
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -67,6 +71,7 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.window.layout.FoldingFeature
 import androidx.window.layout.WindowInfoTracker
@@ -118,6 +123,19 @@ fun JourneyScreen(vm: JourneyViewModel = viewModel()) {
                 }
             }
         }
+    }
+
+    // 첫 출발 때 한 번만 알림 권한을 묻는다(Android 13 이상). 거절해도 여행은 그대로 출발한다.
+    val context = LocalContext.current
+    val notificationLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
+    val depart = {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !vm.notificationAsked &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            vm.markNotificationAsked()
+            notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+        vm.depart()
     }
 
     val fold = rememberFold(activity)
@@ -286,13 +304,13 @@ fun JourneyScreen(vm: JourneyViewModel = viewModel()) {
             when (phase) {
                 TripPhase.ARRIVED -> ArrivalCard(terminus, vm.tripMinutes, vm.today, paper, vm::rest, vm::getOff)
                 TripPhase.RESTING -> RestCard(
-                    terminus, vm.course.title(-vm.direction), vm.minutes, vm.restLeftSec, paper, vm::depart, vm::getOff,
+                    terminus, vm.course.title(-vm.direction), vm.minutes, vm.restLeftSec, paper, depart, vm::getOff,
                 )
                 else -> TicketCard(
                     vm.course, vm.direction, vm.minutes, vm.today, vm.restDone,
                     owned = vm.owns(vm.course), price = vm.priceOf(vm.course),
                     paper = paper, panel = Color(vm.panel),
-                    onMinutes = vm::selectMinutes, onDepart = vm::depart,
+                    onMinutes = vm::selectMinutes, onDepart = depart,
                     onBuy = { activity?.let { vm.buy(it) } },
                     onCourses = { sheet = SheetKind.COURSES },
                     onSettings = { sheet = SheetKind.SETTINGS },

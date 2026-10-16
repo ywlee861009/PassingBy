@@ -36,6 +36,7 @@ import com.passingby.app.scene.TimeOfDay
 import com.passingby.app.scene.UrbanField
 import com.passingby.app.scene.Weather
 import com.passingby.app.scene.mix
+import com.passingby.app.session.TripService
 import com.passingby.app.session.TripStore
 import com.passingby.app.ui.theme.Pb
 import java.util.Locale
@@ -191,6 +192,8 @@ class JourneyViewModel(app: Application) : AndroidViewModel(app) {
         applyLand()
         applyStations()
         updateTicks(clock.seconds())
+        // 앱을 다시 열었을 때 달리던 여행이 있으면 알림 서비스를 이어 붙인다.
+        if (phase != TripPhase.DOCKED) syncService()
     }
 
     /** 프레임마다 호출된다. 여정 시각으로 위치·하늘·날씨를 정하고, 상태 전환(도착·쉬는 시간 끝)을 확인한다. */
@@ -325,6 +328,14 @@ class JourneyViewModel(app: Application) : AndroidViewModel(app) {
         save()
     }
 
+    /** 알림 권한을 이미 한 번 물었는지. 거절해도 매번 묻지 않는다. */
+    val notificationAsked: Boolean
+        get() = store.notificationAsked
+
+    fun markNotificationAsked() {
+        store.notificationAsked = true
+    }
+
     fun markHintShown() {
         hintShown = true
         store.hintShown = true
@@ -333,19 +344,22 @@ class JourneyViewModel(app: Application) : AndroidViewModel(app) {
     // ── 상태 전환 ──
 
     private fun arrive() {
+        // 앱 밖에 있는 동안 도착했으면 이미 알림으로 알렸으니 다시 울리지 않는다.
+        val late = clock.seconds() - plan.durationSec > LATE_SEC
         clock.seek(plan.durationSec, 0.0)
         phase = TripPhase.ARRIVED
         store.recordArrival(tripMinutes)
         today = store.today()
-        signal(ARRIVAL_PATTERN)
+        if (!late) signal(ARRIVAL_PATTERN)
         save()
     }
 
     private fun finishRest() {
+        val late = SystemClock.elapsedRealtime() - restEndReal > LATE_SEC * 1000
         dockAtTerminus()
         restDone = true
         phase = TripPhase.DOCKED
-        signal(REST_PATTERN)
+        if (!late) signal(REST_PATTERN)
         save()
     }
 
@@ -439,9 +453,41 @@ class JourneyViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /**
+     * 포그라운드 서비스와 알림을 지금 상태에 맞춘다. 달리는 중·쉬는 중에만 서비스를 띄운다.
+     * 개발용 빨리 감기 중에는 실제 시간과 어긋나므로 알림 시계를 빼고 문구만 띄운다.
+     */
+    private fun syncService() {
+        val ctx = getApplication<Application>()
+        val title = course.title(direction)
+        val terminus = stations.last().name
+        val now = SystemClock.elapsedRealtime()
+        val realtime = clock.scale == 1.0
+        when (phase) {
+            TripPhase.RUNNING -> {
+                val left = (plan.durationSec - clock.seconds()).coerceAtLeast(0.0)
+                TripService.update(
+                    ctx, title, "${course.stopsLine(direction)} · 종착 $terminus",
+                    if (realtime) now + (left * 1000).toLong() else 0L,
+                    "${terminus}에 도착했어요", "${tripMinutes}분 머물렀어요. 쉬었다 가거나 여기서 내릴 수 있어요.",
+                )
+            }
+            TripPhase.PAUSED -> {
+                val left = (plan.durationSec - clock.seconds()).coerceAtLeast(0.0).toInt()
+                TripService.update(ctx, title, "잠깐 멈춤 · 종착까지 ${formatClock(left)}", 0L, "", "")
+            }
+            TripPhase.RESTING -> TripService.update(
+                ctx, "${terminus}에서 쉬는 중", "다음 여행 ${course.title(-direction)}",
+                restEndReal, "쉬는 시간이 끝났어요", "${course.title(-direction)} 승차권이 준비됐어요.",
+            )
+            else -> TripService.stop(ctx)
+        }
+    }
+
     // ── 저장·복원 ──
 
     private fun save() {
+        syncService()
         store.saveActive(
             TripStore.Active(
                 phase.name, tripMinutes, baseDistance, clock.save(), restEndReal, restDone, weatherSeed,
@@ -601,6 +647,8 @@ class JourneyViewModel(app: Application) : AndroidViewModel(app) {
         val PAPER = Pb.Paper.toArgb()
         /** 잠깐 멈추기·재개 때 열차가 서거나 다시 붙는 데 걸리는 시간(초). */
         const val STOP_SEC = 3.5
+        /** 이 초보다 늦게 알아챈 도착·쉬는 시간 끝은 앱 밖에서 이미 알렸다고 보고 다시 울리지 않는다. */
+        const val LATE_SEC = 3.0
         const val REST_SEC = 5 * 60
         val ARRIVAL_PATTERN = longArrayOf(0, 180, 140, 180, 140, 320)
         val REST_PATTERN = longArrayOf(0, 120, 120, 120)

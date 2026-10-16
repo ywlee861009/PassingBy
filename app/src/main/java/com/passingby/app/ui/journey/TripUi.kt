@@ -474,7 +474,9 @@ private fun todayLine(today: Pair<Int, Int>): String? =
     if (today.first > 0) "오늘 ${today.first}회 · ${today.second}분" else null
 
 /** 18:42, 1:29:59 */
-fun clock(sec: Int): String {
+fun clock(sec: Int): String = formatClock(sec)
+
+fun formatClock(sec: Int): String {
     val s = sec.coerceAtLeast(0)
     return if (s >= 3600) {
         String.format(Locale.US, "%d:%02d:%02d", s / 3600, s / 60 % 60, s % 60)

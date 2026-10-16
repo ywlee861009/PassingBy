@@ -26,6 +26,10 @@ class TripStore(private val context: Context) {
         get() = prefs.getInt(KEY_MINUTES, 25)
         set(v) = prefs.edit().putInt(KEY_MINUTES, v).apply()
 
+    var notificationAsked: Boolean
+        get() = prefs.getBoolean(KEY_NOTIF_ASKED, false)
+        set(v) = prefs.edit().putBoolean(KEY_NOTIF_ASKED, v).apply()
+
     var hintShown: Boolean
         get() = prefs.getBoolean(KEY_HINT, false)
         set(v) = prefs.edit().putBoolean(KEY_HINT, v).apply()
@@ -128,6 +132,7 @@ class TripStore(private val context: Context) {
         const val KEY_DIRECTION = "direction"
         const val KEY_MINUTES = "minutes"
         const val KEY_HINT = "hint_shown"
+        const val KEY_NOTIF_ASKED = "notification_asked"
         const val KEY_DAY = "day"
         const val KEY_DAY_TRIPS = "day_trips"
         const val KEY_DAY_MINUTES = "day_minutes"
