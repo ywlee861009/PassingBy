@@ -83,6 +83,10 @@ class SceneState {
     var showBoxes = false
     /** 위치별 도시화 정도. 여정이 정하고, 개발용으로 시골·도시 고정도 넣을 수 있다. */
     var urban: UrbanField = SceneKind.COUNTRY.field
+    /** 코스 테마. 바뀌면 렌더러가 지형 조각을 다시 굽는다. */
+    var theme: Theme = Themes.KOREA
+    /** 위치마다 달라지는 바다·밭·터널·다리·랜드마크. */
+    var zones: Zones = Zones.NONE
     var windowFrame = true
 
     /** 역 위치(세계 단위)와 이름판 글자. 여정이 계획을 바꿀 때 정한다. 렌더러가 플랫폼과 이름판을 그린다. */

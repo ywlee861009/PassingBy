@@ -20,6 +20,7 @@ import androidx.lifecycle.AndroidViewModel
 import com.passingby.app.content.Course
 import com.passingby.app.content.Station
 import com.passingby.app.journey.CoursePlan
+import com.passingby.app.journey.CourseZones
 import com.passingby.app.journey.JourneyClock
 import com.passingby.app.journey.WeatherDirector
 import com.passingby.app.perf.FrameStats
@@ -28,6 +29,7 @@ import com.passingby.app.scene.RenderMode
 import com.passingby.app.scene.SceneKind
 import com.passingby.app.scene.SceneRenderer
 import com.passingby.app.scene.SceneState
+import com.passingby.app.scene.Themes
 import com.passingby.app.scene.TimeOfDay
 import com.passingby.app.scene.UrbanField
 import com.passingby.app.scene.Weather
@@ -283,8 +285,10 @@ class JourneyViewModel(app: Application) : AndroidViewModel(app) {
         applyStations()
     }
 
-    /** 역 위치·이름판·진행 바 표시를 지금 계획에 맞춘다. */
+    /** 역 위치·이름판·진행 바 표시·코스 구역을 지금 계획에 맞춘다. */
     private fun applyStations() {
+        scene.theme = Themes.byId(course.id)
+        scene.zones = CourseZones(plan, course, direction, baseDistance)
         val list = stations
         scene.setStations(
             DoubleArray(list.size) { baseDistance + plan.stationDistance(it) },

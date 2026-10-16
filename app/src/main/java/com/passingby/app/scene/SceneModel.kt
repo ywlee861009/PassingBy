@@ -68,7 +68,11 @@ class TerrainLayer(
     val mist: Float,
     val spriteHaze: Float = 0f,
     val objects: ObjectRule? = null,
+    val shape: TerrainShape = TerrainShape.HILLS,
 )
+
+/** 지형 모양. 언덕(노이즈 능선)과 카르스트(가파른 둥근 봉우리가 늘어선 모양). */
+enum class TerrainShape { HILLS, KARST }
 
 object Scenery {
     val layers = arrayOf(
@@ -108,12 +112,32 @@ object Scenery {
 
 /** 0(낮음)~1(높음) 정규화 높이. */
 internal fun heightNorm(l: TerrainLayer, wx: Double): Double {
+    if (l.shape == TerrainShape.KARST) return karst(l, wx)
     var n = fbm(wx * l.freq, l.seed)
     if (l.ridge > 0) {
         val r = 1 - abs(2 * fbm(wx * l.freq * 0.8, l.seed + 5) - 1)
         n = n * (1 - l.ridge) + r * l.ridge
     }
     return n
+}
+
+/**
+ * 카르스트 봉우리: 칸마다 봉우리 하나를 무작위 위치·폭·높이로 세우고, 옆면이 가파르고 꼭대기가 둥근 모양으로 깎는다.
+ * 이웃 칸 봉우리와 겹치면 높은 쪽을 쓴다. 아래쪽에는 낮은 노이즈 언덕을 깔아 봉우리 사이가 비지 않게 한다.
+ */
+private fun karst(l: TerrainLayer, wx: Double): Double {
+    val cell = 1.0 / l.freq
+    val k = floor(wx / cell).toInt()
+    var h = .12 + .1 * fbm(wx * l.freq * .5, l.seed + 3)
+    for (j in k - 1..k + 1) {
+        val c = (j + .2 + .6 * hash01(j, l.seed)) * cell
+        val r = cell * (.3 + .28 * hash01(j, l.seed + 1))
+        val dx = abs(wx - c) / r
+        if (dx >= 1) continue
+        val peak = .45 + .55 * hash01(j, l.seed + 2)
+        h = maxOf(h, peak * (1 - dx * dx).pow(.32))
+    }
+    return h
 }
 
 internal fun layerColor(l: TerrainLayer, p: Palette) = mix(p.c[l.colorKey], p.c[Palette.HAZE], l.haze)
@@ -126,6 +150,8 @@ internal class Placed {
     var heightU = 0f
     var flip = false
     var key = 0
+    /** 마을 집이면 true. 렌더러가 테마 양식으로 직접 그린다([sprite]는 비교용 타일 방식만 쓴다). */
+    var house = false
     lateinit var sprite: Sprite
 }
 
@@ -147,7 +173,8 @@ internal object Placement {
         out.flip = hash01(key, s + 16) > .5
         out.key = key
         val town = if (r.town) valueNoise(k * .05 + .7, s + 90) else 0.0
-        if (town > .58 && r5 < .7) {
+        out.house = town > .58 && r5 < .7
+        if (out.house) {
             out.sprite = sprites.houses[(r4 * sprites.houses.size).toInt()]
             out.heightU = 15 + r3 * 9
         } else {

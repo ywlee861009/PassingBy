@@ -1,5 +1,8 @@
 package com.passingby.app.content
 
+import com.passingby.app.scene.FieldStyle
+import com.passingby.app.scene.LandmarkKind
+
 /**
  * 역. [name]은 화면 문구에 쓰는 한국어 이름, [local]은 역 이름판에 크게 쓰는 현지 표기, [roman]은 그 아래 작은 글자.
  */
@@ -23,6 +26,8 @@ class Course(
     val productId: String?,
     /** 이 코스 날씨에 눈이 올 수 있는지. 남쪽 코스는 눈이 오지 않는다. */
     val snowy: Boolean,
+    val features: List<Feature> = emptyList(),
+    val landmarks: List<LandmarkSpot> = emptyList(),
 ) {
     val free: Boolean get() = productId == null
 
@@ -53,6 +58,17 @@ class Course(
                 Station("부산", "부산", "Busan"),
             ),
             FAST, null, snowy = true,
+            features = listOf(
+                // 서울을 떠나 바로 한강 철교.
+                Feature(Feature.Kind.BRIDGE, 0, .125f, .15f),
+                Feature(Feature.Kind.FIELD, 0, .3f, .72f, FieldStyle.PADDY),
+                Feature(Feature.Kind.FIELD, 1, .26f, .74f, FieldStyle.PADDY),
+                Feature(Feature.Kind.TUNNEL, 2, .55f, .565f),
+                Feature(Feature.Kind.FIELD, 2, .25f, .45f, FieldStyle.PADDY),
+                // 부산에 다가가면 도시 너머로 바다.
+                Feature(Feature.Kind.SEA, 2, .9f, 1.2f),
+            ),
+            landmarks = listOf(LandmarkSpot(LandmarkKind.N_TOWER, 0, -.012f)),
         )
         val JAPAN = Course(
             "japan", 2, "일본", "고속열차",
@@ -111,3 +127,20 @@ class Course(
         fun byId(id: String?): Course = ALL.firstOrNull { it.id == id } ?: KOREA
     }
 }
+
+/**
+ * 코스 안 위치마다 달라지는 구역. 정방향 기준으로 [seg]번 구간의 거리 비율 [from]~[to]에 둔다.
+ * 역방향으로 달릴 때는 여정이 위치를 뒤집어 쓴다.
+ */
+class Feature(
+    val kind: Kind,
+    val seg: Int,
+    val from: Float,
+    val to: Float,
+    val style: FieldStyle = FieldStyle.NONE,
+) {
+    enum class Kind { SEA, RIVER, FIELD, TUNNEL, BRIDGE }
+}
+
+/** 랜드마크 위치. 정방향 기준 [seg]번 구간의 거리 비율 [at]. */
+class LandmarkSpot(val kind: LandmarkKind, val seg: Int, val at: Float)
