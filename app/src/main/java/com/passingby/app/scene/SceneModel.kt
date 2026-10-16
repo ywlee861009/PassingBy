@@ -84,10 +84,21 @@ object Scenery {
         TerrainLayer(
             0.55, .875f, .035f, 1.0 / 340, 0.0, 51, Palette.NEAR, 0f, 0f,
             objects = ObjectRule(
-                105.0, 3.0, 46f, 86f, town = false, sink = 6f,
-                kinds = arrayOf(SpriteKind.ROUND, SpriteKind.PINE, SpriteKind.POPLAR, SpriteKind.BUSH, SpriteKind.BUSH),
+                105.0, 3.2, 50f, 92f, town = false, sink = 6f,
+                kinds = arrayOf(SpriteKind.ROUND, SpriteKind.PINE, SpriteKind.POPLAR, SpriteKind.BUSH, SpriteKind.BUSH, SpriteKind.REED),
             ),
         ),
+    )
+
+    const val FAR_A = 0
+    const val FAR_B = 1
+    const val MID = 2
+    const val NEAR = 3
+
+    /** 도시 근경의 가로수. 근경 지형 레이어 위에 이 규칙으로 배치한다. */
+    val cityStreetTrees = ObjectRule(
+        105.0, 1.6, 50f, 92f, town = false, sink = 6f,
+        kinds = arrayOf(SpriteKind.ROUND, SpriteKind.ROUND, SpriteKind.BUSH),
     )
 
     const val CLOUD_SPEED = 0.025
@@ -143,7 +154,52 @@ internal object Placement {
             val kind = r.kinds[(r4 * r.kinds.size).toInt()]
             val arr = sprites.of(kind)
             out.sprite = arr[(r5 * arr.size).toInt()]
-            out.heightU = if (kind == SpriteKind.BUSH) 18 + r3 * 12 else r.minH + r3 * (r.maxH - r.minH)
+            out.heightU = when (kind) {
+                SpriteKind.BUSH -> 20 + r3 * 12
+                SpriteKind.REED -> 30 + r3 * 18
+                else -> r.minH + r3 * (r.maxH - r.minH)
+            }
         }
     }
+}
+
+enum class SceneKind(val label: String) { COUNTRY("시골"), CITY("도시") }
+
+/** 도시 건물 레이어의 창문 모양. */
+enum class WindowStyle { DOTS, GRID, SHOP }
+
+/**
+ * 도시 건물 레이어. 건물은 조각(chunk) 단위로 결정적으로 배치되며 직사각형으로 매 프레임 그린다.
+ *
+ * @param apt 이 비율만큼의 구간은 높이가 고른 아파트 단지가 된다.
+ * @param floorU 층 높이(단위), [colU] 창 간격(단위).
+ */
+class CityLayer(
+    val speed: Double,
+    val base: Float,
+    val chunkUnits: Double,
+    val perChunk: Int,
+    val minW: Float,
+    val maxW: Float,
+    val minH: Float,
+    val maxH: Float,
+    val seed: Int,
+    val style: WindowStyle,
+    val floorU: Float,
+    val colU: Float,
+    val apt: Float = 0f,
+)
+
+object CityScenery {
+    val far = CityLayer(0.075, .70f, 30.0, 3, 12f, 28f, 26f, 120f, 61, WindowStyle.DOTS, 4.5f, 3.6f)
+    val mid = CityLayer(0.2, .80f, 76.0, 2, 30f, 70f, 22f, 60f, 71, WindowStyle.GRID, 3.4f, 3.8f, apt = .6f)
+    val near = CityLayer(0.55, .885f, 64.0, 2, 22f, 44f, 10f, 26f, 81, WindowStyle.SHOP, 4.6f, 4.4f)
+
+    /** 상가 간판 색. */
+    val signs = intArrayOf(-0x8586, -0x852f01, -0x2c92, -0x4d7301, -0x871956)
+}
+
+internal fun desaturate(c: Int, k: Float): Int {
+    val l = (0.3f * ((c shr 16) and 0xff) + 0.59f * ((c shr 8) and 0xff) + 0.11f * (c and 0xff)).toInt()
+    return mix(c, -0x1000000 or (l shl 16) or (l shl 8) or l, k)
 }

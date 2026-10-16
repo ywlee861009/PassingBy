@@ -48,6 +48,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.passingby.app.scene.RenderMode
+import com.passingby.app.scene.SceneKind
 import com.passingby.app.scene.TimeOfDay
 import kotlinx.coroutines.delay
 import kotlin.math.abs
@@ -162,6 +163,11 @@ private fun Controls(vm: JourneyViewModel, onInteract: () -> Unit, modifier: Mod
         verticalArrangement = Arrangement.spacedBy(8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            for (k in SceneKind.entries) {
+                Chip(k.label, vm.sceneKind == k) { vm.selectSceneKind(k); onInteract() }
+            }
+        }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             for (t in TimeOfDay.entries) {
                 Chip(t.label, vm.timeOfDay == t) { vm.selectTime(t); onInteract() }

@@ -7,6 +7,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import com.passingby.app.perf.FrameStats
 import com.passingby.app.scene.RenderMode
+import com.passingby.app.scene.SceneKind
 import com.passingby.app.scene.SceneRenderer
 import com.passingby.app.scene.SceneState
 import com.passingby.app.scene.TimeOfDay
@@ -24,6 +25,8 @@ class JourneyViewModel : ViewModel() {
     var hud by mutableStateOf("")
         private set
     var timeOfDay by mutableStateOf(scene.timeOfDay)
+        private set
+    var sceneKind by mutableStateOf(scene.sceneKind)
         private set
     var mode by mutableStateOf(scene.mode)
         private set
@@ -43,6 +46,11 @@ class JourneyViewModel : ViewModel() {
     fun selectTime(t: TimeOfDay) {
         timeOfDay = t
         scene.setTimeOfDay(t)
+    }
+
+    fun selectSceneKind(k: SceneKind) {
+        sceneKind = k
+        scene.sceneKind = k
     }
 
     fun selectMode(m: RenderMode) {

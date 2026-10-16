@@ -45,6 +45,7 @@ class SceneState {
         private set
 
     var showBoxes = false
+    var sceneKind = SceneKind.COUNTRY
     var windowFrame = true
 
     init {

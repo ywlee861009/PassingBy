@@ -13,9 +13,11 @@ import java.util.Random
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import kotlin.math.PI
+import kotlin.math.abs
 import kotlin.math.floor
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.pow
 import kotlin.math.sin
 
 /**
@@ -71,10 +73,8 @@ class SceneRenderer(private val state: SceneState) {
     private val spritePaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
     private val windowPaint = Paint().apply { color = WINDOW_COLOR }
     private val groundPaint = Paint()
-    private val tuftPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        style = Paint.Style.STROKE
-        strokeCap = Paint.Cap.ROUND
-    }
+    private val bldgPaint = Paint()
+    private val litPaint = Paint().apply { strokeCap = Paint.Cap.SQUARE }
     private val polePaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val wirePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
     private val rainPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
@@ -89,7 +89,13 @@ class SceneRenderer(private val state: SceneState) {
         pathEffect = DashPathEffect(floatArrayOf(8f, 8f), 0f)
     }
 
-    private val tuftPts = FloatArray(4 * MAX_TUFTS)
+    private val cloudTones = IntArray(4)
+    private val midTones = IntArray(4)
+    private val nearTones = IntArray(4)
+    private val fringeTones = IntArray(4)
+    private val bedTones = IntArray(4)
+    private val warmPts = FloatArray(MAX_WINDOWS * 2)
+    private val coolPts = FloatArray(MAX_WINDOWS * 2)
     private val polesX = FloatArray(MAX_POLES)
     private val starX = FloatArray(STARS) { hash01(it, 1).toFloat() }
     private val starY = FloatArray(STARS) { Math.pow(hash01(it, 2), 1.4).toFloat() }
@@ -148,9 +154,7 @@ class SceneRenderer(private val state: SceneState) {
         drawStars(canvas, p)
         drawSun(canvas, p)
         drawClouds(canvas, p)
-        val tilesOk = appliedMode == RenderMode.TILES && ensureTiles()
-        for (i in layers.indices) drawLayer(canvas, i, p, tilesOk)
-        drawBed(canvas, p)
+        if (state.sceneKind == SceneKind.CITY) drawCity(canvas, p) else drawCountry(canvas, p)
         drawPoles(canvas, p)
         drawRain(canvas)
         canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), vignettePaint)
@@ -269,8 +273,12 @@ class SceneRenderer(private val state: SceneState) {
         val k1 = floor((off + layout.w / u) / c).toInt() + 1
         val top = layout.h * .06f
         val bot = layout.h - layout.g * .62f
-        spritePaint.color = mix(p.c[Palette.CLOUD], p.c[Palette.HAZE], .15f)
-        spritePaint.alpha = (p.f[Palette.CLOUD_A] * 255).toInt()
+        val cb = mix(p.c[Palette.CLOUD], p.c[Palette.HAZE], .15f)
+        cloudTones[TONE_BASE] = cb
+        cloudTones[TONE_DARK] = mix(cb, p.c[Palette.TOP], .22f)
+        cloudTones[TONE_LIGHT] = mix(cb, Color.WHITE, .35f)
+        cloudTones[TONE_LIGHT_BOOST] = cloudTones[TONE_LIGHT]
+        val alpha = (p.f[Palette.CLOUD_A] * 255).toInt()
         for (k in k0..k1) {
             val n = (if (hash01(k, 901) < .55) 1 else 0) + (if (hash01(k, 902) < .2) 1 else 0)
             for (j in 0 until n) {
@@ -279,37 +287,76 @@ class SceneRenderer(private val state: SceneState) {
                 val y = top + hash01(key, 904).toFloat() * (bot - top)
                 val x = (((k + hash01(key, 903)) * c - off) * u).toFloat()
                 val s = sprites.clouds[(hash01(key, 906) * sprites.clouds.size).toInt()]
-                drawSprite(canvas, s, x, y + hPx / 2, hPx, hash01(key, 907) > .5, spritePaint, dst)
+                drawSprite(canvas, s, x, y + hPx / 2, hPx, false, cloudTones, alpha, spritePaint, dst)
                 if (state.showBoxes) canvas.drawRect(dst, boxPaint)
             }
         }
     }
 
-    private fun drawLayer(canvas: Canvas, i: Int, p: Palette, tilesOk: Boolean) {
-        val l = layers[i]
-        val offU = state.distanceU * l.speed
-        if (tilesOk) {
-            drawTiles(canvas, i, l)
-            return
+    private fun drawCountry(canvas: Canvas, p: Palette) {
+        val tilesOk = appliedMode == RenderMode.TILES && ensureTiles()
+        for (i in layers.indices) {
+            val l = layers[i]
+            val offU = state.distanceU * l.speed
+            if (tilesOk) {
+                drawTiles(canvas, i, l)
+                continue
+            }
+            drawTerrain(canvas, i, offU, layerColor(l, p), l.mist, p)
+            if (i == Scenery.NEAR) {
+                computeTones(mix(p.c[Palette.NEAR], p.c[Palette.TREE], .45f), .8f, p, fringeTones)
+                drawFringe(canvas, l, offU, 34.0, 8f, 15f, 303, 0f, fringeTones)
+            }
+            val rule = l.objects ?: continue
+            val tones = if (i == Scenery.MID) midTones else nearTones
+            computeTones(spriteColor(l, p), if (l.spriteHaze > 0f) .6f else 1f, p, tones)
+            drawObjects(canvas, l, rule, offU, tones, p)
         }
+        drawBed(canvas, p)
+    }
+
+    /** 도시: 먼 산 → 고층빌딩 → 아파트 단지 → 상가·가로수 → 방음벽. */
+    private fun drawCity(canvas: Canvas, p: Palette) {
+        val d = state.distanceU
+        val farA = layers[Scenery.FAR_A]
+        val near = layers[Scenery.NEAR]
+        drawTerrain(canvas, Scenery.FAR_A, d * farA.speed, mix(p.c[Palette.FAR], p.c[Palette.HAZE], .55f), farA.mist, p)
+        val fb = mix(desaturate(p.c[Palette.FAR], .55f), p.c[Palette.HAZE], .4f)
+        drawCityLayer(canvas, CityScenery.far, d * CityScenery.far.speed, fb, mix(fb, p.c[Palette.HAZE], .1f), p)
+        val mb = mix(desaturate(p.c[Palette.MID], .7f), p.c[Palette.FAR], .15f)
+        drawCityLayer(canvas, CityScenery.mid, d * CityScenery.mid.speed, mb, mix(mb, p.c[Palette.TOP], .12f), p)
+        val nb = desaturate(p.c[Palette.NEAR], .45f)
+        val nearOff = d * near.speed
+        drawTerrain(canvas, Scenery.NEAR, nearOff, nb, 0f, p)
+        drawCityLayer(canvas, CityScenery.near, d * CityScenery.near.speed, mix(desaturate(p.c[Palette.MID], .6f), nb, .35f), 0, p)
+        computeTones(mix(nb, p.c[Palette.TREE], .45f), .8f, p, fringeTones)
+        drawFringe(canvas, near, nearOff, 40.0, 7f, 13f, 303, 0f, fringeTones)
+        computeTones(p.c[Palette.TREE], 1f, p, nearTones)
+        drawObjects(canvas, near, Scenery.cityStreetTrees, nearOff, nearTones, p)
+        drawBed(canvas, p)
+        drawBarrier(canvas, p)
+    }
+
+    private fun drawTerrain(canvas: Canvas, i: Int, offU: Double, col: Int, mist: Float, p: Palette) {
+        val l = layers[i]
         val paint = layerPaints[i]
-        updateLayerPaint(i, l, p, paint)
+        updateLayerPaint(i, l, col, mist, p, paint)
         if (appliedMode == RenderMode.BAKED) {
             bakers[i].draw(canvas, offU, paint, frameCount)
         } else {
             drawTerrainSpan(canvas, l, offU, 0f, layout.w.toFloat(), paint)
         }
-        l.objects?.let { drawObjects(canvas, l, it, offU, p) }
     }
 
-    private fun updateLayerPaint(i: Int, l: TerrainLayer, p: Palette, paint: Paint) {
-        val col = layerColor(l, p)
-        if (l.mist <= 0f) {
+    private fun updateLayerPaint(i: Int, l: TerrainLayer, col: Int, mist: Float, p: Palette, paint: Paint) {
+        if (mist <= 0f) {
             paint.shader = null
             paint.color = col
+            layerKeyA[i] = 0
+            layerKeyB[i] = 0
             return
         }
-        val end = mix(col, p.c[Palette.HAZE], l.mist)
+        val end = mix(col, p.c[Palette.HAZE], mist)
         if (col == layerKeyA[i] && end == layerKeyB[i]) return
         layerKeyA[i] = col
         layerKeyB[i] = end
@@ -353,12 +400,11 @@ class SceneRenderer(private val state: SceneState) {
         canvas.drawPath(path, paint)
     }
 
-    private fun drawObjects(canvas: Canvas, l: TerrainLayer, rule: ObjectRule, offU: Double, p: Palette) {
+    private fun drawObjects(canvas: Canvas, l: TerrainLayer, rule: ObjectRule, offU: Double, tones: IntArray, p: Palette) {
         val u = layout.u
         val c = rule.chunkUnits
         val k0 = floor(offU / c).toInt() - 1
         val k1 = floor((offU + layout.w / u) / c).toInt() + 1
-        spritePaint.color = spriteColor(l, p)
         val lit = p.f[Palette.LIT]
         val w = layout.w.toFloat()
         for (k in k0..k1) {
@@ -367,11 +413,11 @@ class SceneRenderer(private val state: SceneState) {
                 Placement.place(l, rule, k, j, sprites, placed)
                 val s = placed.sprite
                 val hPx = placed.heightU * u
-                val half = s.mask.width * hPx / s.mask.height / 2
+                val half = s.base.width * hPx / s.base.height / 2
                 val cx = ((placed.wx - offU) * u).toFloat()
                 if (cx + half < 0 || cx - half > w) continue
                 val yb = terrainY(l, placed.wx) + rule.sink * u
-                drawSprite(canvas, s, cx, yb, hPx, placed.flip, spritePaint, dst)
+                drawSprite(canvas, s, cx, yb, hPx, placed.flip, tones, 255, spritePaint, dst)
                 if (state.showBoxes) canvas.drawRect(dst, boxPaint)
                 if (lit > .02f && s.windows != null) {
                     drawWindows(canvas, s, placed.key, cx, yb, hPx, placed.flip, lit, windowPaint)
@@ -386,30 +432,198 @@ class SceneRenderer(private val state: SceneState) {
         groundPaint.color = p.c[Palette.GROUND]
         canvas.drawRect(0f, by, layout.w.toFloat(), layout.h + 1f, groundPaint)
 
-        tuftPaint.color = p.c[Palette.GROUND]
-        tuftPaint.strokeWidth = 1.3f * u
-        val off = state.distanceU * Scenery.BED_SPEED
-        val c = 22.0
-        val k0 = floor(off / c).toInt() - 1
-        val k1 = floor((off + layout.w / u) / c).toInt() + 1
-        var count = 0
-        loop@ for (k in k0..k1) {
-            val n = (hash01(k, 301) * 4).toInt()
+        computeTones(p.c[Palette.GROUND], .7f, p, bedTones)
+        drawFringe(canvas, null, state.distanceU * Scenery.BED_SPEED, 26.0, 9f, 16f, 311, by, bedTones)
+    }
+
+    /** 풀 다발을 늘어놓아 지형 경계선이나 선로 가장자리의 매끈한 선을 깬다. layer가 null이면 bedY에 놓는다. */
+    private fun drawFringe(
+        canvas: Canvas, layer: TerrainLayer?, offU: Double, chunkU: Double,
+        minH: Float, maxH: Float, seed: Int, bedY: Float, tones: IntArray,
+    ) {
+        val u = layout.u
+        val w = layout.w.toFloat()
+        val k0 = floor(offU / chunkU).toInt() - 1
+        val k1 = floor((offU + layout.w / u) / chunkU).toInt() + 1
+        val tufts = sprites.tufts
+        for (k in k0..k1) {
+            val n = 1 + (hash01(k, seed) * 3).toInt()
             for (j in 0 until n) {
-                if (count >= MAX_TUFTS) break@loop
                 val key = k * 8 + j
-                val x = (((k + hash01(key, 302)) * c - off) * u).toFloat()
-                val hh = (4 + hash01(key, 303) * 10).toFloat() * u
-                val lean = ((hash01(key, 304) - .5) * 5).toFloat() * u
-                val o = count * 4
-                tuftPts[o] = x
-                tuftPts[o + 1] = by + u
-                tuftPts[o + 2] = x + lean
-                tuftPts[o + 3] = by - hh
-                count++
+                val wx = (k + hash01(key, seed + 1)) * chunkU
+                val x = ((wx - offU) * u).toFloat()
+                if (x < -40 * u || x > w + 40 * u) continue
+                val hPx = (minH + hash01(key, seed + 2) * (maxH - minH)).toFloat() * u
+                val y = (if (layer != null) terrainY(layer, wx) else bedY) + 2 * u
+                drawSprite(canvas, tufts[(hash01(key, seed + 3) * tufts.size).toInt()], x, y, hPx, false, tones, 255, spritePaint, dst)
             }
         }
-        canvas.drawLines(tuftPts, 0, count * 4, tuftPaint)
+    }
+
+    /**
+     * 도시 건물 레이어. 조각마다 건물 1~3채를 결정적으로 배치하고, 정면·그늘진 옆면·옥상 구조물·
+     * 층 줄무늬를 직사각형으로 그린다. 밤에는 창문 불빛을 점(drawPoints) 묶음으로 한 번에 그린다.
+     * @param ground 0이 아니면 건물 아래를 이 색으로 채운다.
+     */
+    private fun drawCityLayer(canvas: Canvas, layer: CityLayer, offU: Double, base: Int, ground: Int, p: Palette) {
+        val u = layout.u
+        val c = layer.chunkUnits
+        val k0 = floor(offU / c).toInt() - 1
+        val k1 = floor((offU + layout.w / u) / c).toInt() + 1
+        val yb = layout.yAt(layer.base) + 2 * u
+        val sunlight = mix(p.c[Palette.SUN], p.c[Palette.BOT], .5f)
+        val top = p.c[Palette.TOP]
+        val lit = p.f[Palette.LIT]
+        val w = layout.w.toFloat()
+        val s = layer.seed
+        val fl = layer.floorU * u
+        val cw = layer.colU * u
+        for (k in k0..k1) {
+            val dense = valueNoise(k * .05 + .2, s + 9)
+            val n = 1 + (hash01(k, s) * layer.perChunk).toInt()
+            val aptH = 40 + hash01(k, s + 7) * 22
+            val isApt = layer.apt > 0f && valueNoise(k * .08 + .5, s + 11) < layer.apt
+            for (j in 0 until n) {
+                val key = k * 8 + j
+                val r1 = hash01(key, s + 1)
+                val r2 = hash01(key, s + 2)
+                val r3 = hash01(key, s + 3)
+                val r4 = hash01(key, s + 4)
+                val r5 = hash01(key, s + 5)
+                val bw: Double
+                val bh: Double
+                if (isApt) {
+                    bw = 54 + r2 * 36
+                    bh = aptH * (.92 + r3 * .16)
+                } else {
+                    bw = layer.minW + r2 * (layer.maxW - layer.minW)
+                    bh = (layer.minH + r3.pow(1.6) * (layer.maxH - layer.minH)) * (.55 + dense * .9)
+                }
+                val x = (((k + r1) * c - offU) * u).toFloat()
+                val bwPx = (bw * u).toFloat()
+                val bhPx = (bh * u).toFloat()
+                if (x + bwPx < 0 || x > w) continue
+                val yt = yb - bhPx
+                val col = mix(base, if (r5 > .5) sunlight else top, (abs(r5 - .5) * .22).toFloat())
+                val side = mix(col, top, .32f)
+                val sw = min(bwPx * .2f, 7 * u)
+
+                bldgPaint.color = col
+                canvas.drawRect(x, yt, x + bwPx, yb, bldgPaint)
+                if (layer.style != WindowStyle.SHOP) {
+                    if (!isApt && r4 < .16 && bh > 55) {
+                        // 첨탑·안테나
+                        canvas.drawRect(x + bwPx * .5f - .7f * u, yt - 14 * u, x + bwPx * .5f + .7f * u, yt, bldgPaint)
+                    } else if (!isApt && r4 < .42) {
+                        // 계단식 옥상
+                        val sx = x + bwPx * .18f
+                        val swd = bwPx * .62f
+                        val sh = min(10 * u, bhPx * .12f)
+                        canvas.drawRect(sx, yt - sh, sx + swd, yt, bldgPaint)
+                        bldgPaint.color = side
+                        canvas.drawRect(sx, yt - sh, sx + min(swd * .2f, 5 * u), yt, bldgPaint)
+                    } else {
+                        // 옥탑·물탱크
+                        val rx = x + bwPx * if (isApt) .08f else .62f
+                        canvas.drawRect(rx, yt - 3.5f * u, rx + bwPx * if (isApt) .14f else .2f, yt, bldgPaint)
+                    }
+                }
+                bldgPaint.color = side
+                canvas.drawRect(x, yt, x + sw, yb, bldgPaint)
+                bldgPaint.color = mix(col, sunlight, .28f)
+                canvas.drawRect(x + sw, yt, x + bwPx, yt + max(1f, .8f * u), bldgPaint)
+
+                val floors = ((bhPx - 2 * u) / fl).toInt()
+                val cols = max(1, ((bwPx - sw - 2 * u) / cw).toInt())
+                val x0 = x + sw + (bwPx - sw - cols * cw) / 2
+                if (layer.style != WindowStyle.DOTS && floors > 0) {
+                    bldgPaint.color = mix(col, p.c[Palette.BOT], .16f)
+                    bldgPaint.alpha = ((1 - min(1f, lit) * .6f) * 255).toInt()
+                    for (f in 0 until floors) {
+                        val sy = yt + 2 * u + f * fl + fl * .3f
+                        canvas.drawRect(x0, sy, x0 + cols * cw, sy + max(1f, fl * .2f), bldgPaint)
+                    }
+                }
+                if (layer.style == WindowStyle.SHOP) {
+                    val sg = CityScenery.signs[(r4 * CityScenery.signs.size).toInt()]
+                    bldgPaint.color = if (lit > .02f) mix(mix(sg, col, .6f), sg, lit) else mix(sg, col, .62f)
+                    canvas.drawRect(x + sw + u, yb - fl * 1.35f, x + bwPx - u, yb - fl * .8f, bldgPaint)
+                }
+                if (lit > .02f && floors > 0) drawLitWindows(canvas, layer.style, key, floors, cols, x0, yt, fl, cw, isApt, lit)
+            }
+        }
+        if (ground != 0) {
+            bldgPaint.color = ground
+            canvas.drawRect(0f, yb - u, w, layout.h.toFloat(), bldgPaint)
+        }
+    }
+
+    /** 창문 불빛. 건물마다 따뜻한 색·흰색 두 묶음의 점으로 그려 그리기 호출 수를 줄인다. */
+    private fun drawLitWindows(
+        canvas: Canvas, style: WindowStyle, key: Int, floors: Int, cols: Int,
+        x0: Float, yt: Float, fl: Float, cw: Float, isApt: Boolean, lit: Float,
+    ) {
+        val u = layout.u
+        val threshold = lit * if (isApt) .5f else .4f
+        var nWarm = 0
+        var nCool = 0
+        for (f in 0 until floors) {
+            if (hash01(key * 31 + f, 4) > .86) continue // 통째로 꺼진 층
+            val cy = yt + 2 * u + f * fl + fl / 2
+            for (c in 0 until cols) {
+                val hv = hash01(key * 131 + f * 17 + c, 3)
+                if (hv >= threshold) continue
+                val cx = x0 + c * cw + cw / 2
+                if ((hv * 97) % 1 < .7) {
+                    if (nWarm < MAX_WINDOWS) {
+                        warmPts[nWarm * 2] = cx
+                        warmPts[nWarm * 2 + 1] = cy
+                        nWarm++
+                    }
+                } else if (nCool < MAX_WINDOWS) {
+                    coolPts[nCool * 2] = cx
+                    coolPts[nCool * 2 + 1] = cy
+                    nCool++
+                }
+            }
+        }
+        litPaint.strokeWidth = when (style) {
+            WindowStyle.DOTS -> max(1f, .9f * u)
+            WindowStyle.GRID -> 1.7f * u
+            WindowStyle.SHOP -> 2.2f * u
+        }
+        val alpha = (min(1f, lit * 1.1f) * 255).toInt()
+        if (nWarm > 0) {
+            litPaint.color = WINDOW_COLOR
+            litPaint.alpha = alpha
+            canvas.drawPoints(warmPts, 0, nWarm * 2, litPaint)
+        }
+        if (nCool > 0) {
+            litPaint.color = WINDOW_COOL
+            litPaint.alpha = alpha
+            canvas.drawPoints(coolPts, 0, nCool * 2, litPaint)
+        }
+    }
+
+    /** 선로 옆 방음벽: 반투명 판, 위아래 레일, 빠르게 지나가는 기둥. */
+    private fun drawBarrier(canvas: Canvas, p: Palette) {
+        val u = layout.u
+        val by = layout.yAt(.93f)
+        val top = by - 24 * u
+        val w = layout.w.toFloat()
+        bldgPaint.color = Color.argb(((.10f + .06f * (1 - p.f[Palette.LIT])) * 255).toInt(), 220, 232, 240)
+        canvas.drawRect(0f, top, w, by, bldgPaint)
+        bldgPaint.color = mix(p.c[Palette.POLE], p.c[Palette.HAZE], .25f)
+        canvas.drawRect(0f, top, w, top + 1.6f * u, bldgPaint)
+        canvas.drawRect(0f, by - 3 * u, w, by, bldgPaint)
+        val off = state.distanceU * Scenery.BED_SPEED
+        val spacing = 18.0
+        val i0 = floor(off / spacing).toInt() - 1
+        val i1 = floor((off + layout.w / u) / spacing).toInt() + 1
+        for (i in i0..i1) {
+            val x = ((i * spacing - off) * u).toFloat()
+            canvas.drawRect(x - .8f * u, top, x + .8f * u, by, bldgPaint)
+        }
     }
 
     private fun drawPoles(canvas: Canvas, p: Palette) {
@@ -499,7 +713,7 @@ class SceneRenderer(private val state: SceneState) {
         const val STARS = 110
         const val DROPS = 240
         const val GLASS = 28
-        const val MAX_TUFTS = 600
+        const val MAX_WINDOWS = 1024
         const val MAX_POLES = 16
         /** 창틀 이동 각속도(rad/s). 주기 약 170초, 230초. */
         const val DRIFT_X = 2 * PI / 170

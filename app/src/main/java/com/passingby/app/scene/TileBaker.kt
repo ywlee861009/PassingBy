@@ -82,7 +82,8 @@ internal object TileBaker {
                 canvas.drawPath(path, fill)
 
                 l.objects?.let { rule ->
-                    spritePaint.color = spriteColor(l, pal)
+                    val tones = IntArray(4)
+                    computeTones(spriteColor(l, pal), if (l.spriteHaze > 0f) .6f else 1f, pal, tones)
                     val lit = pal.f[Palette.LIT]
                     val base = v * VARIANT_OFFSET_U
                     val k0 = floor(base / rule.chunkUnits).toInt()
@@ -93,13 +94,13 @@ internal object TileBaker {
                             Placement.place(l, rule, k, j, sprites, placed)
                             val local = placed.wx - base
                             val hPx = placed.heightU * layout.u
-                            val m = placed.sprite.mask
+                            val m = placed.sprite.base
                             val halfU = m.width * hPx / m.height / 2 / layout.u
                             // 타일 끝에 걸치는 사물은 잘리므로 뺀다(실제 아트 작업에서도 같은 제약이 생긴다).
                             if (local - halfU < 0 || local + halfU > periodU) continue
                             val cx = (local * layout.u).toFloat()
                             val yb = periodicY(l, layout, v, local, periodU) + rule.sink * layout.u - top
-                            drawSprite(canvas, placed.sprite, cx, yb, hPx, placed.flip, spritePaint, dst)
+                            drawSprite(canvas, placed.sprite, cx, yb, hPx, placed.flip, tones, 255, spritePaint, dst)
                             if (lit > .02f && placed.sprite.windows != null) {
                                 drawWindows(canvas, placed.sprite, placed.key, cx, yb, hPx, placed.flip, lit, windowPaint)
                             }
