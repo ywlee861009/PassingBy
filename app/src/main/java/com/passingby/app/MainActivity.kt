@@ -11,6 +11,7 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.ViewModelProvider
+import com.passingby.app.content.Course
 import com.passingby.app.scene.SceneKind
 import com.passingby.app.scene.TimeOfDay
 import com.passingby.app.scene.Weather
@@ -36,6 +37,7 @@ class MainActivity : ComponentActivity() {
 
     /**
      * 개발용 실행 옵션(개발 도구가 켜진 빌드에서만). 화면을 누르지 않고 상태를 정해 확인할 때 쓴다.
+     * - course: korea | japan | china-north | china-south | portugal | france
      * - scene: COUNTRY | CITY (생략하면 여정을 따름)
      * - time: DAWN | DAY | DUSK | NIGHT (생략하면 실제 시각)
      * - weather: CLEAR | DRIZZLE | SHOWER | LIGHT_SNOW | HEAVY_SNOW
@@ -44,6 +46,7 @@ class MainActivity : ComponentActivity() {
      */
     private fun applyDebugExtras(i: Intent) {
         val vm = ViewModelProvider(this)[JourneyViewModel::class.java]
+        i.getStringExtra("course")?.let { id -> vm.forceCourse(Course.byId(id)) }
         i.getStringExtra("scene")?.let { n -> SceneKind.entries.firstOrNull { it.name == n }?.let(vm::selectLand) }
         i.getStringExtra("time")?.let { n -> TimeOfDay.entries.firstOrNull { it.name == n }?.let(vm::selectTime) }
         i.getStringExtra("weather")?.let { n -> Weather.entries.firstOrNull { it.name == n }?.let(vm::selectWeather) }

@@ -382,7 +382,31 @@ class JourneyViewModel(app: Application) : AndroidViewModel(app) {
         weather = WeatherDirector(weatherSeed, course.snowy)
     }
 
+    /** 코스를 바꾼다. 정차 중에만 되고, 새 코스의 출발역으로 순간 이동한다. */
+    fun selectCourse(c: Course) {
+        if (phase != TripPhase.DOCKED || c == course) return
+        course = c
+        store.courseId = c.id
+        direction = 1
+        store.direction = 1
+        baseDistance = 0.0
+        restDone = false
+        rebuildPlan()
+        clock.seek(0.0, 0.0)
+        cutTick++
+        save()
+    }
+
     // ── 개발용 ──
+
+    /** 개발용: 여행 중이어도 끊고 코스를 바꾼다. */
+    fun forceCourse(c: Course) {
+        if (moving() || phase == TripPhase.ARRIVED || phase == TripPhase.RESTING) {
+            phase = TripPhase.DOCKED
+            clock.seek(0.0, 0.0)
+        }
+        selectCourse(c)
+    }
 
     fun selectLand(k: SceneKind?) {
         land = k

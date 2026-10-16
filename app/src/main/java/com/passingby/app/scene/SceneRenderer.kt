@@ -633,7 +633,7 @@ class SceneRenderer(private val state: SceneState) {
         for (k in k0..k1) {
             val dense = valueNoise(k * .05 + .2, s + 9)
             val n = 1 + (hash01(k, s) * layer.perChunk).toInt()
-            val aptH = 40 + hash01(k, s + 7) * 22
+            val aptH = layer.aptH + hash01(k, s + 7) * layer.aptVar
             val isApt = layer.apt > 0f && valueNoise(k * .08 + .5, s + 11) < layer.apt
             for (j in 0 until n) {
                 val key = k * 8 + j
@@ -656,7 +656,8 @@ class SceneRenderer(private val state: SceneState) {
                 val bhPx = (bh * u).toFloat()
                 if (x + bwPx < 0 || x > w) continue
                 val yt = yb - bhPx
-                val col = mix(base, if (r5 > .5) sunlight else top, (abs(r5 - .5) * .22).toFloat())
+                val tone = layer.facades?.let { f -> themed(f[(hash01(key, s + 8) * f.size).toInt()], p, .25f) } ?: base
+                val col = mix(tone, if (r5 > .5) sunlight else top, (abs(r5 - .5) * .22).toFloat())
                 val side = mix(col, top, .32f)
                 val sw = min(bwPx * .2f, 7 * u)
 
@@ -881,7 +882,8 @@ class SceneRenderer(private val state: SceneState) {
 
     /** 테마 색(벽·지붕·밭)을 하늘 팔레트에 섞는다. 낮에는 안개 쪽으로 조금, 밤에는 어둡게, 멀수록 안개색. */
     private fun themed(color: Int, p: Palette, haze: Float): Int {
-        val night = p.f[Palette.STARS]
+        // 노을·새벽에는 불빛(LIT)이 들어오는 만큼 어둑하게 본다.
+        val night = max(p.f[Palette.STARS], p.f[Palette.LIT] * .6f)
         val ambient = mix(p.c[Palette.HAZE], p.c[Palette.TREE], night)
         return mix(mix(color, ambient, .22f + .58f * night), p.c[Palette.HAZE], haze)
     }
@@ -1060,17 +1062,22 @@ class SceneRenderer(private val state: SceneState) {
                 }
             }
             FieldStyle.TEA -> {
-                // 차밭: 둥글게 다듬은 차나무 줄.
-                paint.color = themed(Color.rgb(70, 64, 48), p, 0f)
+                // 차밭: 선로와 나란한 차나무 줄. 줄 윗면이 둥글게 물결지고, 줄 사이 고랑은 그늘.
+                paint.color = themed(Color.rgb(34, 64, 36), p, 0f)
                 canvas.drawRect(x0, top, x1, bot, paint)
                 for (r in 0..2) {
-                    val y = top + hgt * (.06f + r * .32f)
-                    val rh = hgt * .26f
-                    paint.color = themed(if (r % 2 == 0) Color.rgb(54, 102, 52) else Color.rgb(64, 116, 58), p, 0f)
-                    dst.set(x0 + 1.5f * u, y, x1 - 1.5f * u, y + rh)
-                    canvas.drawRoundRect(dst, rh / 2, rh / 2, paint)
-                    paint.color = themed(Color.rgb(120, 168, 92), p, 0f)
-                    canvas.drawRect(x0 + 4 * u, y + rh * .1f, x1 - 4 * u, y + rh * .1f + max(1f, .7f * u), paint)
+                    val y = top + hgt * (.04f + r * .33f)
+                    val rh = hgt * .27f
+                    val bump = rh * .32f
+                    paint.color = themed(if (r % 2 == 0) Color.rgb(78, 132, 62) else Color.rgb(88, 144, 70), p, 0f)
+                    canvas.drawRect(x0, y + bump, x1, y + rh, paint)
+                    var x = x0 + bump
+                    while (x < x1) {
+                        canvas.drawCircle(x, y + bump, bump, paint)
+                        x += bump * 1.8f
+                    }
+                    paint.color = themed(Color.rgb(140, 190, 104), p, 0f)
+                    canvas.drawRect(x0, y + bump * .9f, x1, y + bump * .9f + max(1f, .6f * u), paint)
                 }
             }
             FieldStyle.VINE -> {
@@ -1223,7 +1230,12 @@ class SceneRenderer(private val state: SceneState) {
         val u = layout.u
         val w = layout.w.toFloat()
         val d = state.distanceU
-        val col = mix(layerColor(l, p), p.c[Palette.TOP], .14f)
+        // 먼 랜드마크는 레이어 색(안개)을 따르고, 중경 탑·다리는 목재·철재처럼 어둡게.
+        val col = if (layerIndex == Scenery.MID) {
+            themed(Color.rgb(66, 56, 52), p, .2f)
+        } else {
+            mix(layerColor(l, p), p.c[Palette.TOP], .14f)
+        }
         for (lm in list) {
             if (lm.kind.layer != layerIndex) continue
             val lx = (lm.x - d) * l.speed + halfWU
@@ -1360,7 +1372,8 @@ class SceneRenderer(private val state: SceneState) {
         val u = layout.u
         val w = layout.w.toFloat()
         val h = layout.h.toFloat()
-        val top = layout.yAt(.93f) - 15 * u
+        // 낮게 둬서 고가 아래로 펼쳐진 밭이 보이게 한다.
+        val top = layout.yAt(.955f)
         platformPaint.color = themed(Color.rgb(176, 172, 164), p, 0f)
         canvas.drawRect(0f, top, w, h, platformPaint)
         platformPaint.color = themed(Color.rgb(206, 202, 194), p, 0f)

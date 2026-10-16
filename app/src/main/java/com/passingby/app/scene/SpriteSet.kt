@@ -17,7 +17,7 @@ import kotlin.math.pow
 import kotlin.math.sin
 import kotlin.math.sqrt
 
-enum class SpriteKind { PINE, ROUND, POPLAR, BUSH, REED }
+enum class SpriteKind { PINE, ROUND, POPLAR, BUSH, REED, BAMBOO, CYPRESS }
 
 /**
  * 단색 알파 마스크(ALPHA_8) 스프라이트.
@@ -48,6 +48,8 @@ class SpriteSet {
     val clouds = Array(4) { cloud(501 + it) }
     val reeds = Array(4) { tuft(601 + it, tall = true) }
     val tufts = Array(6) { tuft(701 + it, tall = false) }
+    val bamboos = Array(4) { bamboo(801 + it) }
+    val cypresses = Array(4) { cypress(901 + it) }
     val houses = arrayOf(
         house(floatArrayOf(26f, 46f, 10f, 10f, 64f, 46f, 10f, 10f)) { c ->
             c.drawRect(14f, 34f, 86f, 80f, fill)
@@ -70,9 +72,11 @@ class SpriteSet {
         SpriteKind.POPLAR -> poplars
         SpriteKind.BUSH -> bushes
         SpriteKind.REED -> reeds
+        SpriteKind.BAMBOO -> bamboos
+        SpriteKind.CYPRESS -> cypresses
     }
 
-    val bytes: Long = listOf(pines, rounds, poplars, bushes, clouds, reeds, tufts, houses).sumOf { arr ->
+    val bytes: Long = listOf(pines, rounds, poplars, bushes, clouds, reeds, tufts, houses, bamboos, cypresses).sumOf { arr ->
         arr.sumOf { s ->
             s.base.allocationByteCount.toLong() + (s.dark?.allocationByteCount ?: 0) + (s.light?.allocationByteCount ?: 0)
         }
@@ -308,6 +312,52 @@ private fun poplar(seed: Int) = shaded(64, 240) { b, l, d, base, w, h ->
     leftSide(d, cx, h, r, 3f)
     restrict(d, base)
     rim(l, base, -4f, 2f)
+}
+
+/** 대나무 덤불: 가늘게 휘는 줄기 여러 대와 위쪽에 몰린 길쭉한 잎. */
+private fun bamboo(seed: Int) = shaded(110, 240) { b, l, d, base, w, h ->
+    val r = SeqRandom(seed)
+    val n = 7 + (r.next() * 4).toInt()
+    for (i in 0 until n) {
+        val x = w / 2 + (r.next() - .5f) * w * .45f
+        val top = h * (.04f + r.next() * .2f)
+        val lean = (r.next() - .5f) * 26
+        stroke.strokeWidth = 2.2f + r.next() * 1.4f
+        val culm = Path().apply {
+            moveTo(x, h)
+            quadTo(x + lean * .2f, (h + top) / 2, x + lean, top)
+        }
+        b.drawPath(culm, stroke)
+        val leaves = 7 + (r.next() * 5).toInt()
+        for (j in 0 until leaves) {
+            val t = r.next() * .62f
+            val ly = top + t * (h - top)
+            val lx = x + lean * (1 - t) + (r.next() - .5f) * 30
+            val g = if (r.next() < .4f) d else b
+            g.save()
+            g.rotate((r.next() - .5f) * 70, lx, ly)
+            g.drawOval(lx - 11, ly - 3.2f, lx + 11, ly + 3.2f, fill)
+            g.restore()
+        }
+    }
+    restrict(d, base)
+    rim(l, base, -4f, 3f)
+}
+
+/** 사이프러스: 위가 뾰족한 촛불 모양으로 좁게 쌓은 잎 뭉치. */
+private fun cypress(seed: Int) = shaded(56, 240) { b, l, d, base, w, h ->
+    val r = SeqRandom(seed)
+    val cx = w / 2
+    b.drawRect(cx - 2f, h - 16, cx + 2f, h, fill)
+    for (i in 0 until 16) {
+        val t = i / 15f
+        val y = 6 + t * (h - 30)
+        val prof = sin(t.pow(.55f) * PI.toFloat() * .96f)
+        blob(b, cx + (r.next() - .5f) * 3, y, (2.5f + prof * 13) * (.9f + r.next() * .2f), r, .2f)
+    }
+    leftSide(d, cx, h, r, 2.5f)
+    restrict(d, base)
+    rim(l, base, -3f, 2f)
 }
 
 private fun bush(seed: Int) = shaded(130, 60) { b, l, d, base, w, h ->

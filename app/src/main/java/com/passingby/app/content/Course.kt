@@ -80,6 +80,23 @@ class Course(
                 Station("오사카", "大阪", "Ōsaka"),
             ),
             FAST, null, snowy = true,
+            features = listOf(
+                Feature(Feature.Kind.TUNNEL, 0, .3f, .318f),
+                // 사가미 만 해안, 후지산을 지나 시즈오카 차밭.
+                Feature(Feature.Kind.SEA, 0, .38f, .52f),
+                Feature(Feature.Kind.FIELD, 0, .7f, .94f, FieldStyle.TEA),
+                Feature(Feature.Kind.FIELD, 1, .08f, .3f, FieldStyle.TEA),
+                // 하마나 호수.
+                Feature(Feature.Kind.RIVER, 1, .5f, .62f),
+                Feature(Feature.Kind.FIELD, 1, .7f, .86f, FieldStyle.PADDY),
+                Feature(Feature.Kind.FIELD, 2, .25f, .72f, FieldStyle.PADDY),
+                Feature(Feature.Kind.FIELD, 3, .28f, .6f, FieldStyle.PADDY),
+            ),
+            landmarks = listOf(
+                LandmarkSpot(LandmarkKind.FUJI, 0, .62f),
+                // 교토에 서면 왼쪽에 오층탑.
+                LandmarkSpot(LandmarkKind.PAGODA, 2, .994f),
+            ),
         )
         val CHINA_NORTH = Course(
             "china-north", 3, "중국 북부", "고속열차",
@@ -90,6 +107,18 @@ class Course(
                 Station("상하이", "上海", "Shànghǎi"),
             ),
             FAST, "course_china_north", snowy = true,
+            features = listOf(
+                Feature(Feature.Kind.FIELD, 0, .2f, .8f, FieldStyle.WHEAT),
+                Feature(Feature.Kind.FIELD, 1, .2f, .55f, FieldStyle.WHEAT),
+                Feature(Feature.Kind.FIELD, 1, .6f, .8f, FieldStyle.PADDY),
+                // 난징 앞 양쯔강 대교.
+                Feature(Feature.Kind.BRIDGE, 1, .86f, .9f),
+                Feature(Feature.Kind.FIELD, 2, .2f, .38f, FieldStyle.PADDY),
+                // 타이후 호수 근처의 물길.
+                Feature(Feature.Kind.RIVER, 2, .42f, .54f),
+                Feature(Feature.Kind.FIELD, 2, .58f, .78f, FieldStyle.PADDY),
+            ),
+            landmarks = listOf(LandmarkSpot(LandmarkKind.PEARL_TOWER, 2, .985f)),
         )
         val CHINA_SOUTH = Course(
             "china-south", 4, "중국 남부", "고속열차",
@@ -99,6 +128,15 @@ class Course(
                 Station("구이양", "贵阳", "Guìyáng"),
             ),
             FAST, "course_china_south", snowy = false,
+            features = listOf(
+                Feature(Feature.Kind.FIELD, 0, .25f, .45f, FieldStyle.PADDY),
+                Feature(Feature.Kind.TUNNEL, 0, .58f, .6f),
+                Feature(Feature.Kind.FIELD, 0, .68f, .9f, FieldStyle.PADDY),
+                // 구이린을 떠나며 리강.
+                Feature(Feature.Kind.RIVER, 1, .06f, .3f),
+                Feature(Feature.Kind.FIELD, 1, .4f, .7f, FieldStyle.PADDY),
+            ),
+            landmarks = listOf(LandmarkSpot(LandmarkKind.PAGODA, 0, .99f)),
         )
         val PORTUGAL = Course(
             "portugal", 5, "포르투갈", "급행열차",

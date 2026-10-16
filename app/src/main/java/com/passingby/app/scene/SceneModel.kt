@@ -131,11 +131,13 @@ private fun karst(l: TerrainLayer, wx: Double): Double {
     var h = .12 + .1 * fbm(wx * l.freq * .5, l.seed + 3)
     for (j in k - 1..k + 1) {
         val c = (j + .2 + .6 * hash01(j, l.seed)) * cell
-        val r = cell * (.3 + .28 * hash01(j, l.seed + 1))
+        val r = cell * (.2 + .34 * hash01(j, l.seed + 1))
         val dx = abs(wx - c) / r
         if (dx >= 1) continue
-        val peak = .45 + .55 * hash01(j, l.seed + 2)
-        h = maxOf(h, peak * (1 - dx * dx).pow(.32))
+        val peak = .3 + .7 * hash01(j, l.seed + 2)
+        // 봉우리마다 옆면 가파름이 달라 탑처럼 솟은 것과 둥근 것이 섞인다.
+        val steep = .22 + .3 * hash01(j, l.seed + 4)
+        h = maxOf(h, peak * (1 - dx * dx).pow(steep))
     }
     return h
 }
@@ -227,6 +229,11 @@ class CityLayer(
     val floorU: Float,
     val colU: Float,
     val apt: Float = 0f,
+    /** 아파트 단지 높이(단위)와 그 변화 폭. */
+    val aptH: Float = 40f,
+    val aptVar: Float = 22f,
+    /** 건물 바탕색 후보. 있으면 팔레트 색과 섞어 건물마다 다른 외벽색을 준다(파스텔 시가지 등). */
+    val facades: IntArray? = null,
 )
 
 object CityScenery {

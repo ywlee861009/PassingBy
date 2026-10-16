@@ -24,6 +24,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.passingby.app.content.Course
 import com.passingby.app.scene.RenderMode
 import com.passingby.app.scene.SceneKind
 import com.passingby.app.scene.TimeOfDay
@@ -53,7 +54,12 @@ fun DevPanel(vm: JourneyViewModel, onInteract: () -> Unit, modifier: Modifier = 
             Chip("구조", vm.boxes) { vm.toggleBoxes(); onInteract() }
         }
         ChipRow {
-            Chip("실시간", vm.fixedTime == null) { vm.selectTime(null); onInteract() }
+            for (c in Course.ALL) {
+                Chip("${c.number} ${c.region}", vm.course == c) { vm.forceCourse(c); onInteract() }
+            }
+        }
+        ChipRow {
+            Chip("순환", vm.fixedTime == null) { vm.selectTime(null); onInteract() }
             for (t in TimeOfDay.entries) {
                 Chip(t.label, vm.fixedTime == t) { vm.selectTime(t); onInteract() }
             }
