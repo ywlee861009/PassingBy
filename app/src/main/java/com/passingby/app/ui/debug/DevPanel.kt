@@ -59,11 +59,13 @@ fun DevPanel(vm: JourneyViewModel, onInteract: () -> Unit, modifier: Modifier = 
             }
         }
         ChipRow {
+            Chip("무작위", vm.fixedWeather == null) { vm.selectWeather(null); onInteract() }
             for (w in Weather.entries) {
-                Chip(w.label, vm.weather == w) { vm.selectWeather(w); onInteract() }
+                Chip(w.label, vm.fixedWeather == w) { vm.selectWeather(w); onInteract() }
             }
         }
         ChipRow {
+            Chip("다음 역 직전", false) { vm.seekNextStop(); onInteract() }
             Chip("도착 20초 전", false) { vm.seekNearEnd(); onInteract() }
             Chip("쉬는 시간 끝", false) { vm.skipRest(); onInteract() }
             Gap()

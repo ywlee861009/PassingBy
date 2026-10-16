@@ -257,11 +257,14 @@ fun JourneyScreen(vm: JourneyViewModel = viewModel()) {
             modifier = cardModifier.onSizeChanged { cardSize = it },
         ) {
             val paper = Color(vm.paper)
+            val terminus = vm.stations.last().name
             when (phase) {
-                TripPhase.ARRIVED -> ArrivalCard(vm.leg, vm.tripMinutes, vm.today, paper, vm::rest, vm::getOff)
-                TripPhase.RESTING -> RestCard(vm.leg, vm.minutes, vm.restLeftSec, paper, vm::depart, vm::getOff)
+                TripPhase.ARRIVED -> ArrivalCard(terminus, vm.tripMinutes, vm.today, paper, vm::rest, vm::getOff)
+                TripPhase.RESTING -> RestCard(
+                    terminus, vm.course.title(-vm.direction), vm.minutes, vm.restLeftSec, paper, vm::depart, vm::getOff,
+                )
                 else -> TicketCard(
-                    vm.leg, vm.minutes, vm.today, vm.restDone, paper, Color(vm.panel),
+                    vm.course, vm.direction, vm.minutes, vm.today, vm.restDone, paper, Color(vm.panel),
                     onMinutes = vm::selectMinutes, onDepart = vm::depart,
                 )
             }
@@ -273,6 +276,10 @@ fun JourneyScreen(vm: JourneyViewModel = viewModel()) {
             interactions++
             if (paused) vm.resume() else vm.pause()
         }
+        val ride = RideInfo(
+            vm.stations.map { it.name }, vm.stationMarks, vm.progress, vm.remainingSec,
+            vm.stoppedAt, vm.nextStop, vm.nextStopSec, paused,
+        )
         if (form == FormFactor.TABLETOP) {
             var dim by remember { mutableStateOf(false) }
             LaunchedEffect(interactions, phase) {
@@ -292,7 +299,7 @@ fun JourneyScreen(vm: JourneyViewModel = viewModel()) {
                     .fillMaxWidth()
                     .graphicsLayer { this.alpha = alpha },
             ) {
-                TabletopPanel(vm.leg, vm.remainingSec, vm.progress, paused, togglePause, onClose = { confirmEnd = true })
+                TabletopPanel(ride, togglePause, onClose = { confirmEnd = true })
             }
         } else {
             AnimatedVisibility(
@@ -308,7 +315,7 @@ fun JourneyScreen(vm: JourneyViewModel = viewModel()) {
                         .padding(CARD_MARGIN),
                 ) {
                     Row(Modifier.align(Alignment.TopCenter).fillMaxWidth()) {
-                        Capsule(vm.leg.title)
+                        Capsule(vm.course.title(vm.direction))
                         Spacer(Modifier.weight(1f))
                         CloseButton({
                             interactions++
@@ -317,12 +324,12 @@ fun JourneyScreen(vm: JourneyViewModel = viewModel()) {
                     }
                     if (form == FormFactor.PORTRAIT) {
                         StackedPanel(
-                            vm.leg, vm.remainingSec, vm.progress, paused, togglePause,
+                            ride, togglePause,
                             Modifier.align(Alignment.BottomCenter).widthIn(max = 480.dp).fillMaxWidth(),
                         )
                     } else {
                         RowPanel(
-                            vm.leg, vm.remainingSec, vm.progress, paused, togglePause,
+                            ride, togglePause,
                             Modifier.align(Alignment.BottomCenter).widthIn(max = 720.dp).fillMaxWidth(),
                         )
                     }
@@ -367,7 +374,7 @@ fun JourneyScreen(vm: JourneyViewModel = viewModel()) {
     if (confirmEnd) {
         Dialog(onDismissRequest = { confirmEnd = false }) {
             EndTripDialog(
-                vm.leg, Color(vm.paper),
+                vm.stations.first().name, Color(vm.paper),
                 onKeep = { confirmEnd = false },
                 onEnd = {
                     confirmEnd = false

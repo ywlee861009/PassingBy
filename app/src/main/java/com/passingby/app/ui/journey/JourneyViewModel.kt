@@ -17,11 +17,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.toArgb
 import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.SavedStateHandle
-import com.passingby.app.content.Leg
-import com.passingby.app.content.Route
+import com.passingby.app.content.Course
+import com.passingby.app.content.Station
+import com.passingby.app.journey.CoursePlan
 import com.passingby.app.journey.JourneyClock
-import com.passingby.app.journey.JourneyPlan
+import com.passingby.app.journey.WeatherDirector
 import com.passingby.app.perf.FrameStats
 import com.passingby.app.scene.Palette
 import com.passingby.app.scene.RenderMode
@@ -37,50 +37,62 @@ import com.passingby.app.ui.theme.Pb
 import java.util.Locale
 import kotlin.math.ceil
 import kotlin.math.min
+import kotlin.random.Random
 
 /** 열차 상태(명세 5.0). 화면을 바꾸지 않고 이 상태에 따라 창 위의 UI만 바뀐다. */
 enum class TripPhase { DOCKED, RUNNING, PAUSED, ARRIVED, RESTING }
 
 /**
- * 여행 상태 머신과 장면을 들고 있는다. 화면 회전에는 ViewModel로, 프로세스 종료에는 [SavedStateHandle]로 이어진다.
+ * 여행 상태 머신과 장면을 들고 있는다. 세션 하나가 코스 하나이고, 중간 역마다 20초 정차한다(명세 7.2).
  *
  * ```
  * DOCKED ──출발──▶ RUNNING ◀──재개── PAUSED
  *   ▲  ▲             │  └──멈추기──▶   │
  *   │  │          시간 종료          끝내기(출발역으로)
  *   │  │             ▼                  │
- *   │  └─내리기── ARRIVED ──쉬기──▶ RESTING ──쉬는 시간 끝──▶ DOCKED(도착역)
+ *   │  └─내리기── ARRIVED ──쉬기──▶ RESTING ──쉬는 시간 끝──▶ DOCKED(종착역, 역방향)
  *   └──────────────────────────────────┘
  * ```
+ *
+ * 진행 중인 여행은 [TripStore]에 저장해, 앱을 지웠다 다시 열어도(포그라운드 서비스로 계속 흐르는 동안) 이어 붙인다.
  */
-class JourneyViewModel(app: Application, private val saved: SavedStateHandle) : AndroidViewModel(app) {
+class JourneyViewModel(app: Application) : AndroidViewModel(app) {
     val scene = SceneState()
     val renderer = SceneRenderer(scene)
     private val stats = FrameStats()
     private val store = TripStore(app)
     private val clock = JourneyClock()
-    private val route: Route = Route.byId(store.routeId)
 
-    var phase by mutableStateOf(TripPhase.DOCKED)
+    var course by mutableStateOf(Course.byId(store.courseId))
         private set
-    var leg by mutableStateOf(route.legFrom(store.station, store.direction))
+    /** 1이면 정방향(서울 → 부산), −1이면 역방향. */
+    var direction by mutableIntStateOf(store.direction)
+        private set
+    var phase by mutableStateOf(TripPhase.DOCKED)
         private set
     /** 출발 카드에서 고른 집중 시간(분). */
     var minutes by mutableIntStateOf(store.minutes)
         private set
-    /** 지금 달리는(또는 방금 마친) 구간의 집중 시간(분). */
+    /** 지금 달리는(또는 방금 마친) 세션의 집중 시간(분). */
     var tripMinutes by mutableIntStateOf(store.minutes)
         private set
-    /** 도착까지 남은 초. 1초에 한 번만 바뀐다. */
+    /** 종착까지 남은 초. 1초에 한 번만 바뀐다. */
     var remainingSec by mutableIntStateOf(0)
         private set
-    /** 구간 진행(0~1). [remainingSec]와 함께 1초에 한 번 갱신한다. */
+    /** 세션 진행(0~1, 시간 기준). [remainingSec]와 함께 갱신한다. */
     var progress by mutableFloatStateOf(0f)
         private set
-    /** 쉬는 시간 남은 초. */
+    /** 지금 서 있는 중간 역 번호(정차 중이 아니면 −1). */
+    var stoppedAt by mutableIntStateOf(-1)
+        private set
+    /** 다음에 설 역 번호와 거기까지 남은 초. */
+    var nextStop by mutableIntStateOf(1)
+        private set
+    var nextStopSec by mutableIntStateOf(0)
+        private set
     var restLeftSec by mutableIntStateOf(0)
         private set
-    /** 쉬는 시간이 끝나 도착역에 서 있는 상태인지. 출발 카드 문구가 달라진다. */
+    /** 쉬는 시간이 끝나 종착역에 서 있는 상태인지. 출발 카드 문구가 달라진다. */
     var restDone by mutableStateOf(false)
         private set
     var today by mutableStateOf(store.today())
@@ -95,14 +107,21 @@ class JourneyViewModel(app: Application, private val saved: SavedStateHandle) : 
         private set
     var panel by mutableIntStateOf(0)
         private set
+    /** 진행 바에 찍을 역 위치(0~1, 시간 기준). */
+    var stationMarks by mutableStateOf(FloatArray(0))
+        private set
 
-    private var plan = JourneyPlan(tripMinutes * 60.0, route.cruise)
-    /** 지난 구간들의 누적 거리. 구간이 바뀌어도 풍경이 이어지게 다음 구간 계획을 이만큼 뒤로 민다. */
+    /** 지금 방향으로 늘어놓은 역. */
+    val stations: List<Station>
+        get() = course.ordered(direction)
+
+    private var plan = CoursePlan(tripMinutes * 60.0, course.stations.size, course.cruise)
+    /** 지난 세션들의 누적 거리. 세션이 바뀌어도 풍경이 이어지게 다음 계획을 이만큼 뒤로 민다. */
     private var baseDistance = 0.0
     private val planField = UrbanField { x -> plan.at(x - baseDistance) }
+    private var weatherSeed = Random.nextInt()
+    private var weather = WeatherDirector(weatherSeed, course.snowy)
     private var restEndReal = 0L
-    /** 개발용 빨리 감기·건너뛰기로 하늘 시각이 실제보다 앞선 만큼. 출시 빌드에서는 늘 0. */
-    private var skyShiftMs = 0.0
 
     // ── 개발용 ──
     var hud by mutableStateOf("")
@@ -115,7 +134,8 @@ class JourneyViewModel(app: Application, private val saved: SavedStateHandle) : 
         private set
     var mode by mutableStateOf(scene.mode)
         private set
-    var weather by mutableStateOf(scene.weather)
+    /** 직접 고른 날씨. null이면 무작위. */
+    var fixedWeather by mutableStateOf<Weather?>(null)
         private set
     var boxes by mutableStateOf(false)
         private set
@@ -129,40 +149,53 @@ class JourneyViewModel(app: Application, private val saved: SavedStateHandle) : 
     init {
         restore()
         applyLand()
+        applyStations()
         updateTicks(clock.seconds())
     }
 
-    /** 프레임마다 호출된다. 여정 시각으로 위치·하늘을 정하고, 상태 전환(도착·쉬는 시간 끝)을 확인한다. */
+    /** 프레임마다 호출된다. 여정 시각으로 위치·하늘·날씨를 정하고, 상태 전환(도착·쉬는 시간 끝)을 확인한다. */
     fun onFrame(intervalNanos: Long, refreshHz: Float) {
         val dt = (intervalNanos / 1e9).toFloat().coerceAtMost(.05f)
         var t = clock.seconds()
-        if ((phase == TripPhase.RUNNING || phase == TripPhase.PAUSED) && t >= plan.durationSec) {
+        if (moving() && t >= plan.durationSec) {
             arrive()
             t = plan.durationSec
         }
         if (phase == TripPhase.RESTING && SystemClock.elapsedRealtime() >= restEndReal) finishRest()
-        val tt = min(t, plan.durationSec)
+        val tt = t.coerceIn(0.0, plan.durationSec)
         scene.setTravel(baseDistance + plan.distanceAt(tt), plan.speedAt(tt) * clock.rate())
-        if (clock.scale != 1.0) skyShiftMs += (clock.scale - 1) * clock.rate() * dt * 1000
-        scene.update(dt, System.currentTimeMillis() + skyShiftMs.toLong())
+        scene.autoRain = weather.rainAt(tt)
+        scene.autoSnow = weather.snowAt(tt)
+        val sky = when (phase) {
+            TripPhase.ARRIVED, TripPhase.RESTING -> 1f
+            else -> (tt / plan.durationSec).toFloat()
+        }
+        scene.update(dt, sky)
         updateTicks(t)
         updateSurfaces()
         if (!stats.record(intervalNanos, renderer.lastDrawNanos, refreshHz)) return
         if (showHud) hud = hudText(refreshHz, t)
     }
 
+    private fun moving() = phase == TripPhase.RUNNING || phase == TripPhase.PAUSED
+
     // ── 사용자 동작 ──
 
     fun selectMinutes(m: Int) {
         minutes = m
         store.minutes = m
+        if (phase == TripPhase.DOCKED) {
+            tripMinutes = m
+            rebuildPlan()
+        }
     }
 
-    /** 정차·도착·휴식 중 어디서든 다음 구간으로 출발한다. */
+    /** 정차·도착·휴식 중 어디서든 출발한다. 도착·휴식 중이면 종착역에서 역방향으로 떠난다. */
     fun depart() {
-        if (phase == TripPhase.ARRIVED || phase == TripPhase.RESTING) dockAtDestination()
+        if (phase == TripPhase.ARRIVED || phase == TripPhase.RESTING) dockAtTerminus()
         tripMinutes = minutes
-        plan = JourneyPlan(tripMinutes * 60.0, route.cruise)
+        weatherSeed = Random.nextInt()
+        rebuildPlan()
         clock.seek(0.0, 1.0)
         restDone = false
         phase = TripPhase.RUNNING
@@ -186,9 +219,9 @@ class JourneyViewModel(app: Application, private val saved: SavedStateHandle) : 
 
     /** 여행을 중간에 끝낸다. 출발역 정차 상태로 돌아가며 장면은 순간 이동한다. */
     fun endTrip() {
-        if (phase != TripPhase.RUNNING && phase != TripPhase.PAUSED) return
-        baseDistance = 0.0
-        plan = JourneyPlan(minutes * 60.0, route.cruise)
+        if (!moving()) return
+        tripMinutes = minutes
+        rebuildPlan()
         clock.seek(0.0, 0.0)
         phase = TripPhase.DOCKED
         cutTick++
@@ -202,10 +235,10 @@ class JourneyViewModel(app: Application, private val saved: SavedStateHandle) : 
         save()
     }
 
-    /** 도착역에서 내린다. 그 역에서 다음 구간 승차권이 준비된다. */
+    /** 종착역에서 내린다. 그 역에서 역방향 승차권이 준비된다. */
     fun getOff() {
         if (phase != TripPhase.ARRIVED && phase != TripPhase.RESTING) return
-        dockAtDestination()
+        dockAtTerminus()
         phase = TripPhase.DOCKED
         save()
     }
@@ -220,8 +253,6 @@ class JourneyViewModel(app: Application, private val saved: SavedStateHandle) : 
     private fun arrive() {
         clock.seek(plan.durationSec, 0.0)
         phase = TripPhase.ARRIVED
-        store.station = leg.to
-        store.direction = leg.direction
         store.recordArrival(tripMinutes)
         today = store.today()
         signal(ARRIVAL_PATTERN)
@@ -229,19 +260,44 @@ class JourneyViewModel(app: Application, private val saved: SavedStateHandle) : 
     }
 
     private fun finishRest() {
-        dockAtDestination()
+        dockAtTerminus()
         restDone = true
         phase = TripPhase.DOCKED
         signal(REST_PATTERN)
         save()
     }
 
-    /** 방금 도착한 역에 선 채로 다음 구간을 준비한다. 풍경은 그 자리에서 이어진다. */
-    private fun dockAtDestination() {
+    /** 방금 도착한 종착역에 선 채로 역방향 세션을 준비한다. 풍경은 그 자리에서 이어진다. */
+    private fun dockAtTerminus() {
         baseDistance += plan.totalDistance
-        leg = route.legFrom(leg.to, leg.direction)
-        plan = JourneyPlan(minutes * 60.0, route.cruise)
+        direction = -direction
+        store.direction = direction
+        tripMinutes = minutes
+        rebuildPlan()
         clock.seek(0.0, 0.0)
+    }
+
+    private fun rebuildPlan() {
+        plan = CoursePlan(tripMinutes * 60.0, course.stations.size, course.cruise)
+        weather = WeatherDirector(weatherSeed, course.snowy)
+        applyStations()
+    }
+
+    /** 역 위치·이름판·진행 바 표시를 지금 계획에 맞춘다. */
+    private fun applyStations() {
+        val list = stations
+        scene.setStations(
+            DoubleArray(list.size) { baseDistance + plan.stationDistance(it) },
+            Array(list.size) { list[it].local },
+            Array(list.size) { list[it].roman },
+        )
+        stationMarks = FloatArray(list.size) {
+            when (it) {
+                0 -> 0f
+                list.size - 1 -> 1f
+                else -> (plan.arrivalAt(it) / plan.durationSec).toFloat()
+            }
+        }
     }
 
     private fun updateTicks(t: Double) {
@@ -251,6 +307,11 @@ class JourneyViewModel(app: Application, private val saved: SavedStateHandle) : 
                 if (left != remainingSec) {
                     remainingSec = left
                     progress = (t / plan.durationSec).toFloat().coerceIn(0f, 1f)
+                    val stop = plan.stoppedAt(t)
+                    stoppedAt = stop
+                    val next = if (stop >= 0) stop + 1 else plan.segmentAt(t) + 1
+                    nextStop = min(next, plan.segments)
+                    nextStopSec = ceil(plan.arrivalAt(nextStop) - t).toInt().coerceAtLeast(0)
                 }
             }
             TripPhase.RESTING -> {
@@ -260,6 +321,8 @@ class JourneyViewModel(app: Application, private val saved: SavedStateHandle) : 
             else -> {
                 remainingSec = tripMinutes * 60
                 progress = if (phase == TripPhase.ARRIVED) 1f else 0f
+                stoppedAt = -1
+                nextStop = 1
             }
         }
     }
@@ -295,26 +358,24 @@ class JourneyViewModel(app: Application, private val saved: SavedStateHandle) : 
     // ── 저장·복원 ──
 
     private fun save() {
-        saved[S_PHASE] = phase.name
-        saved[S_LEG] = intArrayOf(leg.from, leg.to)
-        saved[S_TRIP_MINUTES] = tripMinutes
-        saved[S_BASE] = baseDistance
-        saved[S_CLOCK] = clock.save()
-        saved[S_REST_END] = restEndReal
-        saved[S_REST_DONE] = restDone
+        store.saveActive(
+            TripStore.Active(
+                phase.name, tripMinutes, baseDistance, clock.save(), restEndReal, restDone, weatherSeed,
+            ),
+        )
     }
 
     private fun restore() {
-        val name = saved.get<String>(S_PHASE) ?: return
-        phase = TripPhase.valueOf(name)
-        saved.get<IntArray>(S_LEG)?.let { leg = Leg(route, it[0], it[1]) }
-        tripMinutes = saved[S_TRIP_MINUTES] ?: tripMinutes
-        baseDistance = saved[S_BASE] ?: 0.0
-        saved.get<DoubleArray>(S_CLOCK)?.let(clock::restore)
-        restEndReal = saved[S_REST_END] ?: 0L
-        restDone = saved[S_REST_DONE] ?: false
-        val running = phase == TripPhase.RUNNING || phase == TripPhase.PAUSED || phase == TripPhase.ARRIVED || phase == TripPhase.RESTING
-        plan = JourneyPlan((if (running) tripMinutes else minutes) * 60.0, route.cruise)
+        val a = store.loadActive() ?: return
+        phase = runCatching { TripPhase.valueOf(a.phase) }.getOrDefault(TripPhase.DOCKED)
+        tripMinutes = a.tripMinutes
+        baseDistance = a.base
+        if (a.clock.size == 6) clock.restore(a.clock)
+        restEndReal = a.restEnd
+        restDone = a.restDone
+        weatherSeed = a.weatherSeed
+        plan = CoursePlan(tripMinutes * 60.0, course.stations.size, course.cruise)
+        weather = WeatherDirector(weatherSeed, course.snowy)
     }
 
     // ── 개발용 ──
@@ -329,20 +390,24 @@ class JourneyViewModel(app: Application, private val saved: SavedStateHandle) : 
         scene.setTimeOfDay(t)
     }
 
-    /** 구간의 [fraction](0~1) 지점으로 옮긴다. 달리는 중이 아니면 먼저 출발한다. */
+    /** 세션의 [fraction](0~1) 지점으로 옮긴다. 달리는 중이 아니면 먼저 출발한다. */
     fun seekFraction(fraction: Float) {
-        if (phase != TripPhase.RUNNING && phase != TripPhase.PAUSED) depart()
-        val before = clock.seconds()
-        val t = plan.durationSec * fraction.coerceIn(0f, 1f)
-        clock.seek(t)
-        skyShiftMs += (t - before) * 1000
+        if (!moving()) depart()
+        clock.seek(plan.durationSec * fraction.coerceIn(0f, 1f))
         save()
     }
 
     /** 도착 20초 전으로 건너뛴다. */
     fun seekNearEnd() {
-        if (phase != TripPhase.RUNNING && phase != TripPhase.PAUSED) depart()
+        if (!moving()) depart()
         seekFraction(((plan.durationSec - 20) / plan.durationSec).toFloat())
+    }
+
+    /** 다음 정차역 5초 전으로 건너뛴다. */
+    fun seekNextStop() {
+        if (!moving()) depart()
+        clock.seek((plan.arrivalAt(nextStop) - 5).coerceAtLeast(0.0))
+        save()
     }
 
     /** 쉬는 시간을 바로 끝낸다. */
@@ -361,9 +426,10 @@ class JourneyViewModel(app: Application, private val saved: SavedStateHandle) : 
         scene.mode = m
     }
 
-    fun selectWeather(w: Weather) {
-        weather = w
-        scene.weather = w
+    fun selectWeather(w: Weather?) {
+        fixedWeather = w
+        scene.autoWeather = w == null
+        if (w != null) scene.weather = w
     }
 
     fun toggleBoxes() {
@@ -394,13 +460,13 @@ class JourneyViewModel(app: Application, private val saved: SavedStateHandle) : 
         val total = plan.durationSec.toLong()
         return String.format(
             Locale.US,
-            "%.0fHz · %s\n프레임 %.1fms (p95 %.1f) · 끊김 %d\n그리기 기록 %.2fms (최대 %.1f)\n비트맵 %.1fMB · 네이티브 %.1fMB · 자바 %.1fMB\n%s %d:%02d / %d:%02d ×%.0f · 도시 %.2f · 속도 %.0f · %s",
+            "%.0fHz · %s\n프레임 %.1fms (p95 %.1f) · 끊김 %d\n그리기 기록 %.2fms (최대 %.1f)\n비트맵 %.1fMB · 네이티브 %.1fMB · 자바 %.1fMB\n%s %d:%02d / %d:%02d ×%.0f · 도시 %.2f · 속도 %.0f · %s · 비 %.2f 눈 %.2f",
             refreshHz, mode.label,
             stats.avgInterval(), stats.p95Interval(), stats.janks,
             stats.avgDraw(), stats.maxDraw(),
             renderer.bitmapBytes / MB, Debug.getNativeHeapAllocatedSize() / MB, (rt.totalMemory() - rt.freeMemory()) / MB,
             phase.name, shown / 60, shown % 60, total / 60, total % 60, timeScale,
-            scene.urban.at(scene.distanceU), scene.speed, scene.timeOfDay.label,
+            scene.urban.at(scene.distanceU), scene.speed, scene.timeOfDay.label, scene.rainAmount, scene.snowAmount,
         )
     }
 
@@ -416,13 +482,5 @@ class JourneyViewModel(app: Application, private val saved: SavedStateHandle) : 
         const val REST_SEC = 5 * 60
         val ARRIVAL_PATTERN = longArrayOf(0, 180, 140, 180, 140, 320)
         val REST_PATTERN = longArrayOf(0, 120, 120, 120)
-
-        const val S_PHASE = "phase"
-        const val S_LEG = "leg"
-        const val S_TRIP_MINUTES = "trip_minutes"
-        const val S_BASE = "base"
-        const val S_CLOCK = "clock"
-        const val S_REST_END = "rest_end"
-        const val S_REST_DONE = "rest_done"
     }
 }

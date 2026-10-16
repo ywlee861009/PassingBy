@@ -9,6 +9,7 @@ import android.graphics.Path
 import android.graphics.RadialGradient
 import android.graphics.RectF
 import android.graphics.Shader
+import android.graphics.Typeface
 import java.util.Random
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -144,6 +145,13 @@ class SceneRenderer(private val state: SceneState) {
     }
     private val snowGlassPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val pilePath = Path()
+    private val platformPaint = Paint()
+    private val signPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val signText = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        textAlign = Paint.Align.CENTER
+        typeface = Typeface.DEFAULT_BOLD
+    }
+    private val signSub = Paint(Paint.ANTI_ALIAS_FLAG).apply { textAlign = Paint.Align.CENTER }
     private val pilePaint = Paint(Paint.ANTI_ALIAS_FLAG)
 
     fun render(canvas: Canvas, w: Int, h: Int) {
@@ -193,6 +201,7 @@ class SceneRenderer(private val state: SceneState) {
         drawSun(canvas, p)
         drawClouds(canvas, p)
         drawLand(canvas, p)
+        drawStations(canvas, p)
         drawPoles(canvas, p)
         drawFalling(canvas, p)
         canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), vignettePaint)
@@ -785,6 +794,80 @@ class SceneRenderer(private val state: SceneState) {
         canvas.drawPath(path, wirePaint)
     }
 
+    /**
+     * 역 플랫폼. 창 바로 앞(선로 높이 레이어)에 지붕·기둥·바닥·이름판을 그린다.
+     * 역의 세계 위치에 카메라가 오면 플랫폼 가운데가 화면 가운데에 온다. 그래서 정차 중에는 이름판이 정면에 보인다.
+     */
+    private fun drawStations(canvas: Canvas, p: Palette) {
+        val xs = state.stationX
+        if (xs.isEmpty()) return
+        val u = layout.u
+        val w = layout.w.toFloat()
+        val h = layout.h.toFloat()
+        val d = state.distanceU
+        val s = Scenery.BED_SPEED
+        val half = PLATFORM_HALF * u
+        val lit = p.f[Palette.LIT]
+        val floorTop = layout.yAt(.885f)
+        val roof = h * .16f
+        val concrete = mix(mix(p.c[Palette.GROUND], p.c[Palette.HAZE], .45f), Color.WHITE, .22f * (1 - lit * .6f))
+        val dark = mix(p.c[Palette.POLE], p.c[Palette.HAZE], .18f)
+        for (i in xs.indices) {
+            val cx = (((xs[i] - d) * s + halfWU) * u).toFloat()
+            if (cx + half < 0 || cx - half > w) continue
+            val x0 = cx - half
+            val x1 = cx + half
+            // 바닥: 먼 쪽 낮은 벽, 콘크리트 면, 선로 쪽 노란 안전선.
+            platformPaint.color = concrete
+            canvas.drawRect(x0, floorTop, x1, h, platformPaint)
+            platformPaint.color = dark
+            canvas.drawRect(x0, floorTop - 7 * u, x1, floorTop, platformPaint)
+            platformPaint.color = mix(Color.rgb(232, 196, 90), concrete, .25f + .4f * lit)
+            val ly = layout.yAt(.972f)
+            canvas.drawRect(x0, ly, x1, ly + 2.4f * u, platformPaint)
+            // 지붕과 기둥.
+            platformPaint.color = dark
+            canvas.drawRect(x0, -2f, x1, roof, platformPaint)
+            platformPaint.color = mix(dark, Color.WHITE, .18f)
+            canvas.drawRect(x0, roof - 2.2f * u, x1, roof, platformPaint)
+            var px = x0 + PILLAR_GAP * u / 2
+            while (px < x1) {
+                platformPaint.color = dark
+                canvas.drawRect(px - 2.6f * u, roof, px + 2.6f * u, floorTop, platformPaint)
+                if (lit > .05f) {
+                    // 밤에는 지붕 아래 조명.
+                    platformPaint.color = Color.argb((lit * 230).toInt(), 255, 226, 170)
+                    canvas.drawRect(px + 14 * u, roof, px + 44 * u, roof + 1.8f * u, platformPaint)
+                }
+                px += PILLAR_GAP * u
+            }
+            drawSign(canvas, i, cx, roof, u, lit)
+        }
+    }
+
+    /** 역 이름판. 지붕에 매달린 흰 판에 현지 표기를 크게, 로마자를 작게 쓴다. */
+    private fun drawSign(canvas: Canvas, i: Int, cx: Float, roof: Float, u: Float, lit: Float) {
+        val local = state.stationLocal.getOrNull(i) ?: return
+        val roman = state.stationRoman.getOrNull(i) ?: ""
+        signText.textSize = 24 * u
+        signSub.textSize = 9 * u
+        val bw = maxOf(signText.measureText(local), signSub.measureText(roman)) + 40 * u
+        val bh = 54 * u
+        val top = roof + 10 * u
+        platformPaint.color = SIGN_HANGER
+        canvas.drawRect(cx - bw * .3f - .6f * u, roof, cx - bw * .3f + .6f * u, top, platformPaint)
+        canvas.drawRect(cx + bw * .3f - .6f * u, roof, cx + bw * .3f + .6f * u, top, platformPaint)
+        signPaint.color = mix(SIGN_BOARD, Color.rgb(255, 236, 205), lit * .25f)
+        dst.set(cx - bw / 2, top, cx + bw / 2, top + bh)
+        canvas.drawRoundRect(dst, 2.5f * u, 2.5f * u, signPaint)
+        signPaint.color = SIGN_STRIPE
+        canvas.drawRect(dst.left, dst.bottom - 4 * u, dst.right, dst.bottom, signPaint)
+        signText.color = SIGN_INK
+        canvas.drawText(local, cx, top + 26.5f * u, signText)
+        signSub.color = SIGN_INK
+        canvas.drawText(roman, cx, top + 41f * u, signSub)
+    }
+
     /** 창밖에 내리는 비·눈. 세기에 따라 개수·길이·굵기가 달라진다. */
     private fun drawFalling(canvas: Canvas, p: Palette) {
         val dt = state.lastDt
@@ -1022,6 +1105,13 @@ class SceneRenderer(private val state: SceneState) {
         const val MAX_WINDOWS = 1024
         const val MAX_POLES = 16
         const val MAX_BARRIER = 256
+        /** 플랫폼 반 길이(장면 단위, 선로 레이어 좌표). */
+        const val PLATFORM_HALF = 560f
+        const val PILLAR_GAP = 140f
+        val SIGN_BOARD = Color.rgb(246, 244, 238)
+        val SIGN_INK = Color.rgb(28, 42, 72)
+        val SIGN_STRIPE = Color.rgb(40, 74, 140)
+        val SIGN_HANGER = Color.rgb(40, 40, 44)
         /** 이 도시화 정도부터 방음벽이 선다. */
         const val BARRIER_URBAN = .6f
         /** 원경 빌딩이 도시 밖으로 더 보이는 범위(세계 단위). 고속 순항으로 약 40초. */

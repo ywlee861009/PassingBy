@@ -17,13 +17,13 @@ enum class RenderMode(val label: String) {
 class SceneState {
     @Volatile var mode = RenderMode.BAKED
 
-    /** 하늘을 실제 시각으로 정한다. [fixedTime]이 있으면 그 시간대로 고정한다. */
-    val skyClock = SkyClock()
+    /** 고정 시간대(개발용). null이면 세션 진행에 따라 하늘이 돈다([SkyCycle]). */
     var fixedTime: TimeOfDay? = null
         private set
+    private var cycleTime = TimeOfDay.NIGHT
     /** 지금 하늘에 가장 가까운 시간대. 타일 방식의 캐시 키로 쓴다. */
     val timeOfDay: TimeOfDay
-        get() = fixedTime ?: skyClock.nearest
+        get() = fixedTime ?: cycleTime
     private val from = Palette()
     /** 전환이 끝났을 때의 목표 팔레트(비 효과 제외). */
     val target = Palette()
@@ -31,11 +31,17 @@ class SceneState {
     /** 이번 프레임에 실제로 그릴 팔레트. */
     val effective = Palette()
     private var transition = 1f
-    /** 하늘 시각(epoch ms). 여정 시계가 매 프레임 정한다. */
-    private var skyMillis = System.currentTimeMillis()
-    private var skyComputedAt = skyMillis
+    private var transitionSec = 1.4f
+    /** 세션 진행(0~1). 여정이 매 프레임 정한다. */
+    private var skyProgress = 0f
+    private var skyComputedAt = -1f
 
+    /** 날씨를 직접 고른 경우의 날씨. [autoWeather]면 무시한다. */
     var weather = Weather.CLEAR
+    /** 무작위 날씨(기본). 세기는 여정이 [autoRain]·[autoSnow]로 정한다. */
+    var autoWeather = true
+    var autoRain = 0f
+    var autoSnow = 0f
     /** 실제 비·눈 세기(0~1). 날씨를 바꾸면 몇 초에 걸쳐 따라간다. */
     var rainAmount = 0f
         private set
@@ -79,14 +85,29 @@ class SceneState {
     var urban: UrbanField = SceneKind.COUNTRY.field
     var windowFrame = true
 
+    /** 역 위치(세계 단위)와 이름판 글자. 여정이 계획을 바꿀 때 정한다. 렌더러가 플랫폼과 이름판을 그린다. */
+    var stationX = DoubleArray(0)
+        private set
+    var stationLocal: Array<String> = emptyArray()
+        private set
+    var stationRoman: Array<String> = emptyArray()
+        private set
+
+    fun setStations(x: DoubleArray, local: Array<String>, roman: Array<String>) {
+        stationX = x
+        stationLocal = local
+        stationRoman = roman
+    }
+
     init {
-        skyClock.paletteAt(skyMillis, target)
+        cycleTime = SkyCycle.paletteAt(0f, target)
+        skyComputedAt = 0f
         from.copyFrom(target)
         current.copyFrom(target)
         effective.copyFrom(target)
     }
 
-    /** 시간대를 고정한다. null이면 실제 시각을 따른다. 어느 쪽이든 1.4초에 걸쳐 바뀐다. */
+    /** 시간대를 고정한다(개발용). null이면 세션 진행을 따른다. 어느 쪽이든 1.4초에 걸쳐 바뀐다. */
     fun setTimeOfDay(t: TimeOfDay?) {
         if (t == fixedTime) return
         fixedTime = t
@@ -94,10 +115,11 @@ class SceneState {
         if (t != null) {
             target.copyFrom(Palette.of(t))
         } else {
-            skyClock.paletteAt(skyMillis, target)
-            skyComputedAt = skyMillis
+            cycleTime = SkyCycle.paletteAt(skyProgress, target)
+            skyComputedAt = skyProgress
         }
         transition = 0f
+        transitionSec = 1.4f
     }
 
     fun setTravel(distanceU: Double, speed: Double) {
@@ -107,22 +129,32 @@ class SceneState {
 
     /**
      * @param dt 지난 프레임 이후 흐른 시간(초). 날씨·장식 애니메이션에 쓴다.
-     * @param skyMillis 하늘을 계산할 시각(epoch ms).
+     * @param progress 세션 진행(0~1). 하늘을 정한다.
      */
-    fun update(dt: Float, skyMillis: Long) {
+    fun update(dt: Float, progress: Float) {
         lastDt = dt
         elapsedSec += dt
-        this.skyMillis = skyMillis
-        // 실제 시각의 하늘은 1초에 한 번만 다시 계산한다. 색이 바뀔 때마다 그라디언트 셰이더를 새로 만들기 때문이다.
-        if (fixedTime == null && abs(skyMillis - skyComputedAt) >= SKY_REFRESH_MS) {
-            skyClock.paletteAt(skyMillis, target)
-            skyComputedAt = skyMillis
+        skyProgress = progress
+        // 하늘은 진행이 조금씩 바뀔 때만 다시 계산한다. 색이 바뀔 때마다 그라디언트 셰이더를 새로 만들기 때문이다.
+        if (fixedTime == null && abs(progress - skyComputedAt) >= SKY_STEP) {
+            if (progress < skyComputedAt - .5f) {
+                // 새 세션: 밤에서 새벽 직전으로 몇 초에 걸쳐 넘어간다.
+                from.copyFrom(current)
+                transition = 0f
+                transitionSec = 8f
+            }
+            cycleTime = SkyCycle.paletteAt(progress, target)
+            skyComputedAt = progress
         }
-        transition = min(1f, transition + dt / 1.4f)
+        transition = min(1f, transition + dt / transitionSec)
         val e = transition * transition * (3 - 2 * transition)
         lerpInto(current, from, target, e)
-        rainAmount = approach(rainAmount, weather.rain, dt * .6f)
-        snowAmount = approach(snowAmount, weather.snow, dt * .5f)
+        // 무작위 날씨는 목표 자체가 몇 분에 걸쳐 움직이므로, 따라가는 속도도 느리게 둬 갑자기 바뀌지 않게 한다.
+        val rainTarget = if (autoWeather) autoRain else weather.rain
+        val snowTarget = if (autoWeather) autoSnow else weather.snow
+        val follow = if (autoWeather) .08f else 1f
+        rainAmount = approach(rainAmount, rainTarget, dt * .6f * follow)
+        snowAmount = approach(snowAmount, snowTarget, dt * .5f * follow)
         val coverCap = if (snowAmount > .05f) .35f + .65f * snowAmount else 0f
         snowCover = if (snowCover < coverCap) min(coverCap, snowCover + dt * snowAmount / 40f) else max(coverCap, snowCover - dt / 40f)
         val wetTarget = min(1f, rainAmount * 1.3f)
@@ -139,17 +171,20 @@ class SceneState {
 
     /** 개발용: 서서히 쌓이는 효과를 기다리지 않고 현재 날씨의 최종 상태로 바로 맞춘다. */
     fun snapWeather() {
-        rainAmount = weather.rain
-        snowAmount = weather.snow
-        snowCover = if (weather.snow > 0f) .35f + .65f * weather.snow else 0f
-        glassWet = min(1f, weather.rain * 1.3f)
-        glassSnow = weather.snow
+        val rain = if (autoWeather) autoRain else weather.rain
+        val snow = if (autoWeather) autoSnow else weather.snow
+        rainAmount = rain
+        snowAmount = snow
+        snowCover = if (snow > 0f) .35f + .65f * snow else 0f
+        glassWet = min(1f, rain * 1.3f)
+        glassSnow = snow
     }
 
     private fun approach(v: Float, target: Float, step: Float) =
         if (v < target) min(target, v + step) else max(target, v - step)
 
     private companion object {
-        const val SKY_REFRESH_MS = 1000L
+        /** 하늘을 다시 계산하는 진행 간격. 25분 세션에서 약 1초. */
+        const val SKY_STEP = 1f / 1500f
     }
 }
