@@ -6,15 +6,10 @@ import androidx.activity.compose.LocalActivity
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
@@ -34,7 +29,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
@@ -47,16 +41,15 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.passingby.app.scene.RenderMode
-import com.passingby.app.scene.SceneKind
-import com.passingby.app.scene.TimeOfDay
-import com.passingby.app.scene.Weather
+import com.passingby.app.BuildConfig
+import com.passingby.app.ui.debug.DevPanel
 import kotlinx.coroutines.delay
 import kotlin.math.abs
 
 /**
  * 여행 중 화면(시제품).
- * 기본 상태는 풍경만 보이고, 화면을 누르면 조작 패널이 나타났다가 4초 뒤 사라진다.
+ * 기본 상태는 풍경만 보인다. 사용자 오버레이는 2단계에서 붙이고, 지금은 개발 도구가 켜진 빌드에서만
+ * 화면을 누르면 개발용 패널이 나타났다가 4초 뒤 사라진다.
  */
 @Composable
 fun JourneyScreen(vm: JourneyViewModel = viewModel()) {
@@ -77,9 +70,7 @@ fun JourneyScreen(vm: JourneyViewModel = viewModel()) {
         while (true) {
             withFrameNanos { now ->
                 if (last != 0L) {
-                    val interval = now - last
-                    vm.scene.update((interval / 1e9).toFloat().coerceAtMost(0.05f))
-                    vm.onFrame(interval, view.display?.refreshRate ?: 60f)
+                    vm.onFrame(now - last, view.display?.refreshRate ?: 60f)
                 }
                 last = now
                 frameTick = now
@@ -96,7 +87,7 @@ fun JourneyScreen(vm: JourneyViewModel = viewModel()) {
         }
     }
     val overlayAlpha by animateFloatAsState(if (overlay) 1f else 0f, tween(300), label = "overlay")
-    var hint by rememberSaveable { mutableStateOf(true) }
+    var hint by rememberSaveable { mutableStateOf(BuildConfig.DEV_TOOLS) }
     LaunchedEffect(Unit) {
         delay(3_500)
         hint = false
@@ -106,6 +97,7 @@ fun JourneyScreen(vm: JourneyViewModel = viewModel()) {
         Modifier
             .fillMaxSize()
             .pointerInput(Unit) {
+                if (!BuildConfig.DEV_TOOLS) return@pointerInput
                 detectTapGestures {
                     overlay = !overlay
                     interactions++
@@ -122,7 +114,7 @@ fun JourneyScreen(vm: JourneyViewModel = viewModel()) {
                     }
                 },
         )
-        if (vm.showHud && vm.hud.isNotEmpty()) {
+        if (BuildConfig.DEV_TOOLS && vm.showHud && vm.hud.isNotEmpty()) {
             BasicText(
                 vm.hud,
                 style = TextStyle(color = Color.White, fontSize = 11.sp, fontFamily = FontFamily.Monospace, lineHeight = 15.sp),
@@ -144,7 +136,7 @@ fun JourneyScreen(vm: JourneyViewModel = viewModel()) {
             )
         }
         if (overlayAlpha > 0.01f) {
-            Controls(
+            DevPanel(
                 vm,
                 onInteract = { interactions++ },
                 modifier = Modifier
@@ -152,64 +144,6 @@ fun JourneyScreen(vm: JourneyViewModel = viewModel()) {
                     .graphicsLayer { alpha = overlayAlpha },
             )
         }
-    }
-}
-
-@Composable
-private fun Controls(vm: JourneyViewModel, onInteract: () -> Unit, modifier: Modifier = Modifier) {
-    Column(
-        modifier
-            .windowInsetsPadding(WindowInsets.safeDrawing)
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            for (k in SceneKind.entries) {
-                Chip(k.label, vm.sceneKind == k) { vm.selectSceneKind(k); onInteract() }
-            }
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            for (t in TimeOfDay.entries) {
-                Chip(t.label, vm.timeOfDay == t) { vm.selectTime(t); onInteract() }
-            }
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            for (w in Weather.entries) {
-                Chip(w.label, vm.weather == w) { vm.selectWeather(w); onInteract() }
-            }
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Chip("완행", !vm.fast) { vm.selectFast(false); onInteract() }
-            Chip("고속", vm.fast) { vm.selectFast(true); onInteract() }
-            Chip("창틀", vm.windowFrame) { vm.toggleWindowFrame(); onInteract() }
-            Chip("구조", vm.boxes) { vm.toggleBoxes(); onInteract() }
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            for (m in RenderMode.entries) {
-                Chip(m.label, vm.mode == m) { vm.selectMode(m); onInteract() }
-            }
-            Chip("60Hz", vm.cap60) { vm.toggleCap60(); onInteract() }
-            Chip("HUD", vm.showHud) { vm.toggleHud(); onInteract() }
-        }
-    }
-}
-
-@Composable
-private fun Chip(label: String, selected: Boolean, onClick: () -> Unit) {
-    Box(
-        Modifier
-            .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
-            .clip(RoundedCornerShape(24.dp))
-            .background(if (selected) Color(0xEBFFFFFF) else Color(0x80000000))
-            .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        BasicText(
-            label,
-            style = TextStyle(color = if (selected) Color(0xFF1A1A1A) else Color.White, fontSize = 14.sp),
-        )
     }
 }
 

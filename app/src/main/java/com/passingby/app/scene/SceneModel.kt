@@ -163,7 +163,19 @@ internal object Placement {
     }
 }
 
-enum class SceneKind(val label: String) { COUNTRY("시골"), CITY("도시") }
+enum class SceneKind(val label: String, val field: UrbanField) {
+    COUNTRY("시골", UrbanField { 0f }),
+    CITY("도시", UrbanField { 1f }),
+}
+
+/**
+ * 세계 위치(카메라 이동 거리, 장면 단위)별 도시화 정도(0 = 시골, 1 = 도시).
+ * 여정이 정하고, 렌더러는 사물마다 화면 가운데를 지날 때의 세계 위치로 환산해 읽는다.
+ * 그리기 루프에서 사물마다 부르므로 가볍게(표 조회 수준으로) 구현해야 한다.
+ */
+fun interface UrbanField {
+    fun at(x: Double): Float
+}
 
 /** 도시 건물 레이어의 창문 모양. */
 enum class WindowStyle { DOTS, GRID, SHOP }

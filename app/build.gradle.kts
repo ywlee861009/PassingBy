@@ -17,6 +17,8 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "0.1.0-prototype"
+        // 개발용 패널·HUD·실행 옵션. 성능 측정용 release에서도 쓰므로 지금은 둘 다 켠다. 출시 빌드에서는 false로.
+        buildConfigField("boolean", "DEV_TOOLS", "true")
     }
 
     buildTypes {
@@ -34,6 +36,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 

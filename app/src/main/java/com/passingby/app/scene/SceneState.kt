@@ -1,5 +1,6 @@
 package com.passingby.app.scene
 
+import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
 
@@ -16,8 +17,13 @@ enum class RenderMode(val label: String) {
 class SceneState {
     @Volatile var mode = RenderMode.BAKED
 
-    var timeOfDay = TimeOfDay.DUSK
+    /** 하늘을 실제 시각으로 정한다. [fixedTime]이 있으면 그 시간대로 고정한다. */
+    val skyClock = SkyClock()
+    var fixedTime: TimeOfDay? = null
         private set
+    /** 지금 하늘에 가장 가까운 시간대. 타일 방식의 캐시 키로 쓴다. */
+    val timeOfDay: TimeOfDay
+        get() = fixedTime ?: skyClock.nearest
     private val from = Palette()
     /** 전환이 끝났을 때의 목표 팔레트(비 효과 제외). */
     val target = Palette()
@@ -25,6 +31,9 @@ class SceneState {
     /** 이번 프레임에 실제로 그릴 팔레트. */
     val effective = Palette()
     private var transition = 1f
+    /** 하늘 시각(epoch ms). 여정 시계가 매 프레임 정한다. */
+    private var skyMillis = System.currentTimeMillis()
+    private var skyComputedAt = skyMillis
 
     var weather = Weather.CLEAR
     /** 실제 비·눈 세기(0~1). 날씨를 바꾸면 몇 초에 걸쳐 따라간다. */
@@ -41,46 +50,66 @@ class SceneState {
     var glassSnow = 0f
         private set
 
-    var speedTarget = FAST_SPEED
-    var speed = FAST_SPEED
+    /** 열차 속도(장면 단위/초). 여정이 정한다. */
+    var speed = 0.0
         private set
 
     /**
-     * 누적 이동 거리(장면 단위). Float로 1시간 누적하면 정밀도가 떨어져 풍경이 떨리므로 Double로 둔다.
-     * 시제품이라 프레임 간격을 누적하지만, 실제 세션에서는 경과 시간 × 속도로 계산해야 타이머와 어긋나지 않는다.
+     * 누적 이동 거리(장면 단위). 여정이 경과 시간으로 계산해 넣는다.
+     * Float로 1시간 이상 누적하면 정밀도가 떨어져 풍경이 떨리므로 Double로 둔다.
      */
     var distanceU = 0.0
         private set
+    /** 화면을 켠 뒤 흐른 시간. 별 반짝임·창틀 이동 같은 장식 애니메이션에만 쓴다. */
     var elapsedSec = 0.0
         private set
     var lastDt = 0f
         private set
 
     var showBoxes = false
-    var sceneKind = SceneKind.COUNTRY
+    /** 위치별 도시화 정도. 여정이 정하고, 개발용으로 시골·도시 고정도 넣을 수 있다. */
+    var urban: UrbanField = SceneKind.COUNTRY.field
     var windowFrame = true
 
     init {
-        val p = Palette.of(timeOfDay)
-        from.copyFrom(p)
-        target.copyFrom(p)
-        current.copyFrom(p)
-        effective.copyFrom(p)
+        skyClock.paletteAt(skyMillis, target)
+        from.copyFrom(target)
+        current.copyFrom(target)
+        effective.copyFrom(target)
     }
 
-    fun setTimeOfDay(t: TimeOfDay) {
-        if (t == timeOfDay) return
-        timeOfDay = t
+    /** 시간대를 고정한다. null이면 실제 시각을 따른다. 어느 쪽이든 1.4초에 걸쳐 바뀐다. */
+    fun setTimeOfDay(t: TimeOfDay?) {
+        if (t == fixedTime) return
+        fixedTime = t
         from.copyFrom(current)
-        target.copyFrom(Palette.of(t))
+        if (t != null) {
+            target.copyFrom(Palette.of(t))
+        } else {
+            skyClock.paletteAt(skyMillis, target)
+            skyComputedAt = skyMillis
+        }
         transition = 0f
     }
 
-    fun update(dt: Float) {
+    fun setTravel(distanceU: Double, speed: Double) {
+        this.distanceU = distanceU
+        this.speed = speed
+    }
+
+    /**
+     * @param dt 지난 프레임 이후 흐른 시간(초). 날씨·장식 애니메이션에 쓴다.
+     * @param skyMillis 하늘을 계산할 시각(epoch ms).
+     */
+    fun update(dt: Float, skyMillis: Long) {
         lastDt = dt
         elapsedSec += dt
-        speed += (speedTarget - speed) * min(1.0, dt * 1.2)
-        distanceU += speed * dt
+        this.skyMillis = skyMillis
+        // 실제 시각의 하늘은 1초에 한 번만 다시 계산한다. 색이 바뀔 때마다 그라디언트 셰이더를 새로 만들기 때문이다.
+        if (fixedTime == null && abs(skyMillis - skyComputedAt) >= SKY_REFRESH_MS) {
+            skyClock.paletteAt(skyMillis, target)
+            skyComputedAt = skyMillis
+        }
         transition = min(1f, transition + dt / 1.4f)
         val e = transition * transition * (3 - 2 * transition)
         lerpInto(current, from, target, e)
@@ -112,8 +141,7 @@ class SceneState {
     private fun approach(v: Float, target: Float, step: Float) =
         if (v < target) min(target, v + step) else max(target, v - step)
 
-    companion object {
-        const val FAST_SPEED = 300.0
-        const val SLOW_SPEED = 110.0
+    private companion object {
+        const val SKY_REFRESH_MS = 1000L
     }
 }

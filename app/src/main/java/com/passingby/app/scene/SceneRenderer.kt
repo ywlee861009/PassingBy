@@ -24,8 +24,8 @@ import kotlin.math.sin
  * 창밖 풍경 렌더러. android.graphics.Canvas만 쓰므로 Compose에서도, SurfaceView의
  * 별도 그리기 스레드에서도 같은 코드로 그릴 수 있다.
  *
- * 그리기 루프(render) 안에서는 객체를 만들지 않는다. 예외는 팔레트가 바뀌는 1.4초 동안
- * 그라디언트 셰이더를 새로 만드는 것뿐이다.
+ * 그리기 루프(render) 안에서는 객체를 만들지 않는다. 예외는 색이 바뀔 때 그라디언트 셰이더를 새로 만드는 것뿐이다
+ * (시간대 전환 1.4초 동안, 실제 시각 하늘을 다시 계산하는 1초마다, 근교를 지나며 도시화 단계가 바뀔 때).
  */
 class SceneRenderer(private val state: SceneState) {
     private val layout = SceneLayout()
@@ -97,6 +97,9 @@ class SceneRenderer(private val state: SceneState) {
     private val warmPts = FloatArray(MAX_WINDOWS * 2)
     private val coolPts = FloatArray(MAX_WINDOWS * 2)
     private val polesX = FloatArray(MAX_POLES)
+    private val barrierOn = BooleanArray(MAX_BARRIER)
+    /** 화면 폭의 절반(장면 단위). 사물의 레이어 좌표를 세계 위치로 환산할 때 쓴다. */
+    private var halfWU = 0.0
     private val starX = FloatArray(STARS) { hash01(it, 1).toFloat() }
     private val starY = FloatArray(STARS) { Math.pow(hash01(it, 2), 1.4).toFloat() }
     private val starPhase = FloatArray(STARS) { (hash01(it, 3) * 6.28).toFloat() }
@@ -186,7 +189,7 @@ class SceneRenderer(private val state: SceneState) {
         drawStars(canvas, p)
         drawSun(canvas, p)
         drawClouds(canvas, p)
-        if (state.sceneKind == SceneKind.CITY) drawCity(canvas, p) else drawCountry(canvas, p)
+        drawLand(canvas, p)
         drawPoles(canvas, p)
         drawFalling(canvas, p)
         canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), vignettePaint)
@@ -204,6 +207,7 @@ class SceneRenderer(private val state: SceneState) {
         val h = layout.h.toFloat()
         val outer = max(w, h) * .75f
         val inner = min(w, h) * .35f
+        halfWU = w / layout.u / 2.0
         vignettePaint.shader = RadialGradient(
             w / 2, h / 2, outer,
             intArrayOf(0, 0, 0x47000000), floatArrayOf(0f, inner / outer, 1f), Shader.TileMode.CLAMP,
@@ -328,6 +332,57 @@ class SceneRenderer(private val state: SceneState) {
         }
     }
 
+    /**
+     * 지면 풍경. 도시화 정도에 따라 시골 사물과 도시 건물이 위치마다 섞인다.
+     *
+     * - 지형 레이어 넷은 늘 그리고, 색만 화면 가운데의 도시화 정도만큼 도시 쪽으로 옮긴다.
+     * - 건물은 같은 속도의 지형 앞에 선다(원경 빌딩 ↔ 먼 언덕, 아파트 ↔ 중경 언덕, 상가 ↔ 근경).
+     *   각 건물 레이어의 바닥선이 짝이 되는 지형의 가장 낮은 능선보다 아래라 건물이 뜨지 않는다.
+     * - 나무·집·건물·풀·방음벽은 각자 자기 위치의 도시화 정도로 있을지 없을지 정한다.
+     */
+    private fun drawLand(canvas: Canvas, p: Palette) {
+        if (appliedMode == RenderMode.TILES) {
+            // 비교용 타일 방식은 시골만 지원한다.
+            drawCountry(canvas, p)
+            return
+        }
+        val d = state.distanceU
+        // 색에 쓰는 값은 64단계로 끊어, 근교를 지나는 동안 그라디언트 셰이더를 매 프레임 새로 만들지 않게 한다.
+        val uc = Math.round(state.urban.at(d) * 64) / 64f
+        val farA = layers[Scenery.FAR_A]
+        val farB = layers[Scenery.FAR_B]
+        val mid = layers[Scenery.MID]
+        val near = layers[Scenery.NEAR]
+
+        drawTerrain(canvas, Scenery.FAR_A, d * farA.speed, mix(layerColor(farA, p), mix(p.c[Palette.FAR], p.c[Palette.HAZE], .55f), uc), farA.mist, p)
+        drawTerrain(canvas, Scenery.FAR_B, d * farB.speed, desaturate(layerColor(farB, p), .25f * uc), farB.mist, p)
+        val fb = mix(desaturate(p.c[Palette.FAR], .55f), p.c[Palette.HAZE], .4f)
+        drawCityLayer(canvas, CityScenery.far, d * CityScenery.far.speed, fb, FAR_LEAD, p)
+
+        val midOff = d * mid.speed
+        drawTerrain(canvas, Scenery.MID, midOff, desaturate(layerColor(mid, p), .25f * uc), mid.mist, p)
+        computeTones(spriteColor(mid, p), .6f, p, midTones)
+        // 도시 안 언덕에도 나무가 조금 남는다.
+        drawObjects(canvas, mid, mid.objects!!, midOff, midTones, p, GATE_RURAL, .8f)
+        val mb = mix(desaturate(p.c[Palette.MID], .7f), p.c[Palette.FAR], .15f)
+        drawCityLayer(canvas, CityScenery.mid, d * CityScenery.mid.speed, mb, 0.0, p)
+
+        val nb = desaturate(p.c[Palette.NEAR], .45f)
+        val nearCol = mix(layerColor(near, p), nb, uc)
+        val nearOff = d * near.speed
+        drawTerrain(canvas, Scenery.NEAR, nearOff, nearCol, 0f, p)
+        drawCityLayer(canvas, CityScenery.near, d * CityScenery.near.speed, mix(desaturate(p.c[Palette.MID], .6f), nb, .35f), 0.0, p)
+        computeTones(mix(nearCol, p.c[Palette.TREE], .45f), .8f, p, fringeTones)
+        drawFringe(canvas, near, near.speed, nearOff, 34.0, 8f, 15f, 303, 0f, fringeTones, GATE_RURAL)
+        drawFringe(canvas, near, near.speed, nearOff, 40.0, 7f, 13f, 303, 0f, fringeTones, GATE_URBAN)
+        computeTones(spriteColor(near, p), 1f, p, nearTones)
+        drawObjects(canvas, near, near.objects!!, nearOff, nearTones, p, GATE_RURAL, 1f)
+        drawObjects(canvas, near, Scenery.cityStreetTrees, nearOff, nearTones, p, GATE_URBAN, 1f)
+        drawBed(canvas, p)
+        drawBarrier(canvas, p)
+    }
+
+    /** 시골만 그린다. 비교용 타일 방식에서 쓴다. */
     private fun drawCountry(canvas: Canvas, p: Palette) {
         val tilesOk = appliedMode == RenderMode.TILES && ensureTiles()
         for (i in layers.indices) {
@@ -340,36 +395,32 @@ class SceneRenderer(private val state: SceneState) {
             drawTerrain(canvas, i, offU, layerColor(l, p), l.mist, p)
             if (i == Scenery.NEAR) {
                 computeTones(mix(p.c[Palette.NEAR], p.c[Palette.TREE], .45f), .8f, p, fringeTones)
-                drawFringe(canvas, l, offU, 34.0, 8f, 15f, 303, 0f, fringeTones)
+                drawFringe(canvas, l, l.speed, offU, 34.0, 8f, 15f, 303, 0f, fringeTones, GATE_NONE)
             }
             val rule = l.objects ?: continue
             val tones = if (i == Scenery.MID) midTones else nearTones
             computeTones(spriteColor(l, p), if (l.spriteHaze > 0f) .6f else 1f, p, tones)
-            drawObjects(canvas, l, rule, offU, tones, p)
+            drawObjects(canvas, l, rule, offU, tones, p, GATE_NONE, 1f)
         }
         drawBed(canvas, p)
     }
 
-    /** 도시: 먼 산 → 고층빌딩 → 아파트 단지 → 상가·가로수 → 방음벽. */
-    private fun drawCity(canvas: Canvas, p: Palette) {
-        val d = state.distanceU
-        val farA = layers[Scenery.FAR_A]
-        val near = layers[Scenery.NEAR]
-        drawTerrain(canvas, Scenery.FAR_A, d * farA.speed, mix(p.c[Palette.FAR], p.c[Palette.HAZE], .55f), farA.mist, p)
-        val fb = mix(desaturate(p.c[Palette.FAR], .55f), p.c[Palette.HAZE], .4f)
-        drawCityLayer(canvas, CityScenery.far, d * CityScenery.far.speed, fb, mix(fb, p.c[Palette.HAZE], .1f), p)
-        val mb = mix(desaturate(p.c[Palette.MID], .7f), p.c[Palette.FAR], .15f)
-        drawCityLayer(canvas, CityScenery.mid, d * CityScenery.mid.speed, mb, mix(mb, p.c[Palette.TOP], .12f), p)
-        val nb = desaturate(p.c[Palette.NEAR], .45f)
-        val nearOff = d * near.speed
-        drawTerrain(canvas, Scenery.NEAR, nearOff, nb, 0f, p)
-        drawCityLayer(canvas, CityScenery.near, d * CityScenery.near.speed, mix(desaturate(p.c[Palette.MID], .6f), nb, .35f), 0, p)
-        computeTones(mix(nb, p.c[Palette.TREE], .45f), .8f, p, fringeTones)
-        drawFringe(canvas, near, nearOff, 40.0, 7f, 13f, 303, 0f, fringeTones)
-        computeTones(p.c[Palette.TREE], 1f, p, nearTones)
-        drawObjects(canvas, near, Scenery.cityStreetTrees, nearOff, nearTones, p)
-        drawBed(canvas, p)
-        drawBarrier(canvas, p)
+    /**
+     * 레이어 좌표 [wx]에 있는 사물의 도시화 정도. 그 사물이 화면 가운데를 지날 때의 카메라 위치로 환산해 읽으므로,
+     * 먼 레이어일수록 같은 화면 폭에 더 넓은 세계가 담겨 도시가 먼저 보이고 늦게 사라진다.
+     * [lead]가 있으면 앞뒤로 그만큼 범위를 넓힌다(멀리서도 보이는 고층 건물).
+     */
+    private fun urbanAt(speed: Double, wx: Double, lead: Double): Float {
+        val x = (wx - halfWU) / speed
+        val f = state.urban
+        return if (lead <= 0.0) f.at(x) else max(f.at(x - lead), f.at(x + lead))
+    }
+
+    /** 사물이 있을지. [h]는 사물마다 고정된 0~1 해시값. */
+    private fun present(gate: Int, strength: Float, urban: Float, h: Double): Boolean = when (gate) {
+        GATE_RURAL -> h >= urban * strength
+        GATE_URBAN -> h < urban
+        else -> true
     }
 
     private fun drawTerrain(canvas: Canvas, i: Int, offU: Double, col: Int, mist: Float, p: Palette) {
@@ -435,7 +486,10 @@ class SceneRenderer(private val state: SceneState) {
         canvas.drawPath(path, paint)
     }
 
-    private fun drawObjects(canvas: Canvas, l: TerrainLayer, rule: ObjectRule, offU: Double, tones: IntArray, p: Palette) {
+    private fun drawObjects(
+        canvas: Canvas, l: TerrainLayer, rule: ObjectRule, offU: Double, tones: IntArray, p: Palette,
+        gate: Int, strength: Float,
+    ) {
         val u = layout.u
         val c = rule.chunkUnits
         val k0 = floor(offU / c).toInt() - 1
@@ -446,6 +500,9 @@ class SceneRenderer(private val state: SceneState) {
             val n = Placement.count(l, rule, k)
             for (j in 0 until n) {
                 Placement.place(l, rule, k, j, sprites, placed)
+                if (gate != GATE_NONE &&
+                    !present(gate, strength, urbanAt(l.speed, placed.wx, 0.0), hash01(placed.key, l.seed + 41))
+                ) continue
                 val s = placed.sprite
                 val hPx = placed.heightU * u
                 val half = s.base.width * hPx / s.base.height / 2
@@ -468,13 +525,16 @@ class SceneRenderer(private val state: SceneState) {
         canvas.drawRect(0f, by, layout.w.toFloat(), layout.h + 1f, groundPaint)
 
         computeTones(p.c[Palette.GROUND], .7f, p, bedTones)
-        drawFringe(canvas, null, state.distanceU * Scenery.BED_SPEED, 26.0, 9f, 16f, 311, by, bedTones)
+        drawFringe(canvas, null, Scenery.BED_SPEED, state.distanceU * Scenery.BED_SPEED, 26.0, 9f, 16f, 311, by, bedTones, GATE_NONE)
     }
 
-    /** 풀 다발을 늘어놓아 지형 경계선이나 선로 가장자리의 매끈한 선을 깬다. layer가 null이면 bedY에 놓는다. */
+    /**
+     * 풀 다발을 늘어놓아 지형 경계선이나 선로 가장자리의 매끈한 선을 깬다. layer가 null이면 bedY에 놓는다.
+     * @param speed 이 줄의 패럴랙스 속도. [gate]로 도시화 정도에 따라 거를 때 위치 환산에 쓴다.
+     */
     private fun drawFringe(
-        canvas: Canvas, layer: TerrainLayer?, offU: Double, chunkU: Double,
-        minH: Float, maxH: Float, seed: Int, bedY: Float, tones: IntArray,
+        canvas: Canvas, layer: TerrainLayer?, speed: Double, offU: Double, chunkU: Double,
+        minH: Float, maxH: Float, seed: Int, bedY: Float, tones: IntArray, gate: Int,
     ) {
         val u = layout.u
         val w = layout.w.toFloat()
@@ -488,6 +548,7 @@ class SceneRenderer(private val state: SceneState) {
                 val wx = (k + hash01(key, seed + 1)) * chunkU
                 val x = ((wx - offU) * u).toFloat()
                 if (x < -40 * u || x > w + 40 * u) continue
+                if (gate != GATE_NONE && !present(gate, 1f, urbanAt(speed, wx, 0.0), hash01(key, seed + 9))) continue
                 val hPx = (minH + hash01(key, seed + 2) * (maxH - minH)).toFloat() * u
                 val y = (if (layer != null) terrainY(layer, wx) else bedY) + 2 * u
                 drawSprite(canvas, tufts[(hash01(key, seed + 3) * tufts.size).toInt()], x, y, hPx, false, tones, 255, spritePaint, dst)
@@ -498,9 +559,10 @@ class SceneRenderer(private val state: SceneState) {
     /**
      * 도시 건물 레이어. 조각마다 건물 1~3채를 결정적으로 배치하고, 정면·그늘진 옆면·옥상 구조물·
      * 층 줄무늬를 직사각형으로 그린다. 밤에는 창문 불빛을 점(drawPoints) 묶음으로 한 번에 그린다.
-     * @param ground 0이 아니면 건물 아래를 이 색으로 채운다.
+     * 건물마다 자기 위치의 도시화 정도만큼의 확률로 서고, 근교일수록 낮아진다(아파트 단지는 높이 유지).
+     * @param lead 도시화 정도를 읽을 때 앞뒤로 넓힐 범위(세계 단위). [urbanAt] 참고.
      */
-    private fun drawCityLayer(canvas: Canvas, layer: CityLayer, offU: Double, base: Int, ground: Int, p: Palette) {
+    private fun drawCityLayer(canvas: Canvas, layer: CityLayer, offU: Double, base: Int, lead: Double, p: Palette) {
         val u = layout.u
         val c = layer.chunkUnits
         val k0 = floor(offU / c).toInt() - 1
@@ -522,17 +584,16 @@ class SceneRenderer(private val state: SceneState) {
                 val key = k * 8 + j
                 val r1 = hash01(key, s + 1)
                 val r2 = hash01(key, s + 2)
+                val bw = if (isApt) 54 + r2 * 36 else layer.minW + r2 * (layer.maxW - layer.minW)
+                val urban = urbanAt(layer.speed, (k + r1) * c + bw / 2, lead)
+                if (hash01(key, s + 6) >= urban) continue
                 val r3 = hash01(key, s + 3)
                 val r4 = hash01(key, s + 4)
                 val r5 = hash01(key, s + 5)
-                val bw: Double
-                val bh: Double
-                if (isApt) {
-                    bw = 54 + r2 * 36
-                    bh = aptH * (.92 + r3 * .16)
+                val bh = if (isApt) {
+                    aptH * (.92 + r3 * .16)
                 } else {
-                    bw = layer.minW + r2 * (layer.maxW - layer.minW)
-                    bh = (layer.minH + r3.pow(1.6) * (layer.maxH - layer.minH)) * (.55 + dense * .9)
+                    (layer.minH + r3.pow(1.6) * (layer.maxH - layer.minH)) * (.55 + dense * .9) * (.5 + .5 * urban)
                 }
                 val x = (((k + r1) * c - offU) * u).toFloat()
                 val bwPx = (bw * u).toFloat()
@@ -587,10 +648,6 @@ class SceneRenderer(private val state: SceneState) {
                 if (lit > .02f && floors > 0) drawLitWindows(canvas, layer.style, key, floors, cols, x0, yt, fl, cw, isApt, lit)
             }
         }
-        if (ground != 0) {
-            bldgPaint.color = ground
-            canvas.drawRect(0f, yb - u, w, layout.h.toFloat(), bldgPaint)
-        }
     }
 
     /** 창문 불빛. 건물마다 따뜻한 색·흰색 두 묶음의 점으로 그려 그리기 호출 수를 줄인다. */
@@ -640,24 +697,47 @@ class SceneRenderer(private val state: SceneState) {
         }
     }
 
-    /** 선로 옆 방음벽: 반투명 판, 위아래 레일, 빠르게 지나가는 기둥. */
+    /**
+     * 선로 옆 방음벽: 반투명 판, 위아래 레일, 빠르게 지나가는 기둥.
+     * 기둥 사이 칸 단위로 서며, 도시화가 [BARRIER_URBAN] 이상인 칸만 세운다. 그래서 근교에서 기둥 하나를 경계로 시작하고 끝난다.
+     */
     private fun drawBarrier(canvas: Canvas, p: Palette) {
         val u = layout.u
         val by = layout.yAt(.93f)
         val top = by - 24 * u
-        val w = layout.w.toFloat()
-        bldgPaint.color = Color.argb(((.10f + .06f * (1 - p.f[Palette.LIT])) * 255).toInt(), 220, 232, 240)
-        canvas.drawRect(0f, top, w, by, bldgPaint)
-        bldgPaint.color = mix(p.c[Palette.POLE], p.c[Palette.HAZE], .25f)
-        canvas.drawRect(0f, top, w, top + 1.6f * u, bldgPaint)
-        canvas.drawRect(0f, by - 3 * u, w, by, bldgPaint)
         val off = state.distanceU * Scenery.BED_SPEED
         val spacing = 18.0
         val i0 = floor(off / spacing).toInt() - 1
-        val i1 = floor((off + layout.w / u) / spacing).toInt() + 1
-        for (i in i0..i1) {
-            val x = ((i * spacing - off) * u).toFloat()
-            canvas.drawRect(x - .8f * u, top, x + .8f * u, by, bldgPaint)
+        val count = min(MAX_BARRIER, floor((off + layout.w / u) / spacing).toInt() + 2 - i0)
+        var any = false
+        for (n in 0 until count) {
+            val on = urbanAt(Scenery.BED_SPEED, (i0 + n + .5) * spacing, 0.0) >= BARRIER_URBAN
+            barrierOn[n] = on
+            any = any || on
+        }
+        if (!any) return
+        // 판을 먼저 칠하고 레일·기둥을 위에 그린다. 판은 이어진 칸끼리 한 번에 칠한다.
+        bldgPaint.color = Color.argb(((.10f + .06f * (1 - p.f[Palette.LIT])) * 255).toInt(), 220, 232, 240)
+        var runStart = -1
+        for (n in 0..count) {
+            val on = n < count && barrierOn[n]
+            if (on && runStart < 0) runStart = n
+            if (!on && runStart >= 0) {
+                val x0 = (((i0 + runStart) * spacing - off) * u).toFloat()
+                val x1 = (((i0 + n) * spacing - off) * u).toFloat()
+                canvas.drawRect(x0, top, x1, by, bldgPaint)
+                runStart = -1
+            }
+        }
+        bldgPaint.color = mix(p.c[Palette.POLE], p.c[Palette.HAZE], .25f)
+        for (n in 0 until count) {
+            if (!barrierOn[n]) continue
+            val x0 = (((i0 + n) * spacing - off) * u).toFloat()
+            val x1 = (((i0 + n + 1) * spacing - off) * u).toFloat()
+            canvas.drawRect(x0, top, x1, top + 1.6f * u, bldgPaint)
+            canvas.drawRect(x0, by - 3 * u, x1, by, bldgPaint)
+            canvas.drawRect(x0 - .8f * u, top, x0 + .8f * u, by, bldgPaint)
+            if (n == count - 1 || !barrierOn[n + 1]) canvas.drawRect(x1 - .8f * u, top, x1 + .8f * u, by, bldgPaint)
         }
     }
 
@@ -938,6 +1018,16 @@ class SceneRenderer(private val state: SceneState) {
         val FLAKE_FALL = floatArrayOf(22f, 34f, 52f)
         const val MAX_WINDOWS = 1024
         const val MAX_POLES = 16
+        const val MAX_BARRIER = 256
+        /** 이 도시화 정도부터 방음벽이 선다. */
+        const val BARRIER_URBAN = .6f
+        /** 원경 빌딩이 도시 밖으로 더 보이는 범위(세계 단위). 고속 순항으로 약 40초. */
+        const val FAR_LEAD = 12000.0
+        const val GATE_NONE = 0
+        /** 도시화 정도가 높을수록 드물어진다(나무·집·풀). */
+        const val GATE_RURAL = 1
+        /** 도시화 정도가 높을수록 많아진다(가로수·도시 풀). */
+        const val GATE_URBAN = 2
         /** 창틀 이동 각속도(rad/s). 주기 약 170초, 230초. */
         const val DRIFT_X = 2 * PI / 170
         const val DRIFT_Y = 2 * PI / 230

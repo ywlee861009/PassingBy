@@ -1,7 +1,6 @@
 package com.passingby.app
 
 import android.content.Intent
-import android.content.pm.ApplicationInfo
 import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
@@ -29,21 +28,28 @@ class MainActivity : ComponentActivity() {
             }
         }
         hideSystemBars()
-        if (savedInstanceState == null && (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0) {
+        if (savedInstanceState == null && BuildConfig.DEV_TOOLS) {
             applyDebugExtras(intent)
         }
         setContent { JourneyScreen() }
     }
 
     /**
-     * 개발용 실행 옵션(디버그 빌드에서만). 화면을 누르지 않고 상태를 정해 확인할 때 쓴다.
-     * 예: adb shell am start -n com.passingby.app/.MainActivity --es weather HEAVY_SNOW --es time NIGHT --es scene CITY --ez instant true
+     * 개발용 실행 옵션(개발 도구가 켜진 빌드에서만). 화면을 누르지 않고 상태를 정해 확인할 때 쓴다.
+     * - scene: COUNTRY | CITY (생략하면 여정을 따름)
+     * - time: DAWN | DAY | DUSK | NIGHT (생략하면 실제 시각)
+     * - weather: CLEAR | DRIZZLE | SHOWER | LIGHT_SNOW | HEAVY_SNOW
+     * - minutes: 구간 길이(분), at: 구간의 몇 % 지점에서 시작할지(0~1), speedup: 빨리 감기 배율
+     * 예: adb shell am start -n com.passingby.app/.MainActivity --ei minutes 25 --ef at 0.15 --es weather DRIZZLE --ez instant true
      */
     private fun applyDebugExtras(i: Intent) {
         val vm = ViewModelProvider(this)[JourneyViewModel::class.java]
-        i.getStringExtra("scene")?.let { n -> SceneKind.entries.firstOrNull { it.name == n }?.let(vm::selectSceneKind) }
+        i.getStringExtra("scene")?.let { n -> SceneKind.entries.firstOrNull { it.name == n }?.let(vm::selectLand) }
         i.getStringExtra("time")?.let { n -> TimeOfDay.entries.firstOrNull { it.name == n }?.let(vm::selectTime) }
         i.getStringExtra("weather")?.let { n -> Weather.entries.firstOrNull { it.name == n }?.let(vm::selectWeather) }
+        if (i.hasExtra("minutes")) vm.selectMinutes(i.getIntExtra("minutes", 25))
+        if (i.hasExtra("at")) vm.seekFraction(i.getFloatExtra("at", 0f))
+        if (i.hasExtra("speedup")) vm.selectScale(i.getFloatExtra("speedup", 1f).toDouble())
         if (i.getBooleanExtra("instant", false)) {
             vm.scene.snapTimeOfDay()
             vm.scene.snapWeather()
