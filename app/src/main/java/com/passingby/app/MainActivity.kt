@@ -63,10 +63,12 @@ class MainActivity : ComponentActivity() {
     override fun onStart() {
         super.onStart()
         AppVisibility.foreground = true
+        ViewModelProvider(this)[JourneyViewModel::class.java].setVisible(true)
     }
 
     override fun onStop() {
         AppVisibility.foreground = false
+        ViewModelProvider(this)[JourneyViewModel::class.java].setVisible(false)
         super.onStop()
     }
 

@@ -18,6 +18,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.toArgb
 import androidx.lifecycle.AndroidViewModel
+import com.passingby.app.audio.AmbientSound
 import com.passingby.app.billing.Billing
 import com.passingby.app.content.Course
 import com.passingby.app.content.Station
@@ -150,6 +151,13 @@ class JourneyViewModel(app: Application) : AndroidViewModel(app) {
     )
 
     // ── 설정 ──
+    var soundOn by mutableStateOf(store.soundOn)
+        private set
+    var soundLevel by mutableIntStateOf(store.soundLevel)
+        private set
+    private val sound = AmbientSound().also { it.volume = SOUND_LEVELS[store.soundLevel.coerceIn(0, 2)] }
+    /** 앱 화면이 보이는지. 소리는 보이는 동안에만 낸다. */
+    private var visible = false
     var ledgeInfo by mutableStateOf(store.ledgeInfo)
         private set
     var overlayAlways by mutableStateOf(store.overlayAlways)
@@ -214,6 +222,10 @@ class JourneyViewModel(app: Application) : AndroidViewModel(app) {
             else -> (tt / plan.durationSec).toFloat()
         }
         scene.update(dt, sky)
+        sound.speed = (scene.speed / course.cruise).toFloat()
+        sound.rain = scene.rainAmount
+        sound.tunnel = if (inTunnel(scene.distanceU)) 1f else 0f
+        sound.clack = if (course.cruise < Course.FAST) .9f else .45f
         updateTicks(t)
         updateSurfaces()
         if (!stats.record(intervalNanos, renderer.lastDrawNanos, refreshHz)) return
@@ -247,6 +259,38 @@ class JourneyViewModel(app: Application) : AndroidViewModel(app) {
     fun restorePurchases() {
         billing.restore()
         notify("구매 내역을 다시 확인했어요")
+    }
+
+    /** 앱 화면이 보이거나 가려질 때 MainActivity가 알린다. */
+    fun setVisible(v: Boolean) {
+        visible = v
+        applySound()
+    }
+
+    fun toggleSound() {
+        soundOn = !soundOn
+        store.soundOn = soundOn
+        applySound()
+    }
+
+    fun selectSoundLevel(level: Int) {
+        soundLevel = level
+        store.soundLevel = level
+        sound.volume = SOUND_LEVELS[level]
+    }
+
+    private fun applySound() {
+        if (visible && soundOn) sound.start() else sound.stop()
+    }
+
+    private fun inTunnel(x: Double): Boolean {
+        val r = scene.zones.tunnels
+        var i = 0
+        while (i < r.size) {
+            if (x >= r[i] && x <= r[i + 1]) return true
+            i += 2
+        }
+        return false
     }
 
     fun setLedge(v: Boolean) {
@@ -406,6 +450,7 @@ class JourneyViewModel(app: Application) : AndroidViewModel(app) {
                     remainingSec = left
                     progress = (t / plan.durationSec).toFloat().coerceIn(0f, 1f)
                     val stop = plan.stoppedAt(t)
+                    if (stop >= 0 && stoppedAt < 0) sound.chime()
                     stoppedAt = stop
                     val next = if (stop >= 0) stop + 1 else plan.segmentAt(t) + 1
                     nextStop = min(next, plan.segments)
@@ -638,6 +683,7 @@ class JourneyViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     override fun onCleared() {
+        sound.stop()
         billing.end()
         renderer.release()
     }
@@ -652,5 +698,6 @@ class JourneyViewModel(app: Application) : AndroidViewModel(app) {
         const val REST_SEC = 5 * 60
         val ARRIVAL_PATTERN = longArrayOf(0, 180, 140, 180, 140, 320)
         val REST_PATTERN = longArrayOf(0, 120, 120, 120)
+        val SOUND_LEVELS = floatArrayOf(.35f, .6f, .9f)
     }
 }

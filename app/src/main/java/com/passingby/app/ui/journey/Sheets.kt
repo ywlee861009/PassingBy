@@ -124,6 +124,8 @@ fun CourseSheetContent(
 @Composable
 fun SettingsSheetContent(
     weather: Weather?,
+    sound: Boolean,
+    soundLevel: Int,
     ledge: Boolean,
     overlay: Boolean,
     power: Boolean,
@@ -131,6 +133,8 @@ fun SettingsSheetContent(
     priceOf: (Course) -> String?,
     devUnlock: Boolean,
     onWeather: (Weather?) -> Unit,
+    onSound: (Boolean) -> Unit,
+    onSoundLevel: (Int) -> Unit,
     onLedge: (Boolean) -> Unit,
     onOverlay: (Boolean) -> Unit,
     onPower: (Boolean) -> Unit,
@@ -157,6 +161,28 @@ fun SettingsSheetContent(
                     contentAlignment = Alignment.Center,
                 ) {
                     BasicText(w?.label ?: "무작위", style = PbType.body.copy(color = if (on) Pb.Paper else Pb.Ink))
+                }
+            }
+        }
+    }
+
+    SectionTitle("소리")
+    Toggle("환경음", "레일·바람·빗소리를 들려줘요. 다른 앱 음악을 멈추지 않아요. 앱이 화면에 있을 때만 나요.", sound, onSound)
+    if (sound) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            for ((i, label) in listOf("작게", "보통", "크게").withIndex()) {
+                val on = i == soundLevel
+                Box(
+                    Modifier
+                        .weight(1f)
+                        .height(44.dp)
+                        .clip(CircleShape)
+                        .background(if (on) Pb.Ink else Color.Transparent)
+                        .border(1.dp, if (on) Pb.Ink else Pb.Line, CircleShape)
+                        .selectable(on, role = Role.RadioButton) { onSoundLevel(i) },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    BasicText(label, style = PbType.body.copy(color = if (on) Pb.Paper else Pb.Ink))
                 }
             }
         }

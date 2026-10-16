@@ -326,8 +326,12 @@ fun JourneyScreen(vm: JourneyViewModel = viewModel()) {
         }
         val ride = RideInfo(
             vm.stations.map { it.name }, vm.stationMarks, vm.progress, vm.remainingSec,
-            vm.stoppedAt, vm.nextStop, vm.nextStopSec, paused,
+            vm.stoppedAt, vm.nextStop, vm.nextStopSec, paused, vm.soundOn,
         )
+        val toggleSound = {
+            interactions++
+            vm.toggleSound()
+        }
         if (form == FormFactor.TABLETOP) {
             var dim by remember { mutableStateOf(false) }
             LaunchedEffect(interactions, phase) {
@@ -347,7 +351,7 @@ fun JourneyScreen(vm: JourneyViewModel = viewModel()) {
                     .fillMaxWidth()
                     .graphicsLayer { this.alpha = alpha },
             ) {
-                TabletopPanel(ride, togglePause, onClose = { confirmEnd = true })
+                TabletopPanel(ride, togglePause, toggleSound, onClose = { confirmEnd = true })
             }
         } else {
             AnimatedVisibility(
@@ -372,12 +376,12 @@ fun JourneyScreen(vm: JourneyViewModel = viewModel()) {
                     }
                     if (form == FormFactor.PORTRAIT) {
                         StackedPanel(
-                            ride, togglePause,
+                            ride, togglePause, toggleSound,
                             Modifier.align(Alignment.BottomCenter).widthIn(max = 480.dp).fillMaxWidth(),
                         )
                     } else {
                         RowPanel(
-                            ride, togglePause,
+                            ride, togglePause, toggleSound,
                             Modifier.align(Alignment.BottomCenter).widthIn(max = 720.dp).fillMaxWidth(),
                         )
                     }
@@ -444,8 +448,9 @@ fun JourneyScreen(vm: JourneyViewModel = viewModel()) {
                         sheet = SheetKind.NONE
                     }
                     else -> SettingsSheetContent(
-                        vm.fixedWeather, vm.ledgeInfo, vm.overlayAlways, vm.powerSave, vm::owns, vm::priceOf, vm.devUnlockAll,
-                        onWeather = vm::selectWeather, onLedge = vm::setLedge, onOverlay = vm::setOverlay, onPower = vm::setPower,
+                        vm.fixedWeather, vm.soundOn, vm.soundLevel, vm.ledgeInfo, vm.overlayAlways, vm.powerSave, vm::owns, vm::priceOf, vm.devUnlockAll,
+                        onWeather = vm::selectWeather, onSound = { vm.toggleSound() }, onSoundLevel = vm::selectSoundLevel,
+                        onLedge = vm::setLedge, onOverlay = vm::setOverlay, onPower = vm::setPower,
                         onBuy = { c -> activity?.let { vm.buy(it, c) } }, onRestore = vm::restorePurchases, onDevUnlock = vm::toggleDevUnlock,
                     )
                 }

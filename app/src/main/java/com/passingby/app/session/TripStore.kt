@@ -78,6 +78,15 @@ class TripStore(private val context: Context) {
         get() = prefs.getBoolean(KEY_POWER, false)
         set(v) = prefs.edit().putBoolean(KEY_POWER, v).apply()
 
+    /** 환경음 켜짐(기본 켜짐)과 크기(0 작게, 1 보통, 2 크게). */
+    var soundOn: Boolean
+        get() = prefs.getBoolean(KEY_SOUND, true)
+        set(v) = prefs.edit().putBoolean(KEY_SOUND, v).apply()
+
+    var soundLevel: Int
+        get() = prefs.getInt(KEY_SOUND_LEVEL, 1)
+        set(v) = prefs.edit().putInt(KEY_SOUND_LEVEL, v).apply()
+
     /** 창밖 날씨. null이면 무작위, 아니면 [com.passingby.app.scene.Weather] 이름. */
     var weather: String?
         get() = prefs.getString(KEY_WEATHER, null)
@@ -142,6 +151,8 @@ class TripStore(private val context: Context) {
         const val KEY_OVERLAY = "overlay_always"
         const val KEY_POWER = "power_save"
         const val KEY_WEATHER = "weather"
+        const val KEY_SOUND = "sound"
+        const val KEY_SOUND_LEVEL = "sound_level"
         const val KEY_A_PHASE = "a_phase"
         const val KEY_A_MINUTES = "a_minutes"
         const val KEY_A_BASE = "a_base"

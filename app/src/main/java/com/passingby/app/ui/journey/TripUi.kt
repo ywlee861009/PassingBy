@@ -266,6 +266,7 @@ class RideInfo(
     val nextStop: Int,
     val nextStopSec: Int,
     val paused: Boolean,
+    val soundOn: Boolean,
 ) {
     val last: Boolean get() = nextStop == stations.size - 1
 }
@@ -301,6 +302,43 @@ fun CloseButton(onClick: () -> Unit, modifier: Modifier = Modifier, background: 
             val s = 1.8.dp.toPx()
             drawLine(tint, Offset.Zero, Offset(size.width, size.height), s, StrokeCap.Round)
             drawLine(tint, Offset(size.width, 0f), Offset(0f, size.height), s, StrokeCap.Round)
+        }
+    }
+}
+
+/** 소리 켜고 끄기(아이콘만). 꺼지면 스피커에 빗금. */
+@Composable
+fun SoundButton(on: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Box(
+        modifier
+            .size(48.dp)
+            .clip(CircleShape)
+            .background(Color(0x33FFFFFF))
+            .clickable(role = Role.Button, onClick = onClick)
+            .semantics { contentDescription = if (on) "소리 끄기" else "소리 켜기" },
+        contentAlignment = Alignment.Center,
+    ) {
+        Canvas(Modifier.size(20.dp)) {
+            val w = size.width
+            val h = size.height
+            val path = androidx.compose.ui.graphics.Path().apply {
+                moveTo(w * .08f, h * .36f)
+                lineTo(w * .3f, h * .36f)
+                lineTo(w * .55f, h * .12f)
+                lineTo(w * .55f, h * .88f)
+                lineTo(w * .3f, h * .64f)
+                lineTo(w * .08f, h * .64f)
+                close()
+            }
+            drawPath(path, Color.White)
+            val s = 1.6.dp.toPx()
+            if (on) {
+                drawArc(Color.White, -50f, 100f, false, Offset(w * .45f, h * .28f), androidx.compose.ui.geometry.Size(w * .3f, h * .44f), style = Stroke(s, cap = StrokeCap.Round))
+                drawArc(Color.White, -50f, 100f, false, Offset(w * .45f, h * .1f), androidx.compose.ui.geometry.Size(w * .5f, h * .8f), style = Stroke(s, cap = StrokeCap.Round))
+            } else {
+                drawLine(Color.White, Offset(w * .68f, h * .32f), Offset(w * .96f, h * .68f), s, StrokeCap.Round)
+                drawLine(Color.White, Offset(w * .96f, h * .32f), Offset(w * .68f, h * .68f), s, StrokeCap.Round)
+            }
         }
     }
 }
@@ -386,7 +424,7 @@ fun Remaining(info: RideInfo, timer: TextStyle, color: Color = Pb.OnScrim, soft:
 
 /** 세로 화면 하단 묶음. */
 @Composable
-fun StackedPanel(info: RideInfo, onPause: () -> Unit, modifier: Modifier = Modifier) {
+fun StackedPanel(info: RideInfo, onPause: () -> Unit, onSound: () -> Unit, modifier: Modifier = Modifier) {
     Column(
         modifier
             .clip(RoundedCornerShape(24.dp))
@@ -396,13 +434,16 @@ fun StackedPanel(info: RideInfo, onPause: () -> Unit, modifier: Modifier = Modif
     ) {
         Remaining(info, PbType.timerLarge)
         CourseProgress(info)
-        PauseButton(info.paused, onPause)
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+            PauseButton(info.paused, onPause)
+            SoundButton(info.soundOn, onSound)
+        }
     }
 }
 
 /** 가로·큰 화면 하단 한 줄: 왼쪽 시간, 가운데 진행 바, 오른쪽 조작. */
 @Composable
-fun RowPanel(info: RideInfo, onPause: () -> Unit, modifier: Modifier = Modifier) {
+fun RowPanel(info: RideInfo, onPause: () -> Unit, onSound: () -> Unit, modifier: Modifier = Modifier) {
     Row(
         modifier
             .clip(RoundedCornerShape(24.dp))
@@ -414,6 +455,7 @@ fun RowPanel(info: RideInfo, onPause: () -> Unit, modifier: Modifier = Modifier)
         Remaining(info, PbType.timerMid)
         CourseProgress(info, Modifier.weight(1f))
         PauseButton(info.paused, onPause)
+        SoundButton(info.soundOn, onSound)
     }
 }
 
@@ -421,7 +463,7 @@ fun RowPanel(info: RideInfo, onPause: () -> Unit, modifier: Modifier = Modifier)
  * 반접기(테이블탑) 아래쪽 반 화면. 시야 밖 평면이라 늘 보이게 두고, 조작이 없으면 어둡게 낮춘다(명세 5.3).
  */
 @Composable
-fun TabletopPanel(info: RideInfo, onPause: () -> Unit, onClose: () -> Unit, modifier: Modifier = Modifier) {
+fun TabletopPanel(info: RideInfo, onPause: () -> Unit, onSound: () -> Unit, onClose: () -> Unit, modifier: Modifier = Modifier) {
     Row(
         modifier
             .clip(RoundedCornerShape(24.dp))
@@ -433,6 +475,7 @@ fun TabletopPanel(info: RideInfo, onPause: () -> Unit, onClose: () -> Unit, modi
         Remaining(info, PbType.timerMid)
         CourseProgress(info, Modifier.weight(1f))
         PauseButton(info.paused, onPause)
+        SoundButton(info.soundOn, onSound)
         CloseButton(onClose, background = Color(0x33FFFFFF))
     }
 }
