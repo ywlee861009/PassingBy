@@ -68,12 +68,14 @@ release 빌드를 테스트 트랙에 올리고 Play에서 설치해서 시험�
    - 기본 언어는 한국어, **무료 앱**으로 설정한다. 인앱결제 모델이라 무료가 맞고, 한 번 무료로 낸 앱은 유료 앱으로 바꿀 수 없다.
    - 패키지명 `com.kero.passingby`는 첫 업로드 뒤에는 바꿀 수 없다.
 4. [ ] **Play 앱 서명 설정과 업로드 키 등록**
-5. [ ] **내부 테스트 트랙에 AAB 업로드** — 보통 결제 라이브러리(BILLING 권한)가 들어간 번들을 한 번 올려야 인앱 상품을 만들 수 있다.
+5. [x] **내부 테스트 트랙에 AAB 업로드** — 보통 결제 라이브러리(BILLING 권한)가 들어간 번들을 한 번 올려야 인앱 상품을 만들 수 있다.
+   - 2026-10-17: 첫 번들(`versionCode 1`, 상품 4개만 포함)을 손으로 올려 내부 테스트로 출시했고, GitHub Secrets 5개를 등록했다. 자동 배포는 아직 한 번도 돌리지 않았다.
    - 첫 번들(`versionCode 1`)은 Play Console에서 손으로 올리고 내부 테스트로 **출시**까지 한다. API로는 새 앱의 첫 업로드를 할 수 없고, 출시한 적 없는 앱에는 자동 배포가 초안만 만들 수 있다.
    - 그 뒤는 `git push origin main:release`로 자동 배포한다(`.github/workflows/android-internal-release.yml`). 빌드 → 업로드 키 서명 확인 → 내부 테스트 업로드 → `android-internal-<versionCode>` 태그 순서로 진행한다.
    - 자동 배포 준비: Google Cloud에서 Google Play Android Developer API 사용 설정, 서비스 계정을 Play Console "사용자 및 권한"에 이 앱 권한(테스트 트랙 출시)으로 초대, GitHub 저장소 Secrets에 `PLAY_SERVICE_ACCOUNT_JSON`·`UPLOAD_KEYSTORE_BASE64`·`UPLOAD_STORE_PASSWORD`·`UPLOAD_KEY_ALIAS`·`UPLOAD_KEY_PASSWORD` 등록. brayne에 쓰는 서비스 계정을 그대로 초대해도 된다.
    - 릴리스 노트는 직전 배포 이후 커밋 제목으로 만든다(커밋 제목이 테스터에게 그대로 보인다). 직접 쓰려면 `release-notes/whatsnew-ko-KR`에 500자 이내로 쓴다.
-6. [ ] **인앱 상품 6개 등록 (일회성 상품)**
+6. [x] **인앱 상품 6개 등록 (일회성 상품)**
+   - 2026-10-17: 6개 모두 만들어 활성화했다. 상품마다 구매 옵션 `buy`(구입, 이전 버전과의 호환성) 하나뿐이고 혜택(오퍼)은 없다. 앱이 호환 옵션의 가격만 읽으므로 혜택을 추가하기 전에 결제 코드를 먼저 고친다.
    - ID는 코드(`Course.productId`, 나라별 `content/*Courses.kt`)와 정확히 같아야 한다: `course_korea_jeolla`, `course_korea_gangneung`, `course_china_north`, `course_china_south`, `course_portugal`, `course_france`
    - 한 번 만든 ID는 지워도 다시 쓸 수 없으니 확정한 뒤에 만든다.
    - 이름, 설명, 가격을 넣고 **활성화**해야 앱에서 보인다.

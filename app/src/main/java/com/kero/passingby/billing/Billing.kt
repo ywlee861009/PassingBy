@@ -60,10 +60,17 @@ class Billing(
         }
     }
 
-    /** 결제 화면을 띄운다. 상품 정보가 아직 없으면(미등록·오프라인) false. */
+    /**
+     * 결제 화면을 띄운다. 상품 정보가 아직 없으면(미등록·오프라인) false.
+     * 일회성 상품은 구매 옵션의 오퍼 토큰을 함께 넘겨야 한다. 가격과 같은 "이전 버전과의 호환성" 구매 옵션을 쓰고,
+     * 토큰이 없으면 예전처럼 토큰 없이 띄운다.
+     */
     fun purchase(activity: Activity, productId: String): Boolean {
         val d = details[productId] ?: return false
-        val product = BillingFlowParams.ProductDetailsParams.newBuilder().setProductDetails(d).build()
+        val product = BillingFlowParams.ProductDetailsParams.newBuilder()
+            .setProductDetails(d)
+            .apply { d.oneTimePurchaseOfferDetails?.offerToken?.let { setOfferToken(it) } }
+            .build()
         val params = BillingFlowParams.newBuilder().setProductDetailsParamsList(listOf(product)).build()
         return client.launchBillingFlow(activity, params).responseCode == BillingClient.BillingResponseCode.OK
     }
