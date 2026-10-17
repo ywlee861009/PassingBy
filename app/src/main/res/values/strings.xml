@@ -22,7 +22,9 @@
     <string name="course_label">Course %1$d · %2$s</string>
     <string name="stops_line">Stops at %1$s</string>
     <string name="nonstop">Nonstop</string>
-    <string name="region_korea">Korea</string>
+    <string name="region_korea_gyeongbu">Korea Gyeongbu Line</string>
+    <string name="region_korea_jeolla">Korea Jeolla Line</string>
+    <string name="region_korea_gangneung">Korea Gangneung Line</string>
     <string name="region_japan">Japan</string>
     <string name="region_china_north">Northern China</string>
     <string name="region_china_south">Southern China</string>
@@ -34,8 +36,15 @@
     <!-- 역 -->
     <string name="station_seoul">Seoul</string>
     <string name="station_daejeon">Daejeon</string>
-    <string name="station_daegu">Daegu</string>
+    <string name="station_dongdaegu">Dongdaegu</string>
     <string name="station_busan">Busan</string>
+    <string name="station_yongsan">Yongsan</string>
+    <string name="station_jeonju">Jeonju</string>
+    <string name="station_suncheon">Suncheon</string>
+    <string name="station_yeosu_expo">Yeosu EXPO</string>
+    <string name="station_yangpyeong">Yangpyeong</string>
+    <string name="station_pyeongchang">Pyeongchang</string>
+    <string name="station_gangneung">Gangneung</string>
     <string name="station_tokyo">Tokyo</string>
     <string name="station_shizuoka">Shizuoka</string>
     <string name="station_nagoya">Nagoya</string>

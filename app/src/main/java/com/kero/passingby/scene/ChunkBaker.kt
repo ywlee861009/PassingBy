@@ -17,6 +17,26 @@ internal fun interface SpanPainter {
 }
 
 /**
+ * 지형 높이. 노이즈 능선에 역 둘레 지형(뒷산·언덕·골짜기, [Zones.shape])을 입힌다.
+ * 굽는 스레드에서도 쓰므로 만들 때의 구역·화면 폭을 그대로 들고 있는 불변 객체다.
+ *
+ * @param index 레이어 번호([Scenery.FAR_A] 등).
+ * @param halfWU 화면 폭의 절반(단위). 레이어 좌표를 세계 위치로 환산할 때 쓴다.
+ */
+internal class TerrainShaper(
+    private val zones: Zones,
+    private val index: Int,
+    private val speed: Double,
+    private val halfWU: Double,
+) {
+    /** 레이어 좌표 [wx]의 지형 높이(단위). */
+    fun height(layer: TerrainLayer, wx: Double): Float {
+        val h = (heightNorm(layer, wx) * layer.amp * 360).toFloat()
+        return zones.shape(index, (wx - halfWU) / speed, h)
+    }
+}
+
+/**
  * 지형 레이어를 화면 폭보다 작은 조각으로 나눠 ALPHA_8 비트맵에 한 번만 그려 둔다.
  * 매 프레임은 조각 비트맵을 옮겨 그리기만 하고, 색은 그릴 때 Paint(색 또는 그라디언트)로 입힌다.
  *
@@ -28,6 +48,7 @@ internal class ChunkBaker(
     private val layer: TerrainLayer,
     private val executor: Executor,
     private val fallback: SpanPainter,
+    @Volatile private var shaper: TerrainShaper,
 ) {
     private class Slot(val bitmap: Bitmap) {
         @Volatile var index = Int.MIN_VALUE
@@ -44,6 +65,8 @@ internal class ChunkBaker(
     private var yBase = 0f
     private var w = 0
     private var h = 0
+    /** 역 둘레 지형이 더 솟을 수 있는 높이(단위). 비트맵 위쪽을 그만큼 넓힌다. */
+    private var extraU = 0f
 
     // 아래 셋은 굽는 스레드에서만 쓴다.
     private val bakeCanvas = Canvas()
@@ -63,7 +86,7 @@ internal class ChunkBaker(
         w = layout.w
         h = layout.h
         yBase = layout.yAt(layer.base)
-        top = max(0, floor(yBase - layer.amp * g).toInt() - 2)
+        top = max(0, floor(yBase - layer.amp * g - extraU * u).toInt() - 2)
         bottom = min(h, ceil(yBase).toInt() + 2)
         val chunkPx = ceil(CHUNK_UNITS * u).toInt() + 1
         val visible = ceil(w / (CHUNK_UNITS * u)).toInt() + 2
@@ -72,6 +95,25 @@ internal class ChunkBaker(
 
     fun release() {
         slots = emptyArray()
+    }
+
+    /**
+     * 역 둘레 지형이 바뀌었다(코스·방향·세션이 바뀌거나 화면 폭이 바뀜). 구운 조각을 버리고 새로 굽는다.
+     * 솟는 높이가 달라지면 비트맵도 새로 잡는다.
+     */
+    fun reshape(s: TerrainShaper, extra: Float, layout: SceneLayout) {
+        shaper = s
+        val grow = extra != extraU
+        extraU = extra
+        if (slots.isEmpty()) return
+        if (grow) {
+            resize(layout)
+        } else {
+            for (slot in slots) {
+                slot.index = Int.MIN_VALUE
+                slot.ready = false
+            }
+        }
     }
 
     fun draw(canvas: Canvas, offU: Double, paint: Paint, frame: Long) {
@@ -115,16 +157,16 @@ internal class ChunkBaker(
         slot.pending = true
         val top = top
         val u = u
-        val g = g
         val yBase = yBase
+        val sh = shaper
         executor.execute {
-            bake(slot.bitmap, k, top, u, g, yBase)
+            bake(slot.bitmap, k, top, u, yBase, sh)
             if (slot.index == k) slot.ready = true
             slot.pending = false
         }
     }
 
-    private fun bake(bmp: Bitmap, k: Int, top: Int, u: Float, g: Float, yBase: Float) {
+    private fun bake(bmp: Bitmap, k: Int, top: Int, u: Float, yBase: Float, sh: TerrainShaper) {
         bmp.eraseColor(Color.TRANSPARENT)
         bakeCanvas.setBitmap(bmp)
         val p = bakePath
@@ -135,7 +177,7 @@ internal class ChunkBaker(
         var x = 0f
         while (true) {
             val wx = k * CHUNK_UNITS + x / u
-            p.lineTo(x, (yBase - heightNorm(layer, wx) * g * layer.amp).toFloat() - top)
+            p.lineTo(x, yBase - sh.height(layer, wx) * u - top)
             if (x >= wb) break
             x = min(x + 2f, wb)
         }

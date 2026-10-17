@@ -17,7 +17,9 @@
     <string name="course_label">%1$d코스 · %2$s</string>
     <string name="stops_line">%1$s 정차</string>
     <string name="nonstop">직통</string>
-    <string name="region_korea">한국</string>
+    <string name="region_korea_gyeongbu">한국 경부선</string>
+    <string name="region_korea_jeolla">한국 전라선</string>
+    <string name="region_korea_gangneung">한국 강릉선</string>
     <string name="region_japan">일본</string>
     <string name="region_china_north">중국 북부</string>
     <string name="region_china_south">중국 남부</string>
@@ -29,8 +31,15 @@
     <!-- 역 -->
     <string name="station_seoul">서울</string>
     <string name="station_daejeon">대전</string>
-    <string name="station_daegu">대구</string>
+    <string name="station_dongdaegu">동대구</string>
     <string name="station_busan">부산</string>
+    <string name="station_yongsan">용산</string>
+    <string name="station_jeonju">전주</string>
+    <string name="station_suncheon">순천</string>
+    <string name="station_yeosu_expo">여수엑스포</string>
+    <string name="station_yangpyeong">양평</string>
+    <string name="station_pyeongchang">평창</string>
+    <string name="station_gangneung">강릉</string>
     <string name="station_tokyo">도쿄</string>
     <string name="station_shizuoka">시즈오카</string>
     <string name="station_nagoya">나고야</string>

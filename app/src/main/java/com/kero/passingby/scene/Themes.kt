@@ -3,14 +3,59 @@ package com.kero.passingby.scene
 import android.graphics.Color
 
 /**
- * 코스별 테마 모음. 코스 id와 같은 id를 쓴다.
+ * 테마 모음. 코스가 자기 테마를 고른다([com.kero.passingby.content.Course.theme]).
+ * 같은 나라의 노선끼리는 마을·도시·이름판을 같이 쓰고 지형만 바꾼다.
  * 지형 레이어 값의 순서는 [TerrainLayer] 생성자와 같다: 속도, 바닥, 높이 폭, 주파수, 능선 정도, 시드, 색 키, 안개, 아래 안개.
+ * 레이어 바닥(base)은 도시 건물 바닥선과 짝이 맞춰져 있으므로 바꾸지 않고 높이 폭·능선만 바꾼다.
  */
 object Themes {
-    val KOREA = Theme(
-        "korea",
-        Scenery.layers,
-        CityScenery.far, CityScenery.mid, CityScenery.near,
+    /** 경부선: 낮은 산, 논, 아파트 단지. */
+    val KOREA = korea("korea", Scenery.layers, 0)
+
+    /** 전라선: 지리산 자락의 조금 더 높은 원경. */
+    val KOREA_JEOLLA = korea(
+        "korea-jeolla",
+        arrayOf(
+            TerrainLayer(0.035, .60f, .32f, 1.0 / 280, 0.85, 17, Palette.FAR, .5f, .4f),
+            TerrainLayer(0.075, .67f, .19f, 1.0 / 200, 0.5, 29, Palette.FAR, .22f, .35f),
+            Scenery.layers[Scenery.MID].reseeded(100),
+            Scenery.layers[Scenery.NEAR].reseeded(100),
+        ),
+        100,
+    )
+
+    /** 강릉선: 태백산맥의 높고 뾰족한 능선, 소나무가 많은 중경. */
+    val KOREA_GANGNEUNG = korea(
+        "korea-gangneung",
+        arrayOf(
+            TerrainLayer(0.035, .60f, .38f, 1.0 / 240, 0.9, 18, Palette.FAR, .5f, .4f),
+            TerrainLayer(0.075, .67f, .25f, 1.0 / 170, 0.6, 30, Palette.FAR, .22f, .35f),
+            TerrainLayer(
+                0.2, .77f, .12f, 1.0 / 220, 0.2, 43, Palette.MID, .08f, .2f, spriteHaze = .35f,
+                objects = ObjectRule(
+                    64.0, 5.6, 17f, 30f, town = true, sink = 2f,
+                    kinds = arrayOf(SpriteKind.PINE, SpriteKind.PINE, SpriteKind.PINE, SpriteKind.ROUND),
+                ),
+            ),
+            TerrainLayer(
+                0.55, .875f, .035f, 1.0 / 340, 0.0, 57, Palette.NEAR, 0f, 0f,
+                objects = ObjectRule(
+                    105.0, 3.4, 50f, 92f, town = false, sink = 6f,
+                    kinds = arrayOf(SpriteKind.PINE, SpriteKind.PINE, SpriteKind.ROUND, SpriteKind.BUSH, SpriteKind.BUSH, SpriteKind.REED),
+                ),
+            ),
+        ),
+        200,
+    )
+
+    /**
+     * 한국 노선 공통: 아파트 도시, 시골 집, 방음벽, 흰 이름판.
+     * 노선마다 [seedShift]를 달리해, 같은 시각에 같은 자리의 건물·나무가 노선끼리 똑같이 나오지 않게 한다.
+     */
+    private fun korea(id: String, layers: Array<TerrainLayer>, seedShift: Int) = Theme(
+        id,
+        layers,
+        CityScenery.far.reseeded(seedShift), CityScenery.mid.reseeded(seedShift), CityScenery.near.reseeded(seedShift),
         Scenery.cityStreetTrees,
         // 시골 집: 흰·베이지 벽에 파랑·주황·초록 지붕.
         HouseStyle(
@@ -202,7 +247,11 @@ object Themes {
         SignStyle(Color.rgb(30, 54, 104), Color.rgb(250, 250, 250), Color.rgb(250, 250, 250)),
     )
 
-    private val ALL = listOf(KOREA, JAPAN, CHINA_NORTH, CHINA_SOUTH, PORTUGAL, FRANCE)
+    private fun TerrainLayer.reseeded(shift: Int) =
+        TerrainLayer(speed, base, amp, freq, ridge, seed + shift, colorKey, haze, mist, spriteHaze, objects, shape)
 
-    fun byId(id: String): Theme = ALL.firstOrNull { it.id == id } ?: KOREA
+    private fun CityLayer.reseeded(shift: Int) = CityLayer(
+        speed, base, chunkUnits, perChunk, minW, maxW, minH, maxH, seed + shift, style, floorU, colU,
+        apt, aptH, aptVar, facades, cap,
+    )
 }

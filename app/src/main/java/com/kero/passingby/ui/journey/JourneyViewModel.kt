@@ -35,7 +35,6 @@ import com.kero.passingby.scene.RenderMode
 import com.kero.passingby.scene.SceneKind
 import com.kero.passingby.scene.SceneRenderer
 import com.kero.passingby.scene.SceneState
-import com.kero.passingby.scene.Themes
 import com.kero.passingby.scene.TimeOfDay
 import com.kero.passingby.scene.UrbanField
 import com.kero.passingby.scene.Weather
@@ -440,13 +439,16 @@ class JourneyViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun rebuildPlan() {
         plan = CoursePlan(tripMinutes * 60.0, course.stations.size, course.cruise)
+        // 역 수가 다른 코스로 바뀌면 다음 틱 전까지 이전 코스의 역 번호가 남는다(개발용 코스 강제 전환 등).
+        nextStop = nextStop.coerceIn(1, plan.segments)
+        if (stoppedAt >= plan.segments) stoppedAt = -1
         weather = WeatherDirector(weatherSeed, course.snowy)
         applyStations()
     }
 
     /** 역 위치·이름판·진행 바 표시·코스 구역을 지금 계획에 맞춘다. */
     private fun applyStations() {
-        scene.theme = Themes.byId(course.id)
+        scene.theme = course.theme
         scene.zones = CourseZones(plan, course, direction, baseDistance)
         val list = stations
         scene.setStations(
@@ -623,6 +625,26 @@ class JourneyViewModel(app: Application) : AndroidViewModel(app) {
     fun selectTime(t: TimeOfDay?) {
         fixedTime = t
         scene.setTimeOfDay(t)
+    }
+
+    /**
+     * 개발용: 정방향 기준 노선 위치 [pos](구간 단위, 2.97이면 2번 구간의 97%)로 옮긴다.
+     * 랜드마크·구역은 이 단위로 정의하므로 그 자리를 바로 확인할 때 쓴다.
+     */
+    fun seekPosition(pos: Double) {
+        if (!moving()) depart()
+        if (!moving()) return
+        val p = pos.coerceIn(0.0, plan.segments.toDouble())
+        val target = (if (direction < 0) plan.segments - p else p) * plan.segDist
+        // 거리는 시간에 대해 줄지 않으므로 이분 탐색으로 그 거리에 닿는 시각을 찾는다.
+        var lo = 0.0
+        var hi = plan.durationSec
+        repeat(60) {
+            val mid = (lo + hi) / 2
+            if (plan.distanceAt(mid) < target) lo = mid else hi = mid
+        }
+        clock.seek(hi)
+        save()
     }
 
     /** 세션의 [fraction](0~1) 지점으로 옮긴다. 달리는 중이 아니면 먼저 출발한다. */

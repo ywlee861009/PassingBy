@@ -39,8 +39,12 @@ class SceneRenderer(private val state: SceneState) {
         }
     }
     private val spanPainter = SpanPainter { c, l, offU, x0, x1, p -> drawTerrainSpan(c, l, offU, x0, x1, p) }
-    private var bakers = Array(layers.size) { ChunkBaker(layers[it], executor, spanPainter) }
+    /** 레이어별 지형 높이(역 둘레 지형 포함). 구역이나 화면 폭이 바뀌면 새로 만든다. */
+    private var shapers = Array(layers.size) { TerrainShaper(Zones.NONE, it, layers[it].speed, 0.0) }
+    private var bakers = Array(layers.size) { ChunkBaker(layers[it], executor, spanPainter, shapers[it]) }
     private var appliedTheme: Theme = Themes.KOREA
+    private var appliedZones: Zones = Zones.NONE
+    private var shapedHalfWU = 0.0
 
     @Volatile private var appliedMode: RenderMode? = null
     @Volatile private var tileSet: TileSet? = null
@@ -156,9 +160,13 @@ class SceneRenderer(private val state: SceneState) {
     private val fieldPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val fieldPts = FloatArray(FIELD_PTS)
     private val trussPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { strokeCap = Paint.Cap.SQUARE }
-    private val landmarkPaint = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val landmarkStroke = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
-    private val landmarkPath = Path().apply { fillType = Path.FillType.EVEN_ODD }
+    private val terracePts = FloatArray(MAX_TERRACE * 4)
+    private val terracePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { strokeCap = Paint.Cap.ROUND }
+    private val landmarkPainter = LandmarkPainter()
+    /** 지금 그리는 랜드마크의 레이어와 그 자리의 레이어 세계 좌표. [landmarkGround]가 읽는다. */
+    private var groundLayer: TerrainLayer = Scenery.layers[Scenery.FAR_B]
+    private var groundWx = 0.0
+    private val landmarkGround = LandmarkPainter.Ground { dx -> terrainY(groundLayer, groundWx + dx / layout.u) }
     private val signPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val signText = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         textAlign = Paint.Align.CENTER
@@ -210,6 +218,7 @@ class SceneRenderer(private val state: SceneState) {
         } else if (state.mode != appliedMode) {
             applyMode()
         }
+        if (state.zones !== appliedZones || halfWU != shapedHalfWU) applyZones()
         drawSky(canvas, p)
         drawStars(canvas, p)
         drawSun(canvas, p)
@@ -259,11 +268,23 @@ class SceneRenderer(private val state: SceneState) {
         appliedTheme = t
         for (b in bakers) b.release()
         layers = t.layers
-        bakers = Array(layers.size) { ChunkBaker(layers[it], executor, spanPainter) }
+        shapers = Array(layers.size) { TerrainShaper(appliedZones, it, layers[it].speed, shapedHalfWU) }
+        bakers = Array(layers.size) { ChunkBaker(layers[it], executor, spanPainter, shapers[it]) }
+        for (i in bakers.indices) bakers[i].reshape(shapers[i], appliedZones.maxLift(i), layout)
         layerKeyA.fill(0)
         layerKeyB.fill(0)
         tileSet = null
         if (layout.w > 0) applyMode()
+    }
+
+    /** 역 둘레 지형(뒷산·언덕·골짜기)이 바뀌었다. 레이어별 지형 모양을 새로 만들고 구운 조각을 버린다. */
+    private fun applyZones() {
+        val z = state.zones
+        appliedZones = z
+        shapedHalfWU = halfWU
+        shapers = Array(layers.size) { TerrainShaper(z, it, layers[it].speed, halfWU) }
+        // 굽는 방식이 아니면 조각이 없으므로 모양만 바꿔 둔다.
+        for (i in bakers.indices) bakers[i].reshape(shapers[i], z.maxLift(i), layout)
     }
 
     /** 방식별로 필요한 메모리만 들고 있는다. 바꾸면 다른 방식의 비트맵은 놓아준다. */
@@ -406,13 +427,16 @@ class SceneRenderer(private val state: SceneState) {
 
         val midOff = d * mid.speed
         drawTerrain(canvas, Scenery.MID, midOff, desaturate(layerColor(mid, p), .25f * uc), mid.mist, p)
+        drawTerraces(canvas, p, mid, midOff)
         drawLandmarks(canvas, p, Scenery.MID)
         computeTones(spriteColor(mid, p), .6f, p, midTones)
         // 도시 안 언덕에도 나무가 조금 남는다.
         mid.objects?.let { drawObjects(canvas, mid, it, midOff, midTones, p, GATE_RURAL, .8f) }
         drawWater(canvas, p, mid.speed, midOff)
+        drawLandmarks(canvas, p, Scenery.MID, onWater = true)
         val mb = mix(desaturate(p.c[Palette.MID], .7f), p.c[Palette.FAR], .15f)
         drawCityLayer(canvas, th.cityMid, d * th.cityMid.speed, mb, 0.0, p)
+        drawLandmarks(canvas, p, Scenery.MID, onTop = true)
 
         val nb = desaturate(p.c[Palette.NEAR], .45f)
         val nearCol = mix(layerColor(near, p), nb, uc)
@@ -515,8 +539,12 @@ class SceneRenderer(private val state: SceneState) {
         }
     }
 
-    private fun terrainY(l: TerrainLayer, wx: Double): Float =
-        (layout.yAt(l.base) - heightNorm(l, wx) * layout.g * l.amp).toFloat()
+    private fun terrainY(l: TerrainLayer, wx: Double): Float = layout.yAt(l.base) - shaperOf(l).height(l, wx) * layout.u
+
+    private fun shaperOf(l: TerrainLayer): TerrainShaper {
+        for (i in layers.indices) if (layers[i] === l) return shapers[i]
+        return shapers[Scenery.MID]
+    }
 
     private fun drawTerrainSpan(canvas: Canvas, l: TerrainLayer, offU: Double, x0: Float, x1: Float, paint: Paint) {
         val u = layout.u
@@ -615,55 +643,93 @@ class SceneRenderer(private val state: SceneState) {
      * 도시 건물 레이어. 조각마다 건물 1~3채를 결정적으로 배치하고, 정면·그늘진 옆면·옥상 구조물·
      * 층 줄무늬를 직사각형으로 그린다. 밤에는 창문 불빛을 점(drawPoints) 묶음으로 한 번에 그린다.
      * 건물마다 자기 위치의 도시화 정도만큼의 확률로 서고, 근교일수록 낮아진다(아파트 단지는 높이 유지).
+     * 높이·지붕·외벽색은 가까운 역의 풍경([CityLook])을 따른다. 언덕 마을이면 중경 건물이 언덕 능선에서
+     * 비탈 아래로 여러 줄 내려가며 쌓인다. 위(먼) 줄부터 그려 아래(가까운) 줄이 앞을 가린다.
      * @param lead 도시화 정도를 읽을 때 앞뒤로 넓힐 범위(세계 단위). [urbanAt] 참고.
      */
     private fun drawCityLayer(canvas: Canvas, layer: CityLayer, offU: Double, base: Int, lead: Double, p: Palette) {
+        val th = state.theme
+        val tier = when {
+            layer === th.cityMid -> CITY_MID
+            layer === th.cityNear -> CITY_NEAR
+            else -> CITY_FAR
+        }
+        val rows = if (tier == CITY_MID) HILL_ROWS else 1
+        for (row in 0 until rows) drawCityRow(canvas, layer, offU, base, lead, p, tier, row)
+    }
+
+    /** 건물 한 줄. [row]가 0이면 평지 바닥선(언덕 마을은 능선), 1부터는 언덕 비탈을 그만큼 내려온 줄. */
+    private fun drawCityRow(
+        canvas: Canvas, layer: CityLayer, offU: Double, base: Int, lead: Double, p: Palette, tier: Int, row: Int,
+    ) {
         val u = layout.u
         val c = layer.chunkUnits
         val k0 = floor(offU / c).toInt() - 1
         val k1 = floor((offU + layout.w / u) / c).toInt() + 1
-        val yb = layout.yAt(layer.base) + 2 * u
+        val flatBase = layout.yAt(layer.base) + 2 * u
         val sunlight = mix(p.c[Palette.SUN], p.c[Palette.BOT], .5f)
         val top = p.c[Palette.TOP]
         val lit = p.f[Palette.LIT]
         val w = layout.w.toFloat()
-        val s = layer.seed
+        val s = layer.seed + row * ROW_SEED
+        // 언덕 비탈이 끝나는 곳(중경 지형 바닥선). 이보다 아래로 내려가는 줄은 세우지 않는다.
+        val foot = layout.yAt(layers[Scenery.MID].base) + 2 * u
         val fl = layer.floorU * u
         val cw = layer.colU * u
+        val z = state.zones
         for (k in k0..k1) {
+            val lk = z.look(((k + .5) * c - halfWU) / layer.speed)
+            val hillside = lk.hillside && tier == CITY_MID
+            if (row > 0 && !hillside) continue
+            if (tier == CITY_NEAR && !lk.near) continue
+            val apt = lk.apt ?: layer.apt
+            val cap = if (tier == CITY_NEAR) layer.cap else lk.cap ?: layer.cap
+            val facades = if (tier == CITY_NEAR) layer.facades else lk.facades ?: layer.facades
             val dense = valueNoise(k * .05 + .2, s + 9)
-            val n = 1 + (hash01(k, s) * layer.perChunk).toInt()
+            // 언덕 마을은 집이 빽빽하다.
+            val n = 1 + (hash01(k, s) * layer.perChunk).toInt() + if (hillside) 1 else 0
             val aptH = layer.aptH + hash01(k, s + 7) * layer.aptVar
-            val isApt = layer.apt > 0f && valueNoise(k * .08 + .5, s + 11) < layer.apt
+            val isApt = apt > 0f && valueNoise(k * .08 + .5, s + 11) < apt
             for (j in 0 until n) {
                 val key = k * 8 + j
                 val r1 = hash01(key, s + 1)
                 val r2 = hash01(key, s + 2)
                 val bw = if (isApt) 54 + r2 * 36 else layer.minW + r2 * (layer.maxW - layer.minW)
-                val urban = urbanAt(layer.speed, (k + r1) * c + bw / 2, lead)
+                val wx0 = (k + r1) * c
+                val urban = urbanAt(layer.speed, wx0 + bw / 2, lead)
                 if (hash01(key, s + 6) >= urban) continue
-                if (cityBlocked(layer.speed, (k + r1) * c + bw / 2)) continue
+                if (cityBlocked(layer.speed, wx0 + bw / 2)) continue
+                if (hillside && (inValley(layer.speed, wx0) || inValley(layer.speed, wx0 + bw))) continue
                 val r3 = hash01(key, s + 3)
                 val r4 = hash01(key, s + 4)
                 val r5 = hash01(key, s + 5)
-                val bh = if (isApt) {
+                var bh = if (isApt) {
                     aptH * (.92 + r3 * .16)
                 } else {
                     (layer.minH + r3.pow(1.6) * (layer.maxH - layer.minH)) * (.55 + dense * .9) * (.5 + .5 * urban)
                 }
-                val x = (((k + r1) * c - offU) * u).toFloat()
+                // 저층 도시는 먼 건물도 더 낮춘다. 고층 도시의 먼 건물은 그대로 두어 랜드마크(초고층)가 묻히지 않게 한다.
+                bh *= if (tier == CITY_FAR) (if (lk.rise < 1f) lk.rise * min(1f, lk.rise / .6f) else 1f) else lk.rise
+                // 한옥은 단층: 넓은 지붕이 벽보다 크게 보이도록 벽을 낮게 둔다.
+                if (cap == RoofCap.HANOK) bh = min(bh, 9.0 + r3 * 5)
+                val x = ((wx0 - offU) * u).toFloat()
                 val bwPx = (bw * u).toFloat()
                 val bhPx = (bh * u).toFloat()
                 if (x + bwPx < 0 || x > w) continue
+                val yb = if (hillside) groundUnder(layer, wx0, bw) + row * ROW_STEP * u else flatBase
+                if (row > 0 && yb > foot) continue
+                if (hillside && lk.townTop > 0f && yb < foot - lk.townTop * u) continue
                 val yt = yb - bhPx
-                val tone = layer.facades?.let { f -> themed(f[(hash01(key, s + 8) * f.size).toInt()], p, .25f) } ?: base
+                val tone0 = facades?.let { f -> themed(f[(hash01(key, s + 8) * f.size).toInt()], p, .25f) } ?: base
+                // 능선 쪽(먼) 줄일수록 안개에 조금 묻힌다.
+                val tone = if (hillside) mix(tone0, p.c[Palette.HAZE], max(0f, .12f - row * .03f)) else tone0
                 val col = mix(tone, if (r5 > .5) sunlight else top, (abs(r5 - .5) * .22).toFloat())
                 val side = mix(col, top, .32f)
                 val sw = min(bwPx * .2f, 7 * u)
 
                 bldgPaint.color = col
                 canvas.drawRect(x, yt, x + bwPx, yb, bldgPaint)
-                if (layer.cap == RoofCap.TILE) {
+                if (cap == RoofCap.TILE) {
                     // 남유럽 시가지: 낮은 주황 기와 박공.
                     bldgPaint.color = themed(TILE_ROOF, p, .2f)
                     housePath.rewind()
@@ -673,7 +739,7 @@ class SceneRenderer(private val state: SceneState) {
                     housePath.close()
                     canvas.drawPath(housePath, bldgPaint)
                     bldgPaint.color = col
-                } else if (layer.cap == RoofCap.MANSARD) {
+                } else if (cap == RoofCap.MANSARD) {
                     // 파리 시가지: 회색 망사르드 지붕과 굴뚝.
                     bldgPaint.color = themed(MANSARD_ROOF, p, .2f)
                     val mh = min(bhPx * .16f, 9 * u)
@@ -685,6 +751,21 @@ class SceneRenderer(private val state: SceneState) {
                     housePath.close()
                     canvas.drawPath(housePath, bldgPaint)
                     canvas.drawRect(x + bwPx * .7f, yt - 3 * u, x + bwPx * .7f + 2.4f * u, yt, bldgPaint)
+                    bldgPaint.color = col
+                } else if (cap == RoofCap.HANOK) {
+                    // 한옥: 벽보다 넓게 나온 검은 기와지붕, 처마 끝과 용마루 끝이 들린다.
+                    bldgPaint.color = themed(HANOK_ROOF, p, .2f)
+                    val rh = min(bwPx * .34f, 12 * u)
+                    val ov = min(bwPx * .18f, 6 * u)
+                    housePath.rewind()
+                    housePath.moveTo(x - ov, yt - rh * .3f)
+                    housePath.quadTo(x + bwPx * .12f, yt + rh * .1f, x + bwPx * .3f, yt + rh * .06f)
+                    housePath.lineTo(x + bwPx * .7f, yt + rh * .06f)
+                    housePath.quadTo(x + bwPx * .88f, yt + rh * .1f, x + bwPx + ov, yt - rh * .3f)
+                    housePath.lineTo(x + bwPx * .84f, yt - rh)
+                    housePath.quadTo(x + bwPx * .5f, yt - rh * .86f, x + bwPx * .16f, yt - rh)
+                    housePath.close()
+                    canvas.drawPath(housePath, bldgPaint)
                     bldgPaint.color = col
                 } else if (layer.style != WindowStyle.SHOP) {
                     if (!isApt && r4 < .16 && bh > 55) {
@@ -728,6 +809,53 @@ class SceneRenderer(private val state: SceneState) {
                 if (lit > .02f && floors > 0) drawLitWindows(canvas, layer.style, key, floors, cols, x0, yt, fl, cw, isApt, lit)
             }
         }
+    }
+
+    /** 도시 레이어 좌표 [wx0]부터 폭 [bw]인 건물 아래 중경 지형의 가장 낮은 곳(px). 비탈에서도 건물이 뜨지 않게 한다. */
+    private fun groundUnder(layer: CityLayer, wx0: Double, bw: Double): Float {
+        val mid = layers[Scenery.MID]
+        val a = terrainY(mid, toMid(layer.speed, wx0))
+        val b = terrainY(mid, toMid(layer.speed, wx0 + bw))
+        return max(a, b) + 2 * layout.u
+    }
+
+    /** 속도 [speed]인 레이어의 좌표를 중경 지형 좌표로. 같은 세계 위치(화면 가운데를 지나는 카메라 위치)를 거쳐 바꾼다. */
+    private fun toMid(speed: Double, wx: Double): Double = (wx - halfWU) / speed * layers[Scenery.MID].speed + halfWU
+
+    /** 포도밭 계단: 역 풍경이 terraces면 중경 언덕 비탈에 짧은 줄을 층층이 긋는다. */
+    private fun drawTerraces(canvas: Canvas, p: Palette, l: TerrainLayer, offU: Double) {
+        val z = state.zones
+        val u = layout.u
+        val w = layout.w.toFloat()
+        val base = layout.yAt(l.base) - u
+        var n = 0
+        var x = 0f
+        while (x < w && n < MAX_TERRACE) {
+            val wx = offU + x / u
+            if (z.look((wx - halfWU) / l.speed).terraces) {
+                var y = terrainY(l, wx) + 4 * u
+                while (y < base && n < MAX_TERRACE) {
+                    terracePts[n * 4] = x
+                    terracePts[n * 4 + 1] = y
+                    terracePts[n * 4 + 2] = x + 4.5f * u
+                    terracePts[n * 4 + 3] = y + .5f * u
+                    n++
+                    y += 6 * u
+                }
+            }
+            x += 7 * u
+        }
+        if (n == 0) return
+        terracePaint.color = themed(Color.rgb(66, 92, 50), p, .15f)
+        terracePaint.strokeWidth = 1.6f * u
+        canvas.drawLines(terracePts, 0, n * 4, terracePaint)
+    }
+
+    /** 그 자리가 역 둘레 골짜기의 강 위인지. */
+    private fun inValley(speed: Double, wx: Double): Boolean {
+        val z = state.zones
+        val x = (wx - halfWU) / speed
+        return z.look(x).river != null && z.river(x) > .3f
     }
 
     /** 창문 불빛. 건물마다 따뜻한 색·흰색 두 묶음의 점으로 그려 그리기 호출 수를 줄인다. */
@@ -879,7 +1007,8 @@ class SceneRenderer(private val state: SceneState) {
         val z = state.zones
         if (!z.water) return false
         val x = (wx - halfWU) / speed
-        return if (speed >= .5) inRanges(z.bridges, x, BRIDGE_BANK) else z.sea(x) > .5f
+        // 골짜기 강 앞의 근경도 비워 강이 보이게 한다.
+        return if (speed >= .5) inRanges(z.bridges, x, BRIDGE_BANK) || inValley(speed, wx) else z.sea(x) > .5f || inValley(speed, wx)
     }
 
     /** 원경 빌딩은 바다 너머에 서지 않고, 근경 상가는 다리 아래 강에 서지 않는다. 중경 아파트는 바닷가에 선다. */
@@ -1255,143 +1384,41 @@ class SceneRenderer(private val state: SceneState) {
         }
     }
 
-    /** 랜드마크. 대강의 실루엣을 경로로 그린다. 레이어의 색을 따라 먼 것은 흐릿하다. */
-    private fun drawLandmarks(canvas: Canvas, p: Palette, layerIndex: Int) {
-        val list = state.zones.landmarks
+    /**
+     * 랜드마크. 그림은 [LandmarkPainter]가 맡고, 여기서는 자리와 색을 정한다.
+     * 먼 것은 레이어 색(안개)을 따르고, 중경 탑·다리는 목재·철재처럼 어둡게, 물 위 다리는 밝은 콘크리트·강철색으로.
+     * [onWater]면 물을 그린 다음 물 위에 서는 다리만 그린다([LandmarkKind.water]).
+     */
+    private fun drawLandmarks(canvas: Canvas, p: Palette, layerIndex: Int, onWater: Boolean = false, onTop: Boolean = false) {
+        val z = state.zones
+        val list = z.landmarks
         if (list.isEmpty()) return
         val l = layers[layerIndex]
         val u = layout.u
         val w = layout.w.toFloat()
         val d = state.distanceU
-        // 먼 랜드마크는 레이어 색(안개)을 따르고, 중경 탑·다리는 목재·철재처럼 어둡게.
-        val col = if (layerIndex == Scenery.MID) {
-            themed(Color.rgb(66, 56, 52), p, .2f)
-        } else {
-            mix(layerColor(l, p), p.c[Palette.TOP], .14f)
-        }
         for (lm in list) {
-            if (lm.kind.layer != layerIndex) continue
+            if (lm.kind.layer != layerIndex || lm.kind.water != onWater || lm.kind.top != onTop) continue
             val lx = (lm.x - d) * l.speed + halfWU
             val cx = (lx * u).toFloat()
             if (cx < -260 * u || cx > w + 260 * u) continue
-            val by = if (layerIndex == Scenery.MID) terrainY(l, lx) + 3 * u else layout.yAt(l.base) + 4 * u
-            drawLandmark(canvas, p, lm.kind, cx, by, u, col)
-        }
-    }
-
-    private fun drawLandmark(canvas: Canvas, p: Palette, kind: LandmarkKind, cx: Float, by: Float, u: Float, col: Int) {
-        val path = landmarkPath
-        path.rewind()
-        landmarkPaint.color = col
-        val lit = p.f[Palette.LIT]
-        when (kind) {
-            LandmarkKind.N_TOWER -> {
-                // 산 위의 탑: 언덕, 가는 기둥, 전망대, 안테나.
-                path.moveTo(cx - 70 * u, by)
-                path.quadTo(cx - 30 * u, by - 26 * u, cx, by - 28 * u)
-                path.quadTo(cx + 30 * u, by - 26 * u, cx + 70 * u, by)
-                path.close()
-                canvas.drawPath(path, landmarkPaint)
-                val base = by - 26 * u
-                canvas.drawRect(cx - 1.8f * u, base - 58 * u, cx + 1.8f * u, base, landmarkPaint)
-                dst.set(cx - 5.5f * u, base - 66 * u, cx + 5.5f * u, base - 56 * u)
-                canvas.drawRoundRect(dst, 2 * u, 2 * u, landmarkPaint)
-                canvas.drawRect(cx - .7f * u, base - 86 * u, cx + .7f * u, base - 66 * u, landmarkPaint)
-                if (lit > .05f) {
-                    landmarkPaint.color = Color.argb((lit * 220).toInt(), 255, 214, 150)
-                    canvas.drawRect(cx - 4.5f * u, base - 62 * u, cx + 4.5f * u, base - 60.5f * u, landmarkPaint)
-                }
+            val col = when (lm.kind.tone) {
+                Tone.CONCRETE -> themed(Color.rgb(196, 198, 202), p, .3f)
+                Tone.STONE -> themed(Color.rgb(222, 212, 192), p, .22f)
+                Tone.IRON -> themed(Color.rgb(66, 56, 52), p, .2f)
+                Tone.FOLIAGE -> themed(Color.rgb(74, 102, 72), p, .38f)
+                // 원경은 레이어 색을 따르되 원경 빌딩보다 조금 짙게 해 스카이라인에서 구분되게 한다.
+                Tone.LAYER -> if (layerIndex == Scenery.MID) themed(Color.rgb(66, 56, 52), p, .2f) else mix(layerColor(l, p), p.c[Palette.TOP], .26f)
             }
-            LandmarkKind.FUJI -> {
-                // 오목한 비탈의 원뿔과 들쭉날쭉한 눈 덮인 꼭대기.
-                path.moveTo(cx - 200 * u, by)
-                path.quadTo(cx - 70 * u, by - 40 * u, cx - 26 * u, by - 132 * u)
-                path.lineTo(cx + 26 * u, by - 132 * u)
-                path.quadTo(cx + 70 * u, by - 40 * u, cx + 200 * u, by)
-                path.close()
-                canvas.drawPath(path, landmarkPaint)
-                path.rewind()
-                path.moveTo(cx - 26 * u, by - 132 * u)
-                path.lineTo(cx + 26 * u, by - 132 * u)
-                path.lineTo(cx + 52 * u, by - 92 * u)
-                var x = 44f
-                var down = true
-                while (x > -52) {
-                    path.lineTo(cx + x * u, by - (if (down) 80 else 94) * u)
-                    x -= 12f
-                    down = !down
-                }
-                path.lineTo(cx - 52 * u, by - 92 * u)
-                path.close()
-                landmarkPaint.color = mix(mix(Color.WHITE, p.c[Palette.HAZE], .3f), p.c[Palette.TOP], .25f * p.f[Palette.STARS])
-                canvas.drawPath(path, landmarkPaint)
+            // 레이어 세계 좌표(지형 노이즈의 입력)는 이동 거리 × 속도 + 화면 위치라서, 랜드마크 자리에서는 늘 같은 값이다.
+            groundLayer = l
+            groundWx = lm.x * l.speed + halfWU
+            val by = when {
+                onWater -> layout.yAt(if (z.sea(lm.x) >= z.river(lm.x)) SEA_BRIDGE_BASE else RIVER_BRIDGE_BASE)
+                layerIndex == Scenery.MID -> terrainY(l, groundWx) + 3 * u
+                else -> layout.yAt(l.base) + 4 * u
             }
-            LandmarkKind.PAGODA -> {
-                // 오층탑: 위로 갈수록 좁아지는 지붕 다섯 층과 상륜.
-                for (i in 0..4) {
-                    val y = by - (8 + i * 13) * u
-                    val rw = (30 - i * 4.5f) * u
-                    canvas.drawRect(cx - rw * .42f, y - 9 * u, cx + rw * .42f, y, landmarkPaint)
-                    path.rewind()
-                    path.moveTo(cx - rw, y - 8 * u)
-                    path.quadTo(cx - rw * .6f, y - 10 * u, cx - rw * .45f, y - 13 * u)
-                    path.lineTo(cx + rw * .45f, y - 13 * u)
-                    path.quadTo(cx + rw * .6f, y - 10 * u, cx + rw, y - 8 * u)
-                    path.close()
-                    canvas.drawPath(path, landmarkPaint)
-                }
-                canvas.drawRect(cx - .8f * u, by - 92 * u, cx + .8f * u, by - 72 * u, landmarkPaint)
-            }
-            LandmarkKind.PEARL_TOWER -> {
-                // 구슬 둘을 꿴 탑: 비스듬한 다리, 큰 구슬, 기둥, 작은 구슬, 첨탑.
-                landmarkStroke.color = col
-                landmarkStroke.strokeWidth = 3 * u
-                canvas.drawLine(cx - 14 * u, by, cx - 3 * u, by - 56 * u, landmarkStroke)
-                canvas.drawLine(cx + 14 * u, by, cx + 3 * u, by - 56 * u, landmarkStroke)
-                canvas.drawRect(cx - 2.2f * u, by - 150 * u, cx + 2.2f * u, by - 40 * u, landmarkPaint)
-                canvas.drawCircle(cx, by - 60 * u, 13 * u, landmarkPaint)
-                canvas.drawCircle(cx, by - 116 * u, 8 * u, landmarkPaint)
-                canvas.drawCircle(cx, by - 150 * u, 3.5f * u, landmarkPaint)
-                canvas.drawRect(cx - .7f * u, by - 178 * u, cx + .7f * u, by - 150 * u, landmarkPaint)
-                if (lit > .05f) {
-                    landmarkPaint.color = Color.argb((lit * 200).toInt(), 255, 140, 190)
-                    canvas.drawCircle(cx, by - 60 * u, 4 * u, landmarkPaint)
-                    canvas.drawCircle(cx, by - 116 * u, 2.6f * u, landmarkPaint)
-                }
-            }
-            LandmarkKind.EIFFEL -> {
-                // 아래가 벌어진 철탑과 밑의 아치.
-                path.moveTo(cx - 34 * u, by)
-                path.quadTo(cx - 12 * u, by - 40 * u, cx - 5 * u, by - 86 * u)
-                path.lineTo(cx - 2 * u, by - 124 * u)
-                path.lineTo(cx + 2 * u, by - 124 * u)
-                path.lineTo(cx + 5 * u, by - 86 * u)
-                path.quadTo(cx + 12 * u, by - 40 * u, cx + 34 * u, by)
-                path.close()
-                path.addCircle(cx, by, 15 * u, Path.Direction.CW)
-                canvas.drawPath(path, landmarkPaint)
-                canvas.drawRect(cx - 15 * u, by - 34 * u, cx + 15 * u, by - 31 * u, landmarkPaint)
-                canvas.drawRect(cx - 8 * u, by - 72 * u, cx + 8 * u, by - 70 * u, landmarkPaint)
-                canvas.drawRect(cx - .6f * u, by - 140 * u, cx + .6f * u, by - 124 * u, landmarkPaint)
-            }
-            LandmarkKind.ARCH_BRIDGE -> {
-                // 철제 아치교: 강 위 아치와 그 위 상판, 양 끝 교각.
-                landmarkStroke.color = col
-                landmarkStroke.strokeWidth = 3.4f * u
-                path.moveTo(cx - 96 * u, by)
-                path.quadTo(cx, by - 86 * u, cx + 96 * u, by)
-                canvas.drawPath(path, landmarkStroke)
-                canvas.drawRect(cx - 120 * u, by - 46 * u, cx + 120 * u, by - 42 * u, landmarkPaint)
-                landmarkStroke.strokeWidth = 1.2f * u
-                var x = -72f
-                while (x <= 72f) {
-                    val ay = by - 86 * u * (1 - (x / 96f) * (x / 96f)) / 2
-                    if (ay < by - 44 * u) canvas.drawLine(cx + x * u, ay, cx + x * u, by - 44 * u, landmarkStroke)
-                    x += 12f
-                }
-                canvas.drawRect(cx - 124 * u, by - 46 * u, cx - 114 * u, by, landmarkPaint)
-                canvas.drawRect(cx + 114 * u, by - 46 * u, cx + 124 * u, by, landmarkPaint)
-            }
+            landmarkPainter.draw(canvas, p, lm.kind, cx, by, u, col, state.elapsedSec, landmarkGround)
         }
     }
 
@@ -1738,6 +1765,18 @@ class SceneRenderer(private val state: SceneState) {
         const val FIELD_PTS = 2048
         /** 밭 한 칸의 폭(근경 레이어 단위). */
         const val PLOT_U = 64.0
+        const val MAX_TERRACE = 1600
+        const val CITY_FAR = 0
+        const val CITY_MID = 1
+        const val CITY_NEAR = 2
+        /** 언덕 마을 건물 줄 수, 줄 사이 높이(단위), 줄마다 다른 배치를 위한 시드 차이. */
+        const val HILL_ROWS = 7
+        const val ROW_STEP = 12f
+        const val ROW_SEED = 50
+        val HANOK_ROOF = Color.rgb(58, 60, 66)
+        /** 물 위 다리의 바닥선. 바다는 수평선 가까이, 강은 강물 띠 위쪽. */
+        const val SEA_BRIDGE_BASE = .70f
+        const val RIVER_BRIDGE_BASE = .80f
         /** 물을 그리는 세로 띠 폭(단위). */
         const val WATER_STRIP = 8f
         /** 다리 양쪽으로 강둑까지 물이 이어지는 거리(세계 단위). */

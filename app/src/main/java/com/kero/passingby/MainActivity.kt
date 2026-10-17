@@ -45,12 +45,15 @@ class MainActivity : ComponentActivity() {
 
     /**
      * 개발용 실행 옵션(개발 도구가 켜진 빌드에서만). 화면을 누르지 않고 상태를 정해 확인할 때 쓴다.
-     * - course: korea | japan | china-north | china-south | portugal | france
+     * - course: 코스 id (korea, korea-jeolla, korea-gangneung, japan, china-north, china-south, portugal, france)
      * - scene: COUNTRY | CITY (생략하면 여정을 따름)
      * - time: DAWN | DAY | DUSK | NIGHT (생략하면 실제 시각)
      * - weather: CLEAR | DRIZZLE | SHOWER | LIGHT_SNOW | HEAVY_SNOW
      * - minutes: 구간 길이(분), at: 구간의 몇 % 지점에서 시작할지(0~1), speedup: 빨리 감기 배율
+     * - pos: 정방향 기준 노선 위치(구간 단위, 예 2.97). 랜드마크 위치를 확인할 때 쓴다.
+     * - hud: true면 성능 HUD(프레임 간격·그리기 시간)를 켠다.
      * 예: adb shell am start -n com.kero.passingby/.MainActivity --ei minutes 25 --ef at 0.15 --es weather DRIZZLE --ez instant true
+     * 예: adb shell am start -n com.kero.passingby/.MainActivity --es course korea --ef pos 0.99 --es time DAY --ez instant true
      */
     private fun applyDebugExtras(i: Intent) {
         val vm = ViewModelProvider(this)[JourneyViewModel::class.java]
@@ -60,6 +63,8 @@ class MainActivity : ComponentActivity() {
         i.getStringExtra("weather")?.let { n -> Weather.entries.firstOrNull { it.name == n }?.let(vm::selectWeather) }
         if (i.hasExtra("minutes")) vm.selectMinutes(i.getIntExtra("minutes", 25))
         if (i.hasExtra("at")) vm.seekFraction(i.getFloatExtra("at", 0f))
+        if (i.hasExtra("pos")) vm.seekPosition(i.getFloatExtra("pos", 0f).toDouble())
+        if (i.getBooleanExtra("hud", false) && !vm.showHud) vm.toggleHud()
         if (i.hasExtra("speedup")) vm.selectScale(i.getFloatExtra("speedup", 1f).toDouble())
         if (i.getBooleanExtra("instant", false)) {
             vm.scene.snapTimeOfDay()

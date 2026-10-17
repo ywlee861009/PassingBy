@@ -3,6 +3,7 @@ package com.kero.passingby.content
 import android.content.res.Resources
 import androidx.annotation.StringRes
 import com.kero.passingby.R
+import com.kero.passingby.scene.CityLook
 import com.kero.passingby.scene.FieldStyle
 import com.kero.passingby.scene.LandmarkKind
 import com.kero.passingby.scene.Theme
@@ -10,8 +11,9 @@ import com.kero.passingby.scene.Theme
 /**
  * 역. [name]은 화면 문구에 쓰는 이름(앱 언어를 따르는 문자열 리소스), [local]은 역 이름판에 크게 쓰는 현지 표기, [roman]은 그 아래 작은 글자.
  * 이름판은 실제 역처럼 현지 표기를 쓰므로 앱 언어와 상관없이 같다.
+ * [look]은 그 도시의 모습(건물 높이·양식, 언덕·강, 뒷산). 실제 사진을 보고 알아볼 수 있는 특징을 맞춘다.
  */
-class Station(@StringRes val name: Int, val local: String, val roman: String)
+class Station(@StringRes val name: Int, val local: String, val roman: String, val look: CityLook = CityLook.DEFAULT)
 
 /**
  * 코스. 실제 노선 하나를 따라가고, 세션 하나가 코스 전체이며 중간 역마다 잠깐 정차한다(명세 7.2).
@@ -87,7 +89,7 @@ class Course(
             check(products.distinct().size == products.size) { "결제 상품 id가 겹친다" }
             for (c in list) {
                 val segs = c.stations.size - 1
-                check(c.landmarks.all { it.seg in 0 until segs }) { "${c.id}: 랜드마크 구간 번호가 범위 밖" }
+                check(c.landmarks.all { it.pos in 0.0..segs.toDouble() }) { "${c.id}: 랜드마크 위치가 노선 밖" }
                 check(c.features.all { it.seg in 0 until segs }) { "${c.id}: 구역 구간 번호가 범위 밖" }
             }
         }
@@ -109,7 +111,16 @@ class Feature(
 }
 
 /**
- * 랜드마크 위치. 정방향 기준 [seg]번 구간의 거리 비율 [at].
- * 역에 서 있는 동안 보이게 하려면 역 바로 앞뒤(0.99, −0.012 등)에 둔다.
+ * 랜드마크 위치. 정방향 기준 노선 위치 [pos](구간 단위, 2.97이면 2번 구간의 97%)에서 화면으로 [dx]단위 옆.
+ * 구간 길이는 세션 길이를 따라 늘어나므로, 역에서 보여야 하는 것은 [atStation]으로 화면 거리만큼 띄워 둔다.
+ * 그래야 25분이든 90분이든 역에 서면 같은 자리에 보인다. 역방향으로 달리면 좌우가 뒤집힌다.
  */
-class LandmarkSpot(val kind: LandmarkKind, val seg: Int, val at: Float)
+class LandmarkSpot private constructor(val kind: LandmarkKind, val pos: Double, val dx: Float) {
+    companion object {
+        /** [station]번 역(정방향 번호)에 서 있을 때 화면 가운데에서 [dx]단위 옆(음수면 왼쪽). */
+        fun atStation(kind: LandmarkKind, station: Int, dx: Float) = LandmarkSpot(kind, station.toDouble(), dx)
+
+        /** [seg]번 구간의 거리 비율 [at]. 역 사이 풍경(후지산, 풍력발전기)에 쓴다. */
+        fun along(kind: LandmarkKind, seg: Int, at: Float) = LandmarkSpot(kind, seg + at.toDouble(), 0f)
+    }
+}

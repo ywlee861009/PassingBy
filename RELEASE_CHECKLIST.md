@@ -1,6 +1,6 @@
 # Passing By — 출시 전 체크리스트
 
-> 2026-10-17 작성 · 기준 커밋 `c6c468c` · 출시 방식: **처음부터 결제 포함** (1·2코스 무료, 3~6코스 코스별 일회성 구매)
+> 2026-10-17 작성 · 기준 커밋 `c6c468c` · 출시 방식: **처음부터 결제 포함** (1·2코스 무료, 3~8코스 코스별 일회성 구매)
 >
 > 코드 위치는 줄 번호 대신 파일과 이름으로 적는다. 관련 명세는 [PASSING_BY_SPEC.md](PASSING_BY_SPEC.md).
 
@@ -73,8 +73,8 @@ release 빌드를 테스트 트랙에 올리고 Play에서 설치해서 시험�
    - 그 뒤는 `git push origin main:release`로 자동 배포한다(`.github/workflows/android-internal-release.yml`). 빌드 → 업로드 키 서명 확인 → 내부 테스트 업로드 → `android-internal-<versionCode>` 태그 순서로 진행한다.
    - 자동 배포 준비: Google Cloud에서 Google Play Android Developer API 사용 설정, 서비스 계정을 Play Console "사용자 및 권한"에 이 앱 권한(테스트 트랙 출시)으로 초대, GitHub 저장소 Secrets에 `PLAY_SERVICE_ACCOUNT_JSON`·`UPLOAD_KEYSTORE_BASE64`·`UPLOAD_STORE_PASSWORD`·`UPLOAD_KEY_ALIAS`·`UPLOAD_KEY_PASSWORD` 등록. brayne에 쓰는 서비스 계정을 그대로 초대해도 된다.
    - 릴리스 노트는 직전 배포 이후 커밋 제목으로 만든다(커밋 제목이 테스터에게 그대로 보인다). 직접 쓰려면 `release-notes/whatsnew-ko-KR`에 500자 이내로 쓴다.
-6. [ ] **인앱 상품 4개 등록 (일회성 상품)**
-   - ID는 코드(`Course.productId`)와 정확히 같아야 한다: `course_china_north`, `course_china_south`, `course_portugal`, `course_france`
+6. [ ] **인앱 상품 6개 등록 (일회성 상품)**
+   - ID는 코드(`Course.productId`, 나라별 `content/*Courses.kt`)와 정확히 같아야 한다: `course_korea_jeolla`, `course_korea_gangneung`, `course_china_north`, `course_china_south`, `course_portugal`, `course_france`
    - 한 번 만든 ID는 지워도 다시 쓸 수 없으니 확정한 뒤에 만든다.
    - 이름, 설명, 가격을 넣고 **활성화**해야 앱에서 보인다.
 7. [ ] **라이선스 테스트** — 설정 → 라이선스 테스트에 테스트용 Gmail 계정을 등록한다. 이 계정으로 한 결제는 실제로 청구되지 않는다.
