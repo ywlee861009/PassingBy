@@ -4,6 +4,7 @@ import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
 import kotlin.math.PI
+import kotlin.math.abs
 import kotlin.math.exp
 import kotlin.math.max
 import kotlin.math.min
@@ -20,6 +21,8 @@ import kotlin.random.Random
  * - 빗방울: 비 세기만큼 유리에 톡톡 떨어지는 짧은 소리.
  * - 터널: 울림이 커지고 바람이 먹먹해진다.
  * - 차임: 중간 역에 설 때 두 음 "띵-동"(실제 역 안내음이 아닌 일반 음).
+ * - 리미터: 터널에서 음량을 크게 두면 울림 봉우리가 1을 넘어 잘리며 찌직거린다.
+ *   소리를 [LOOK] 샘플(약 6ms) 늦게 내보내며 다가오는 봉우리를 미리 보고 부드럽게 줄인다.
  *
  * 폰 스피커로 들을 때 바람 1 : 빗방울 3 : 덜컹 6 정도가 되게 맞췄다(고속 열차 순항, 비 최대 기준).
  * 완행은 덜컹이 두 배쯤 크다([clack]).
@@ -108,6 +111,10 @@ class AmbientSound {
         var humPhase = 0.0
         var chimeT = -1.0
         var fade = 0f
+        // 리미터: 내보내기 전 소리와 지금 배율
+        val ahead = FloatArray(LOOK)
+        var aheadAt = 0
+        var gain = 1f
         track.play()
         while (playing || fade > .001f) {
             val target = if (playing) 1f else 0f
@@ -168,7 +175,14 @@ class AmbientSound {
                 }
 
                 val s = (rumble * .9f + wind + rail + rainTick + hum + chime) * vol * fade
-                out[i] = (s.coerceIn(-1f, 1f) * 32000).toInt().toShort()
+                // 리미터: 앞으로 LOOK 샘플 안의 가장 큰 봉우리가 CEIL을 넘지 않게 배율을 미리 낮추고 0.5초에 걸쳐 되돌린다.
+                ahead[aheadAt] = s
+                aheadAt = (aheadAt + 1) % LOOK
+                var top = 0f
+                for (v in ahead) top = max(top, abs(v))
+                val want = if (top > CEIL) CEIL / top else 1f
+                gain += (want - gain) * if (want < gain) .04f else 1f / (RATE * .5f)
+                out[i] = ((ahead[aheadAt] * gain).coerceIn(-1f, 1f) * 32000).toInt().toShort()
             }
             if (track.write(out, 0, BLOCK) < 0) break
         }
@@ -181,6 +195,10 @@ class AmbientSound {
     private companion object {
         const val RATE = 22050
         const val BLOCK = 1024
+        /** 리미터가 미리 보는 샘플 수. 배율이 .04씩 따라가므로 이만큼이면 봉우리 전에 거의 다 줄어든다. */
+        const val LOOK = 128
+        /** 리미터 상한. 1보다 조금 낮춰 남은 오차가 잘리지 않게 한다. */
+        const val CEIL = .9f
         /** 레일 이음매 간격(순항 1초 = 1). 순항에서 약 1.1초마다 덜컹. */
         const val JOINT = 1.1
     }
