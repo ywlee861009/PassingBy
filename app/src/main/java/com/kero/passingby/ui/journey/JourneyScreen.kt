@@ -66,6 +66,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -101,6 +102,7 @@ fun JourneyScreen(vm: JourneyViewModel = viewModel()) {
         onDispose { view.keepScreenOn = false }
     }
     val activity = LocalActivity.current
+    val uriHandler = LocalUriHandler.current
     LaunchedEffect(vm.cap60) {
         activity?.let { applyRefreshCap(it, vm.cap60) }
     }
@@ -469,6 +471,8 @@ fun JourneyScreen(vm: JourneyViewModel = viewModel()) {
                         onLedge = vm::setLedge, onOverlay = vm::setOverlay, onPower = vm::setPower,
                         onBuy = { c -> activity?.let { vm.buy(it, c) } }, onRestore = vm::restorePurchases, onDevUnlock = vm::toggleDevUnlock,
                         onLicenses = { sheet = SheetKind.LICENSES },
+                        // 브라우저가 없는 기기에서는 열 앱이 없어 예외가 난다. 그때는 아무 일도 하지 않는다.
+                        onPrivacy = { runCatching { uriHandler.openUri(PRIVACY_URL) } },
                     )
                 }
             }
@@ -555,6 +559,8 @@ private fun rememberTouchExploration(): Boolean {
     return on
 }
 
+/** policies 저장소에 게시한 처리방침. 주소를 바꾸면 Play Console에 등록한 주소도 함께 바꾼다. */
+private const val PRIVACY_URL = "https://ywlee861009.github.io/policies/passingby/privacy/"
 private val CARD_MARGIN = 16.dp
 private const val SAVER_FRAME_NANOS = 31_000_000L
 private const val MESSAGE_MS = 3_200L

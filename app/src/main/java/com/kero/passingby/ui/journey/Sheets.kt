@@ -158,6 +158,7 @@ fun SettingsSheetContent(
     onRestore: () -> Unit,
     onDevUnlock: () -> Unit,
     onLicenses: () -> Unit,
+    onPrivacy: () -> Unit,
 ) {
     BasicText("설정", style = PbType.title.copy(color = Pb.Ink))
 
@@ -236,6 +237,7 @@ fun SettingsSheetContent(
     }
     QuietButton("구매 복원", onRestore, Modifier.fillMaxWidth(), color = Pb.Ink)
     QuietButton("오픈소스 라이선스", onLicenses, Modifier.fillMaxWidth())
+    QuietButton("개인정보 처리방침", onPrivacy, Modifier.fillMaxWidth())
     if (BuildConfig.DEV_TOOLS) {
         Toggle("개발용: 모든 코스 열기", "결제 상품 등록 전 확인용. 출시 빌드에는 나오지 않아요.", devUnlock) { onDevUnlock() }
     }
