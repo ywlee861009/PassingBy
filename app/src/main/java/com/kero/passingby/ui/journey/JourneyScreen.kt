@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.PowerManager
 import android.os.Build
 import android.view.accessibility.AccessibilityManager
@@ -69,6 +70,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.platform.UriHandler
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
@@ -485,6 +487,7 @@ fun JourneyScreen(vm: JourneyViewModel = viewModel()) {
                             }
                         },
                         onBuy = { c -> activity?.let { vm.buy(it, c) } }, onRestore = vm::restorePurchases, onDevUnlock = vm::toggleDevUnlock,
+                        onPlayStore = { openPlayStore(context, uriHandler) },
                         onLicenses = { sheet = SheetKind.LICENSES },
                         // 브라우저가 없는 기기에서는 열 앱이 없어 예외가 난다. 그때는 아무 일도 하지 않는다.
                         onPrivacy = { runCatching { uriHandler.openUri(PRIVACY_URL) } },
@@ -576,6 +579,14 @@ private fun rememberTouchExploration(): Boolean {
 
 /** policies 저장소에 게시한 처리방침. 주소를 바꾸면 Play Console에 등록한 주소도 함께 바꾼다. */
 private const val PRIVACY_URL = "https://ywlee861009.github.io/policies/passingby/privacy/"
+
+/** Play 스토어 앱이 있으면 앱으로, 없으면 브라우저로 이 앱 페이지를 연다. 둘 다 없으면 아무 일도 하지 않는다. */
+private fun openPlayStore(context: Context, uriHandler: UriHandler) {
+    val id = BuildConfig.APPLICATION_ID
+    val app = Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$id")).setPackage("com.android.vending")
+    runCatching { context.startActivity(app) }
+        .recoverCatching { uriHandler.openUri("https://play.google.com/store/apps/details?id=$id") }
+}
 private val CARD_MARGIN = 16.dp
 private const val SAVER_FRAME_NANOS = 31_000_000L
 private const val MESSAGE_MS = 3_200L

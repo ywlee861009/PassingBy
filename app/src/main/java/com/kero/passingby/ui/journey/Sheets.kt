@@ -143,7 +143,7 @@ fun CourseSheetContent(
     }
 }
 
-/** 설정: 창밖 날씨, 소리, 화면, 언어, 코스 구매. */
+/** 설정: 창밖 날씨, 소리, 화면, 언어, 코스 구매, Play 스토어. */
 @Composable
 fun SettingsSheetContent(
     weather: Weather?,
@@ -166,6 +166,7 @@ fun SettingsSheetContent(
     onBuy: (Course) -> Unit,
     onRestore: () -> Unit,
     onDevUnlock: () -> Unit,
+    onPlayStore: () -> Unit,
     onLicenses: () -> Unit,
     onPrivacy: () -> Unit,
 ) {
@@ -235,6 +236,7 @@ fun SettingsSheetContent(
         }
     }
     QuietButton(stringResource(R.string.restore_purchases), onRestore, Modifier.fillMaxWidth(), color = Pb.Ink)
+    QuietButton(stringResource(R.string.play_store), onPlayStore, Modifier.fillMaxWidth())
     QuietButton(stringResource(R.string.licenses), onLicenses, Modifier.fillMaxWidth())
     QuietButton(stringResource(R.string.privacy), onPrivacy, Modifier.fillMaxWidth())
     // 개발용 줄은 출시 빌드에 나오지 않으므로 번역하지 않는다.
