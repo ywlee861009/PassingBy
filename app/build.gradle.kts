@@ -7,12 +7,12 @@ plugins {
 }
 
 android {
-    // 임시 패키지명. Play Console에 처음 올리기 전에 확정해야 한다(올린 뒤에는 변경 불가).
-    namespace = "com.passingby.app"
+    // applicationId는 Play Console에 올린 뒤에는 바꿀 수 없다.
+    namespace = "com.kero.passingby"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.passingby.app"
+        applicationId = "com.kero.passingby"
         minSdk = 26
         targetSdk = 36
         versionCode = 1
