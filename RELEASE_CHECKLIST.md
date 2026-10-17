@@ -18,9 +18,10 @@
 - [x] **앱 아이콘**
   - 사용자가 승인한 그림책풍 여행 열차·아치 다리의 적응형 아이콘을 `AndroidManifest.xml`에 연결했다. Android 13 이상 테마 아이콘용 단색 레이어도 포함한다.
   - 스토어용 512×512 PNG와 모양별 미리보기는 `design/launcher/`에 있다. 소스 위치와 파일 용도는 그 폴더의 `README.md` 참고.
-- [ ] **버전** — `app/build.gradle.kts`의 `versionName`
-  - `0.1.0-prototype`을 `1.0.0` 같은 정식 번호로 바꾼다.
-  - `versionCode`는 Play에 올릴 때마다 1씩 올린다.
+- [x] **버전** — `version.properties`
+  - 손으로 올린 첫 번들만 `versionCode 1`(`0.1.0-prototype`)이다. 그 뒤는 자동 배포가 `versionCode`를 1씩, 표시 버전을 `1.0.0001`, `1.0.0002`…로 올린다.
+  - 표시 버전의 앞자리를 바꾸려면 `version_major`·`version_minor`를 고친다. patch는 0001부터 다시 시작하고 `versionCode`는 계속 올라간다.
+  - 자동 배포를 켠 뒤에는 손으로 업로드하지 않는다. 로컬 빌드도 `versionCode 2`라서 다음 자동 배포와 번호가 겹친다.
 - [ ] **AAB로 빌드** — 새 앱은 APK가 아니라 `./gradlew :app:bundleRelease`로 만든 `.aab`를 올린다.
 
 ## 2. 코드 — 결제 품질 (권장)
@@ -68,6 +69,10 @@ release 빌드를 테스트 트랙에 올리고 Play에서 설치해서 시험�
    - 패키지명 `com.kero.passingby`는 첫 업로드 뒤에는 바꿀 수 없다.
 4. [ ] **Play 앱 서명 설정과 업로드 키 등록**
 5. [ ] **내부 테스트 트랙에 AAB 업로드** — 보통 결제 라이브러리(BILLING 권한)가 들어간 번들을 한 번 올려야 인앱 상품을 만들 수 있다.
+   - 첫 번들(`versionCode 1`)은 Play Console에서 손으로 올리고 내부 테스트로 **출시**까지 한다. API로는 새 앱의 첫 업로드를 할 수 없고, 출시한 적 없는 앱에는 자동 배포가 초안만 만들 수 있다.
+   - 그 뒤는 `git push origin main:release`로 자동 배포한다(`.github/workflows/android-internal-release.yml`). 빌드 → 업로드 키 서명 확인 → 내부 테스트 업로드 → `android-internal-<versionCode>` 태그 순서로 진행한다.
+   - 자동 배포 준비: Google Cloud에서 Google Play Android Developer API 사용 설정, 서비스 계정을 Play Console "사용자 및 권한"에 이 앱 권한(테스트 트랙 출시)으로 초대, GitHub 저장소 Secrets에 `PLAY_SERVICE_ACCOUNT_JSON`·`UPLOAD_KEYSTORE_BASE64`·`UPLOAD_STORE_PASSWORD`·`UPLOAD_KEY_ALIAS`·`UPLOAD_KEY_PASSWORD` 등록. brayne에 쓰는 서비스 계정을 그대로 초대해도 된다.
+   - 릴리스 노트는 직전 배포 이후 커밋 제목으로 만든다(커밋 제목이 테스터에게 그대로 보인다). 직접 쓰려면 `release-notes/whatsnew-ko-KR`에 500자 이내로 쓴다.
 6. [ ] **인앱 상품 4개 등록 (일회성 상품)**
    - ID는 코드(`Course.productId`)와 정확히 같아야 한다: `course_china_north`, `course_china_south`, `course_portugal`, `course_france`
    - 한 번 만든 ID는 지워도 다시 쓸 수 없으니 확정한 뒤에 만든다.

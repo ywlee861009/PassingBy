@@ -7,10 +7,49 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
-// Play 업로드 키(kero-studio). 경로와 비밀번호는 커밋하지 않는 local.properties의 kero.upload.*에 둔다.
-val uploadKey: Properties? = rootProject.file("local.properties").takeIf { it.exists() }
-    ?.let { f -> Properties().apply { f.inputStream().use { load(it) } } }
-    ?.takeIf { it.getProperty("kero.upload.storeFile") != null }
+val localProperties = Properties().apply {
+    rootProject.file("local.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) }
+}
+
+// Play 업로드 키(kero-studio). 로컬은 커밋하지 않는 local.properties의 kero.upload.*를,
+// CI는 KERO_UPLOAD_* 환경변수를 읽는다. 상대 경로는 저장소 루트 기준이다.
+fun uploadKeyValue(localKey: String, envKey: String): String? =
+    localProperties.getProperty("kero.upload.$localKey")?.takeIf { it.isNotBlank() }
+        ?: System.getenv(envKey)?.takeIf { it.isNotBlank() }
+
+val uploadKeyFile: File? = uploadKeyValue("storeFile", "KERO_UPLOAD_STORE_FILE")
+    ?.let { rootProject.file(it) }?.takeIf { it.exists() }
+
+// versionCode와 versionName. CI는 직전 배포 태그를 보고 한 단계 올린 값을 PASSINGBY_VERSION_*로 넘긴다.
+// 로컬 빌드는 version.properties의 첫 버전을 쓴다(scripts/resolve_release_version.py 참고).
+val versionProperties = Properties().apply {
+    rootProject.file("version.properties").inputStream().use { load(it) }
+}
+
+fun versionInt(key: String, min: Int): Int =
+    versionProperties.getProperty(key)?.toIntOrNull()?.takeIf { it >= min }
+        ?: throw GradleException("version.properties의 $key 는 $min 이상의 정수여야 한다")
+
+val versionMajor = versionInt("version_major", 1)
+val versionMinor = versionInt("version_minor", 0)
+val firstVersionCode = versionInt("first_version_code", 1)
+
+val resolvedVersionCode: Int = System.getenv("PASSINGBY_VERSION_CODE")?.takeIf { it.isNotBlank() }
+    ?.let { raw ->
+        raw.toIntOrNull()?.takeIf { it >= firstVersionCode }
+            ?: throw GradleException("PASSINGBY_VERSION_CODE 는 $firstVersionCode 이상의 정수여야 한다: '$raw'")
+    }
+    ?: firstVersionCode
+
+val resolvedVersionName: String = System.getenv("PASSINGBY_VERSION_NAME")?.takeIf { it.isNotBlank() }
+    ?.also { name ->
+        val patch = Regex("^$versionMajor\\.$versionMinor\\.(\\d{4})$").matchEntire(name)
+            ?.groupValues?.get(1)?.toIntOrNull()
+        if (patch == null || patch < 1) {
+            throw GradleException("PASSINGBY_VERSION_NAME 은 $versionMajor.$versionMinor.0001 형식이어야 한다: '$name'")
+        }
+    }
+    ?: "$versionMajor.$versionMinor.0001"
 
 android {
     // applicationId는 Play Console에 올린 뒤에는 바꿀 수 없다.
@@ -21,17 +60,17 @@ android {
         applicationId = "com.kero.passingby"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0-prototype"
+        versionCode = resolvedVersionCode
+        versionName = resolvedVersionName
     }
 
     signingConfigs {
-        uploadKey?.let { p ->
+        uploadKeyFile?.let { f ->
             create("upload") {
-                storeFile = file(p.getProperty("kero.upload.storeFile"))
-                storePassword = p.getProperty("kero.upload.storePassword")
-                keyAlias = p.getProperty("kero.upload.keyAlias")
-                keyPassword = p.getProperty("kero.upload.keyPassword")
+                storeFile = f
+                storePassword = uploadKeyValue("storePassword", "KERO_UPLOAD_STORE_PASSWORD")
+                keyAlias = uploadKeyValue("keyAlias", "KERO_UPLOAD_KEY_ALIAS")
+                keyPassword = uploadKeyValue("keyPassword", "KERO_UPLOAD_KEY_PASSWORD")
             }
         }
     }

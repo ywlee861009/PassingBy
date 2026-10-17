@@ -1,0 +1,227 @@
+# release 브랜치에 push 되면 릴리스 AAB 를 빌드해 Google Play 내부 테스트 트랙에 올린다.
+#
+# 흐름: main 에서 개발 → 배포 시점에 `git push origin main:release` → 이 워크플로 실행.
+#
+# 필요한 Secrets (저장소 Settings → Secrets and variables → Actions):
+#   PLAY_SERVICE_ACCOUNT_JSON  Play Console 에 초대된 서비스 계정의 JSON 키 원문
+#   UPLOAD_KEYSTORE_BASE64     업로드 keystore(kero-studio.jks) 를 base64 인코딩한 값
+#   UPLOAD_STORE_PASSWORD / UPLOAD_KEY_ALIAS / UPLOAD_KEY_PASSWORD
+#
+# Play 쪽 선행 조건: 앱 등록과 첫 AAB 수동 업로드(내부 테스트 출시까지), Google Play Android Developer API
+# 사용 설정, 서비스 계정을 Play Console "사용자 및 권한"에 이 앱 권한으로 초대. 하나라도 빠지면 업로드가 실패한다.
+#
+# 직전 성공 배포 태그(android-internal-<code>)에서 versionCode와 4자리 patch를 각각 1 올린다(version.properties 참고).
+name: Android internal release
+
+on:
+  push:
+    branches: [release]
+  workflow_dispatch:
+
+concurrency:
+  group: android-internal-release
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+env:
+  PACKAGE_NAME: com.kero.passingby
+  AAB_PATH: app/build/outputs/bundle/release/app-release.aab
+  MAPPING_PATH: app/build/outputs/mapping/release/mapping.txt
+  # 업로드 keystore(kero-studio.jks, alias kero) 인증서의 SHA-256 지문. 공개 정보라 커밋해도 된다.
+  UPLOAD_KEY_SHA256: C8:51:47:22:73:76:1D:44:8A:C7:EE:A7:A3:26:10:5B:91:49:45:A2:AF:79:6C:76:B2:6A:A6:FE:8E:0E:39:FA
+
+jobs:
+  build-and-upload:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # 직전 배포 태그와 커밋 히스토리로 릴리스 노트를 만든다
+
+      - name: Test release version resolver
+        run: python3 -m unittest discover -s scripts -p 'test_*.py'
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Decode upload keystore
+        env:
+          UPLOAD_KEYSTORE_BASE64: ${{ secrets.UPLOAD_KEYSTORE_BASE64 }}
+        run: |
+          test -n "$UPLOAD_KEYSTORE_BASE64" || { echo "UPLOAD_KEYSTORE_BASE64 secret 이 비어 있다"; exit 1; }
+          mkdir -p keystore
+          printf '%s' "$UPLOAD_KEYSTORE_BASE64" | base64 -d > keystore/upload.jks
+
+      - name: Resolve release version
+        id: version
+        run: python3 scripts/resolve_release_version.py >> "$GITHUB_OUTPUT"
+
+      # Play "새로운 기능" 노트를 만든다. 파일명은 upload-google-play 규약(whatsnew-<BCP47>)을 따르고,
+      # 해당 언어는 Play Console 스토어 등록정보에 있어야 한다. Play는 언어별 500자 제한이 있다.
+      # - release-notes/whatsnew-* 가 직전 배포 태그 이후 바뀌었으면 사람이 쓴 노트를 그대로 쓴다.
+      #   500자를 넘거나 비어 있으면 잘라 올리지 않고 실패한다.
+      # - 바뀌지 않았으면 직전 배포 이후 커밋 제목으로 한국어 노트만 만든다.
+      - name: Generate release notes
+        env:
+          VERSION_CODE: ${{ steps.version.outputs.code }}
+          VERSION_NAME: ${{ steps.version.outputs.name }}
+        run: |
+          prev="$(git tag --list 'android-internal-*' --sort=-v:refname | head -n1)"
+          notes_dir=release-notes
+          authored=false
+          if [ -n "$prev" ]; then
+            range="$prev..HEAD"
+            header="내부 테스트 $VERSION_NAME (코드 $VERSION_CODE) — 이전 빌드(${prev#android-internal-}) 이후 변경사항"
+            git diff --quiet "$prev" HEAD -- "$notes_dir" || authored=true
+          else
+            range="HEAD~30..HEAD"
+            git rev-parse -q --verify HEAD~30 >/dev/null 2>&1 || range="HEAD"
+            header="내부 테스트 $VERSION_NAME (코드 $VERSION_CODE) — 첫 자동 배포. 최근 변경사항"
+            [ -d "$notes_dir" ] && authored=true
+          fi
+          git log --no-merges --format='%s' $range > "$RUNNER_TEMP/subjects.txt"
+          # 빌드 중 생성하는 릴리스 노트는 소스 작업트리를 오염시키지 않도록 runner 임시 폴더에 둔다.
+          mkdir -p "$RUNNER_TEMP/whatsnew"
+          python3 - "$header" "$authored" "$notes_dir" <<'PY'
+          import glob, os, re, sys
+          header, authored, notes_dir = sys.argv[1], sys.argv[2] == 'true', sys.argv[3]
+          temp = os.environ['RUNNER_TEMP']
+          out_dir = os.path.join(temp, 'whatsnew')
+          LIMIT = 500
+          if authored:
+              paths = sorted(glob.glob(os.path.join(notes_dir, 'whatsnew-*')))
+              if not paths:
+                  sys.exit(f'{notes_dir}에 whatsnew-* 파일이 없다')
+              for path in paths:
+                  body = open(path, encoding='utf-8').read().strip()
+                  if not body:
+                      sys.exit(f'{path}가 비어 있다')
+                  if len(body) > LIMIT:
+                      sys.exit(f'{path}가 {len(body)}자다 — Play 언어별 {LIMIT}자 제한을 넘는다')
+                  open(os.path.join(out_dir, os.path.basename(path)), 'w', encoding='utf-8').write(body)
+              print(f'작성한 출시 노트 사용: {", ".join(os.path.basename(p) for p in paths)}')
+          else:
+              subjects = [l.strip() for l in open(os.path.join(temp, 'subjects.txt'), encoding='utf-8') if l.strip()]
+              # conventional commit 접두어(feat(ui): 등)는 테스터에게 의미가 없어 뺀다.
+              lines = []
+              for s in subjects:
+                  s = re.sub(r'^[a-z]+(\([^)]*\))?!?:\s*', '', s)
+                  if s and s not in lines:
+                      lines.append(s)
+              if not lines:
+                  lines = ['소스 변경 없음(재빌드)']
+              body = header + '\n' + '\n'.join('• ' + l for l in lines)
+              if len(body) > LIMIT:
+                  cut = body[:LIMIT - 2].rsplit('\n', 1)[0]
+                  body = cut + '\n…'
+              open(os.path.join(out_dir, 'whatsnew-ko-KR'), 'w', encoding='utf-8').write(body)
+              print('커밋 제목으로 한국어 출시 노트 생성')
+          PY
+          for f in "$RUNNER_TEMP"/whatsnew/whatsnew-*; do
+            {
+              echo "### Play 릴리스 노트 (${f##*/whatsnew-})"
+              echo
+              echo '```'
+              cat "$f"
+              echo
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "--- ${f##*/}"
+            cat "$f"
+            echo
+          done
+
+      - name: Build release AAB
+        env:
+          PASSINGBY_VERSION_CODE: ${{ steps.version.outputs.code }}
+          PASSINGBY_VERSION_NAME: ${{ steps.version.outputs.name }}
+          KERO_UPLOAD_STORE_FILE: keystore/upload.jks
+          KERO_UPLOAD_STORE_PASSWORD: ${{ secrets.UPLOAD_STORE_PASSWORD }}
+          KERO_UPLOAD_KEY_ALIAS: ${{ secrets.UPLOAD_KEY_ALIAS }}
+          KERO_UPLOAD_KEY_PASSWORD: ${{ secrets.UPLOAD_KEY_PASSWORD }}
+        run: ./gradlew :app:bundleRelease --no-daemon --stacktrace
+
+      # 서명 정보가 빠지면 Gradle 은 debug 키로 서명한 AAB 를 만든다(app/build.gradle.kts). 여기서 확실히 막는다.
+      # 서명 인증서를 꺼내 업로드 키의 SHA-256 지문과 일치하는지 본다.
+      - name: Verify AAB is signed with the upload key
+        run: |
+          test -f "$AAB_PATH" || { echo "AAB 가 없다: $AAB_PATH"; exit 1; }
+          test -f "$MAPPING_PATH" || { echo "R8 매핑 파일이 없다"; exit 1; }
+          # keytool 은 서명이 없어도("Not a signed jar file") exit 0 이므로 출력의 지문만 본다.
+          keytool -printcert -jarfile "$AAB_PATH" > "$RUNNER_TEMP/aab-cert.txt" 2>&1 || true
+          if ! grep -qi "SHA256: $UPLOAD_KEY_SHA256" "$RUNNER_TEMP/aab-cert.txt"; then
+            cat "$RUNNER_TEMP/aab-cert.txt"
+            echo "AAB 가 업로드 키로 서명되지 않았다 (기대 지문: $UPLOAD_KEY_SHA256) — UPLOAD_* secrets 를 확인한다"
+            exit 1
+          fi
+          echo "versionCode=${{ steps.version.outputs.code }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "versionName=${{ steps.version.outputs.name }}" >> "$GITHUB_STEP_SUMMARY"
+
+      # 보관 서버의 용량 한도·장애가 서명된 번들의 Play 배포를 막지는 않는다.
+      - name: Archive release AAB
+        id: archive_aab
+        uses: actions/upload-artifact@v4
+        continue-on-error: true
+        with:
+          name: app-release-${{ steps.version.outputs.code }}.aab
+          path: ${{ env.AAB_PATH }}
+          retention-days: 14
+
+      # 릴리스별 난독화 매핑을 보관해 오류 분석에서 원래 스택 트레이스를 복원한다.
+      - name: Archive R8 mapping
+        id: archive_mapping
+        uses: actions/upload-artifact@v4
+        continue-on-error: true
+        with:
+          name: app-release-${{ steps.version.outputs.code }}-mapping
+          path: ${{ env.MAPPING_PATH }}
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Report artifact archive failures
+        if: steps.archive_aab.outcome == 'failure' || steps.archive_mapping.outcome == 'failure'
+        env:
+          AAB_ARCHIVE_OUTCOME: ${{ steps.archive_aab.outcome }}
+          MAPPING_ARCHIVE_OUTCOME: ${{ steps.archive_mapping.outcome }}
+        run: |
+          echo "::warning::산출물 GitHub 보관 실패 — AAB: $AAB_ARCHIVE_OUTCOME, R8 매핑: $MAPPING_ARCHIVE_OUTCOME. Play 내부 테스트 배포는 계속한다."
+          {
+            echo '### 산출물 보관 경고'
+            echo "AAB: $AAB_ARCHIVE_OUTCOME / R8 매핑: $MAPPING_ARCHIVE_OUTCOME"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # 한 번도 출시하지 않은 앱(초안 상태)에는 status: completed 출시를 만들 수 없다.
+      # "Only releases with status draft may be created on draft app" 가 나오면 첫 수동 업로드를 내부 테스트로 출시했는지 확인한다.
+      # R8 매핑도 함께 올려 Play Console 비정상 종료 보고서의 스택 트레이스를 복원한다.
+      - name: Upload to Play internal track
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: ${{ env.PACKAGE_NAME }}
+          releaseFiles: ${{ env.AAB_PATH }}
+          mappingFile: ${{ env.MAPPING_PATH }}
+          tracks: internal
+          status: completed
+          whatsNewDirectory: ${{ runner.temp }}/whatsnew
+
+      - name: Tag deployed commit
+        run: |
+          tag="android-internal-${{ steps.version.outputs.code }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          printf 'versionName=%s\n' '${{ steps.version.outputs.name }}' > "$RUNNER_TEMP/tag-message.txt"
+          for f in "$RUNNER_TEMP"/whatsnew/whatsnew-*; do
+            printf '\n[%s]\n' "${f##*/whatsnew-}" >> "$RUNNER_TEMP/tag-message.txt"
+            cat "$f" >> "$RUNNER_TEMP/tag-message.txt"
+            printf '\n' >> "$RUNNER_TEMP/tag-message.txt"
+          done
+          git tag -a "$tag" -F "$RUNNER_TEMP/tag-message.txt"
+          git push origin "$tag"
