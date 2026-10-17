@@ -958,7 +958,38 @@ class SceneRenderer(private val state: SceneState) {
         }
     }
 
+    /**
+     * 선로 옆 전봇대와 처진 전선. 역 승강장이 걸친 화면 구간에서는 그리지 않는다.
+     * 실제 역에서는 전차선이 선로 바로 위에 팽팽하게 지나가 창으로는 지붕·기둥만 보이고,
+     * 처진 전선이 승강장 앞을 가로지르지 않는다. 구간째 잘라 내므로 역에 들어서면 전봇대가 지붕 뒤로 사라지듯 보인다.
+     */
     private fun drawPoles(canvas: Canvas, p: Palette) {
+        val clipped = clipOutPlatforms(canvas)
+        drawPoleLine(canvas, p)
+        if (clipped) canvas.restore()
+    }
+
+    /** 화면에 걸친 승강장 구간을 그리기 영역에서 뺀다. 뺐으면 true(그리고 나서 restore해야 한다). */
+    private fun clipOutPlatforms(canvas: Canvas): Boolean {
+        val xs = state.stationX
+        if (xs.isEmpty()) return false
+        val u = layout.u
+        val w = layout.w.toFloat()
+        val half = PLATFORM_HALF * u
+        var saved = false
+        for (x in xs) {
+            val cx = (((x - state.distanceU) * Scenery.BED_SPEED + halfWU) * u).toFloat()
+            if (cx + half < 0 || cx - half > w) continue
+            if (!saved) {
+                canvas.save()
+                saved = true
+            }
+            canvas.clipOutRect(cx - half, 0f, cx + half, layout.h.toFloat())
+        }
+        return saved
+    }
+
+    private fun drawPoleLine(canvas: Canvas, p: Palette) {
         val u = layout.u
         val spacing = 360.0
         val off = state.distanceU * Scenery.POLE_SPEED
@@ -1418,7 +1449,9 @@ class SceneRenderer(private val state: SceneState) {
                 layerIndex == Scenery.MID -> terrainY(l, groundWx) + 3 * u
                 else -> layout.yAt(l.base) + 4 * u
             }
-            landmarkPainter.draw(canvas, p, lm.kind, cx, by, u, col, state.elapsedSec, landmarkGround)
+            // 먼 원경은 안개에 묻혀 명암이 약하다.
+            val relief = if (layerIndex == Scenery.MID) 1f else FAR_RELIEF
+            landmarkPainter.draw(canvas, p, lm.kind, cx, by, u, col, state.elapsedSec, landmarkGround, relief)
         }
     }
 
@@ -1774,6 +1807,8 @@ class SceneRenderer(private val state: SceneState) {
         const val ROW_STEP = 12f
         const val ROW_SEED = 50
         val HANOK_ROOF = Color.rgb(58, 60, 66)
+        /** 원경 랜드마크의 명암 세기(중경 대비). */
+        const val FAR_RELIEF = .8f
         /** 물 위 다리의 바닥선. 바다는 수평선 가까이, 강은 강물 띠 위쪽. */
         const val SEA_BRIDGE_BASE = .70f
         const val RIVER_BRIDGE_BASE = .80f
