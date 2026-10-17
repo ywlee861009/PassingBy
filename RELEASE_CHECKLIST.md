@@ -4,18 +4,17 @@
 >
 > 코드 위치는 줄 번호 대신 파일과 이름으로 적는다. 관련 명세는 [PASSING_BY_SPEC.md](PASSING_BY_SPEC.md).
 
-**가장 먼저:** 지금 release 빌드는 `DEV_TOOLS`가 켜져 있어서, 설정 화면의 "개발용: 모든 코스 열기" 스위치가 사용자에게도 보인다. 이대로 결제를 넣고 출시하면 유료 코스가 무료로 풀린다.
-
 ---
 
 ## 1. 코드 — 출시 전에 반드시
 
-- [ ] **개발 도구 끄기** — `app/build.gradle.kts`의 `DEV_TOOLS`
-  - release에서는 `false`로 둔다. 켜져 있으면 "모든 코스 열기" 스위치, 길게 눌러 여는 개발 패널, adb 실행 옵션(`MainActivity.applyDebugExtras`)이 모두 사용자에게 열린다.
-  - 성능 측정용 빌드가 계속 필요하면 release를 복사한 별도 빌드 타입(예: `perf`)을 만들어 거기서만 켠다.
-- [ ] **출시 서명** — `app/build.gradle.kts`의 release `signingConfig`
-  - 지금은 debug 키로 서명한다. Play는 debug 키로 서명한 번들을 받지 않는다.
-  - 업로드 키를 새로 만들고, 키스토어 경로와 비밀번호는 git 밖(예: `~/.gradle/gradle.properties`)에 둔다. 키스토어 파일은 커밋하지 않는다.
+- [x] **개발 도구 끄기** — `app/build.gradle.kts`의 `DEV_TOOLS`
+  - debug에서만 `true`, release에서는 `false`다. 켜져 있으면 "모든 코스 열기" 스위치, 길게 눌러 여는 개발 패널, adb 실행 옵션(`MainActivity.applyDebugExtras`)이 모두 사용자에게 열린다.
+  - 그래서 release 빌드로 성능을 잴 때는 HUD와 개발 패널이 없다. 필요해지면 release를 복사한 별도 빌드 타입(예: `perf`)을 만들어 거기서만 켠다.
+- [x] **출시 서명** — `app/build.gradle.kts`의 release `signingConfig`
+  - brayne과 같은 업로드 키(`kero-studio.jks`, alias `kero`)를 쓴다. 키 파일은 ethan-of-brain 프로젝트의 `android/keystore/`에 있고, 경로와 비밀번호는 커밋하지 않는 `local.properties`의 `kero.upload.*`에 있다.
+  - 인증서 SHA-256 지문은 `C8:51:47:22:…:8E:0E:39:FA`. 업로드한 번들의 지문은 `keytool -J-Duser.language=en -printcert -jarfile app-release.aab`로 확인한다(한국어 로케일에서는 JDK 24 keytool이 오류를 낸다).
+  - `local.properties`에 이 값이 없는 기기에서는 debug 키로 서명된다. 그 번들은 Play에 올릴 수 없다.
 - [x] **앱 아이콘**
   - 사용자가 승인한 그림책풍 여행 열차·아치 다리의 적응형 아이콘을 `AndroidManifest.xml`에 연결했다. Android 13 이상 테마 아이콘용 단색 레이어도 포함한다.
   - 스토어용 512×512 PNG와 모양별 미리보기는 `design/launcher/`에 있다. 소스 위치와 파일 용도는 그 폴더의 `README.md` 참고.
@@ -76,7 +75,7 @@ release 빌드를 테스트 트랙에 올리고 Play에서 설치해서 시험�
 7. [ ] **라이선스 테스트** — 설정 → 라이선스 테스트에 테스트용 Gmail 계정을 등록한다. 이 계정으로 한 결제는 실제로 청구되지 않는다.
 8. [ ] **앱 콘텐츠**
    - [ ] 개인정보처리방침 URL — 데이터를 수집하지 않는 앱도 필수
-   - [ ] 데이터 보안 양식 — 모든 테스트 트랙에도 필수. 결제 관련 항목을 신고해야 하는지는 도움말을 확인한다.
+   - [ ] 데이터 보안 양식 — 내부 테스트에만 있는 동안은 면제이고, 비공개·공개 테스트나 프로덕션에 올리는 순간부터 필수다. 결제 관련 항목을 신고해야 하는지는 도움말을 확인한다.
    - [ ] 광고 없음 신고, 콘텐츠 등급 설문
    - [ ] 타깃 연령 — 13세 미만을 넣으면 가족 정책 요건이 추가된다.
    - [ ] **포그라운드 서비스 권한 신고** — `specialUse`를 쓰는 이유를 적는다(명세 10.5에 "반려 위험 있음"으로 적어 둔 항목). `AndroidManifest.xml`의 `PROPERTY_SPECIAL_USE_FGS_SUBTYPE` 설명과 같은 내용으로 쓰고, 실제 사용 장면 영상을 요구받을 수 있다.
@@ -106,5 +105,6 @@ Play 정책은 바뀔 수 있으니 진행할 때 Play Console 도움말 원문�
 
 - [Google Play 12-tester rule (Choicely)](https://www.choicely.com/blog/google-play-12-tester-rule)
 - [Google Play closed testing requirements 2026 (Testers Community)](https://www.testerscommunity.com/blog/google-play-closed-testing-requirements-2026)
+- [데이터 보안 섹션 안내 (Play Console 도움말)](https://support.google.com/googleplay/android-developer/answer/10787469)
 - [Google Play data safety section (iubenda)](https://www.iubenda.com/en/help/38933/-google-play-new-safety-section)
 - [1인 앱 개발자 주소 노출 경험담 (다모앙)](https://damoang.net/development/1222)

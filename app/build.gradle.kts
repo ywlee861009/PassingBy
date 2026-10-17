@@ -1,3 +1,4 @@
+import java.util.Properties
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
@@ -5,6 +6,11 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
 }
+
+// Play 업로드 키(kero-studio). 경로와 비밀번호는 커밋하지 않는 local.properties의 kero.upload.*에 둔다.
+val uploadKey: Properties? = rootProject.file("local.properties").takeIf { it.exists() }
+    ?.let { f -> Properties().apply { f.inputStream().use { load(it) } } }
+    ?.takeIf { it.getProperty("kero.upload.storeFile") != null }
 
 android {
     // applicationId는 Play Console에 올린 뒤에는 바꿀 수 없다.
@@ -17,17 +23,31 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "0.1.0-prototype"
-        // 개발용 패널·HUD·실행 옵션. 성능 측정용 release에서도 쓰므로 지금은 둘 다 켠다. 출시 빌드에서는 false로.
-        buildConfigField("boolean", "DEV_TOOLS", "true")
+    }
+
+    signingConfigs {
+        uploadKey?.let { p ->
+            create("upload") {
+                storeFile = file(p.getProperty("kero.upload.storeFile"))
+                storePassword = p.getProperty("kero.upload.storePassword")
+                keyAlias = p.getProperty("kero.upload.keyAlias")
+                keyPassword = p.getProperty("kero.upload.keyPassword")
+            }
+        }
     }
 
     buildTypes {
+        debug {
+            // 개발용 패널·HUD·실행 옵션·"모든 코스 열기". 사용자에게 가는 release에서는 끈다.
+            buildConfigField("boolean", "DEV_TOOLS", "true")
+        }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            // 성능 측정용으로 debug 키로 서명한다. 출시 전에 실제 서명 설정으로 교체.
-            signingConfig = signingConfigs.getByName("debug")
+            // 업로드 키가 없는 환경에서는 debug 키로 서명한다. 이 번들은 Play에 올릴 수 없다.
+            signingConfig = signingConfigs.findByName("upload") ?: signingConfigs.getByName("debug")
+            buildConfigField("boolean", "DEV_TOOLS", "false")
         }
     }
     androidResources {
