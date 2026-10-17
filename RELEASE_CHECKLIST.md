@@ -16,9 +16,9 @@
 - [ ] **출시 서명** — `app/build.gradle.kts`의 release `signingConfig`
   - 지금은 debug 키로 서명한다. Play는 debug 키로 서명한 번들을 받지 않는다.
   - 업로드 키를 새로 만들고, 키스토어 경로와 비밀번호는 git 밖(예: `~/.gradle/gradle.properties`)에 둔다. 키스토어 파일은 커밋하지 않는다.
-- [ ] **앱 아이콘**
-  - `AndroidManifest.xml`에 `android:icon`이 없고 `mipmap` 폴더도 없어서, 지금은 안드로이드 기본 아이콘이 나온다.
-  - 적응형 아이콘(minSdk 26이라 이것만으로 충분)과 스토어용 512×512 PNG가 필요하다.
+- [x] **앱 아이콘**
+  - 사용자가 승인한 그림책풍 여행 열차·아치 다리의 적응형 아이콘을 `AndroidManifest.xml`에 연결했다. Android 13 이상 테마 아이콘용 단색 레이어도 포함한다.
+  - 스토어용 512×512 PNG와 모양별 미리보기는 `design/launcher/`에 있다. 소스 위치와 파일 용도는 그 폴더의 `README.md` 참고.
 - [ ] **버전** — `app/build.gradle.kts`의 `versionName`
   - `0.1.0-prototype`을 `1.0.0` 같은 정식 번호로 바꾼다.
   - `versionCode`는 Play에 올릴 때마다 1씩 올린다.

@@ -1,0 +1,22 @@
+Status: Approved visual direction. Derived foreground/background assets are connected to the Android adaptive icon; this original draft is preserved.
+Generator: Built-in image_gen tool.
+References: User-provided spring train/viaduct and illustrated station images.
+
+Final prompt:
+
+Use case: illustration-story.
+Asset type: ONE original square illustrated app-icon concept for Passing By, a peaceful train-journey focus app. This is an approval draft, not a presentation board.
+
+Input images: Reference image 1 is composition and travel mood inspiration only: a passenger train traveling sideways over a stone arch bridge among spring hills. Reference image 2 is inspiration for friendly hand-drawn storybook warmth and the orange travel carriage. Do not reproduce their lettering, logos, characters, or exact artwork.
+
+Primary request: Capture the anticipation and gentle joy of taking a countryside holiday by train. A charming orange-red and ivory intercity train with a dark teal roof, a small rounded sloping locomotive nose and ONE connected passenger carriage travels leftwards across a warm sandstone viaduct with three broad rounded arches. Show the train predominantly from the SIDE at a very gentle three-quarter angle, so its length and connected carriage clearly read as a journey. The train is the focal point, large and recognizable, approximately 60% of the image width, slightly above center. Keep the train and central bridge arches together in the central area, with generous landscape breathing room around them.
+
+Scene/backdrop: Pale powder-blue sky, one soft white cloud and a small warm apricot sun. Two or three large soft layers of fresh sage and spring-green hills recede behind the train. The stone viaduct spans the lower middle, greenery visible through its generous arches. At the bottom, only a couple of simple rounded meadow/leaf shapes, with very sparse tiny cream flowers if needed. Make the whole scene feel like a treasured illustration of a relaxed trip away.
+
+Style/medium: Beautiful polished contemporary picture-book illustration, simplified hand-painted gouache shapes, light colored-pencil contour accents, restrained fine paper grain. Soft rounded forms, carefully chosen warm ivory, terracotta orange, sage green, butter yellow and light sky blue. Gentle daylight, quiet optimism, warmth, depth from overlapping color shapes. Bold enough to remain legible at app-icon size. Favor a few strong shapes over small intricate details.
+
+Composition/framing: 1:1 square, full-bleed edge-to-edge landscape artwork, balanced as an app icon. No pre-rounded outer corners, no border, no white margins, no cast shadow, no phone mockup, no surrounding UI, no comparison sheet. A single cohesive image.
+
+Text: NONE. No words, initials, numbers, branding or watermark.
+Avoid: head-on train pictogram, subway signage, transit utility icon, front-facing symmetrical cab, technical rail diagram, generic flat-vector icon, photorealism, plastic 3D render, emoji, crowds, characters or luggage.
+

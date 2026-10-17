@@ -1,0 +1,21 @@
+Generator: built-in image_gen tool.
+Approved source: drafts/train-travel-v1.png.
+
+Foreground extraction prompt:
+Use case: background-extraction.
+Asset type: transparent foreground layer for an Android adaptive icon, derived from the attached approved artwork.
+
+Extract and retain ONLY the orange-and-ivory passenger train, the rails, the entire warm golden stone arched viaduct, and the nearest foreground meadow foliage and cream daisies. Remove ALL sky, sun, clouds, distant mountains, hill slopes and background trees, including the scenery visible THROUGH every bridge arch. These removed areas must be genuinely transparent alpha, not filled white or checkerboard paint.
+
+Preserve the approved illustration's exact square canvas, object positions, scale, side-view orange train with dark teal roof, connected passenger carriage, shape of three bridge arches, hand-painted gouache paper texture and warm spring palette. Keep the train at its existing location and scale. Do not recompose, zoom, crop or add objects. Bridge and vegetation at the bottom and side edges continue all the way to those edges as in the source. Keep the entire locomotive front clearly intact. Preserve coherent clean antialiased cutout edges; no halo.
+
+Return one square RGBA image with genuine transparent pixels around and above the train and in the bridge openings. No text, labels, borders, shadows, scenery, new background or presentation sheet.
+
+Background landscape prompt:
+Use case: precise-object-edit.
+Asset type: opaque background landscape layer for an Android adaptive icon matching the approved illustration.
+
+Using the attached approved image as the exact color, medium and atmosphere reference, create only the peaceful spring countryside behind the train: pale powder-blue sky, one small golden apricot sun, one soft ivory cloud, overlapping fresh spring-green and sage hills, a few very simplified distant dark-green trees, and sunlit green meadow. Remove the train, all tracks, the entire stone bridge, the close foreground flowers and close large leaves. Fill their former areas naturally with more uninterrupted rolling hills and meadow. This is an empty landscape plate.
+
+Retain the warm hand-painted gouache/paper texture and original pastel blue, fresh yellow-green and sage colors. Simplify small details slightly for app-icon readability while keeping the same beautiful picture-book finish. Compose with the sun centered at about 38% width / 30% height, the small cloud at about 68% width / 27% height, and the main hill horizons around the middle. Keep the lower half green landscape so it will show through the arches of a bridge overlaid later. Whole frame completely opaque and full-bleed 1:1 square. No bridge, trains, vehicles, people, buildings, writing, borders, rounded outer mask, vignette or shadows.
+
