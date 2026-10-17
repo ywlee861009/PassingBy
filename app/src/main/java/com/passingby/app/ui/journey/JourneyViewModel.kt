@@ -620,6 +620,8 @@ class JourneyViewModel(app: Application) : AndroidViewModel(app) {
     /** 세션의 [fraction](0~1) 지점으로 옮긴다. 달리는 중이 아니면 먼저 출발한다. */
     fun seekFraction(fraction: Float) {
         if (!moving()) depart()
+        // 잠긴 코스라 출발하지 못했으면 건너뛰지 않는다.
+        if (!moving()) return
         clock.seek(plan.durationSec * fraction.coerceIn(0f, 1f))
         save()
     }
@@ -627,12 +629,14 @@ class JourneyViewModel(app: Application) : AndroidViewModel(app) {
     /** 도착 20초 전으로 건너뛴다. */
     fun seekNearEnd() {
         if (!moving()) depart()
+        if (!moving()) return
         seekFraction(((plan.durationSec - 20) / plan.durationSec).toFloat())
     }
 
     /** 다음 정차역 5초 전으로 건너뛴다. */
     fun seekNextStop() {
         if (!moving()) depart()
+        if (!moving()) return
         clock.seek((plan.arrivalAt(nextStop) - 5).coerceAtLeast(0.0))
         save()
     }

@@ -11,8 +11,9 @@ import com.passingby.app.R
 /**
  * Passing By 디자인 토큰(명세 4.4).
  * 카드 바탕은 고정색이 아니라 하늘 팔레트의 실내 벽색에서 매번 뽑는다([com.passingby.app.ui.journey.JourneyViewModel.paper]).
- * 본문은 Pretendard(SIL OFL 1.1, 원문은 assets/licenses). 역 이름·도착 문구의 부리 계열은
- * 마루 부리 라이선스를 확인하기 전까지 시스템 세리프를 쓴다. 한자·일본어는 Pretendard에 없어 시스템 글꼴로 넘어간다.
+ * 본문은 Pretendard, 도착 문구 같은 목소리 글자는 고운바탕. 둘 다 SIL OFL 1.1이고 원문은 assets/licenses에 있다.
+ * 고운바탕은 상용 한글 2,350자와 영문·기호만 남긴 서브셋이라 그 밖의 글자는 시스템 글꼴로 넘어간다.
+ * 한자·일본어는 두 서체 모두에 없어 시스템 글꼴로 그린다.
  */
 object Pb {
     /** 승차권 종이색. 밤에는 실내 벽색 쪽으로 어두워진다. */
@@ -37,14 +38,16 @@ val Pretendard = FontFamily(
     Font(R.font.pretendard_medium, FontWeight.Medium),
 )
 
+val GowunBatang = FontFamily(Font(R.font.gowun_batang_regular, FontWeight.Normal))
+
 object PbType {
     val kicker = TextStyle(fontFamily = Pretendard, fontSize = 13.sp, lineHeight = 18.sp)
     val title = TextStyle(fontFamily = Pretendard, fontSize = 22.sp, lineHeight = 28.sp, fontWeight = FontWeight.Medium)
     val body = TextStyle(fontFamily = Pretendard, fontSize = 14.sp, lineHeight = 20.sp)
     val label = TextStyle(fontFamily = Pretendard, fontSize = 15.sp, lineHeight = 20.sp)
     val button = TextStyle(fontFamily = Pretendard, fontSize = 16.sp, lineHeight = 20.sp, fontWeight = FontWeight.Medium)
-    /** 역 이름·도착 문구. 부리 계열 서체가 들어오면 여기만 바꾼다. */
-    val voice = TextStyle(fontFamily = FontFamily.Serif, fontSize = 24.sp, lineHeight = 32.sp)
+    /** 역 이름·도착 문구(부리 계열). */
+    val voice = TextStyle(fontFamily = GowunBatang, fontSize = 24.sp, lineHeight = 32.sp)
     val timerLarge = TextStyle(fontFamily = Pretendard, fontSize = 56.sp, lineHeight = 62.sp, fontWeight = FontWeight.Medium, fontFeatureSettings = "tnum")
     val timerMid = TextStyle(fontFamily = Pretendard, fontSize = 34.sp, lineHeight = 40.sp, fontWeight = FontWeight.Medium, fontFeatureSettings = "tnum")
 }

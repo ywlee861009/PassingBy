@@ -345,12 +345,15 @@ private fun Stamp(name: String, on: Boolean) {
     }
 }
 
-/** 오픈소스 라이선스(글꼴). */
+/** 오픈소스 라이선스(글꼴). [licenses]는 (제목, 원문) 목록. */
 @Composable
-fun LicenseSheetContent(text: String) {
+fun LicenseSheetContent(licenses: List<Pair<String, String>>) {
     BasicText("오픈소스 라이선스", style = PbType.title.copy(color = Pb.Ink))
-    BasicText("Pretendard — SIL Open Font License 1.1", style = PbType.label.copy(color = Pb.Ink))
-    BasicText(text, style = PbType.kicker.copy(color = Pb.InkSoft))
+    for ((title, text) in licenses) {
+        Spacer(Modifier.height(4.dp))
+        BasicText(title, style = PbType.label.copy(color = Pb.Ink))
+        BasicText(text, style = PbType.kicker.copy(color = Pb.InkSoft))
+    }
 }
 
 private fun hours(min: Int): String = if (min >= 60) "${min / 60}시간 ${min % 60}분" else "${min}분"

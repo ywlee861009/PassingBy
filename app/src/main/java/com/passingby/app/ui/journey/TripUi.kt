@@ -415,7 +415,8 @@ fun Remaining(info: RideInfo, timer: TextStyle, color: Color = Pb.OnScrim, soft:
         else -> "다음 정차 $next · ${clock(info.nextStopSec)}"
     }
     Column {
-        BasicText(line, style = PbType.label.copy(color = soft))
+        // 이 줄이 큰 숫자보다 넓어 묶음 폭을 정하므로, 초가 바뀔 때 옆 진행 바가 흔들리지 않게 숫자 폭을 고정한다.
+        BasicText(line, style = PbType.label.copy(color = soft, fontFeatureSettings = "tnum"))
         BasicText(
             clock(info.remainingSec),
             style = timer.copy(color = color),

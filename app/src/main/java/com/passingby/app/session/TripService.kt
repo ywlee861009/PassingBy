@@ -26,7 +26,9 @@ class TripService : Service() {
         if (intent?.action == ACTION_STOP) {
             cancelAlarm(this)
             ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
-            stopSelf()
+            // 이 정지 요청 뒤에 시작 요청이 더 와 있으면 내리지 않는다. stopSelf()로 무조건 내리면
+            // 아직 처리하지 못한 startForegroundService 요청이 startForeground를 못 불러 앱이 종료된다.
+            stopSelf(startId)
             return START_NOT_STICKY
         }
         val title = intent?.getStringExtra(EXTRA_TITLE) ?: ""

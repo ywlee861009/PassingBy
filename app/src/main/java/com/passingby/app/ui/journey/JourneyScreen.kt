@@ -442,8 +442,14 @@ fun JourneyScreen(vm: JourneyViewModel = viewModel()) {
             modifier = Modifier.fillMaxSize(),
         ) {
             val shown = remember { mutableStateOf(sheet) }
-            val licenseText = remember {
-                runCatching { context.assets.open("licenses/pretendard.txt").bufferedReader().use { it.readText() } }.getOrDefault("")
+            val licenses = remember {
+                fun read(name: String) = runCatching {
+                    context.assets.open("licenses/$name").bufferedReader().use { it.readText() }
+                }.getOrDefault("")
+                listOf(
+                    "Pretendard — SIL Open Font License 1.1" to read("pretendard.txt"),
+                    "Gowun Batang(고운바탕) — SIL Open Font License 1.1" to read("gowun-batang.txt"),
+                )
             }
             if (sheet != SheetKind.NONE) shown.value = sheet
             // 시트 종류가 바뀌면 스크롤 위치를 처음부터 다시 잡는다.
@@ -455,7 +461,7 @@ fun JourneyScreen(vm: JourneyViewModel = viewModel()) {
                         sheet = SheetKind.NONE
                     }
                     SheetKind.JOURNAL -> JournalSheetContent(vm.today, vm.lifetime, vm.visited, vm::completions, vm::owns)
-                    SheetKind.LICENSES -> LicenseSheetContent(licenseText)
+                    SheetKind.LICENSES -> LicenseSheetContent(licenses)
                     else -> SettingsSheetContent(
                         vm.fixedWeather, vm.soundOn, vm.soundLevel, vm.ledgeInfo, vm.overlayAlways, vm.powerSave, vm::owns, vm::priceOf, vm.devUnlockAll,
                         onWeather = vm::selectWeather, onSound = { vm.toggleSound() }, onSoundLevel = vm::selectSoundLevel,
