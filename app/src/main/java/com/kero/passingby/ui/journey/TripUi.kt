@@ -30,6 +30,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -39,6 +42,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.kero.passingby.R
 import com.kero.passingby.content.Course
 import com.kero.passingby.ui.theme.Pb
 import com.kero.passingby.ui.theme.PbType
@@ -69,37 +73,43 @@ fun TicketCard(
     onJournal: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val first = course.ordered(direction).first().name
+    val res = LocalResources.current
+    val first = stringResource(course.ordered(direction).first().name)
+    val region = stringResource(course.region)
     Sheet(paper, modifier) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             BasicText(
                 when {
-                    restDone -> "쉬는 시간이 끝났어요 · $first"
-                    !owned -> "${course.number}코스 · ${course.region} · 미리 보는 중"
-                    else -> "${course.number}코스 · ${course.region} · ${course.vehicle}"
+                    restDone -> stringResource(R.string.rest_over_at, first)
+                    !owned -> stringResource(R.string.ticket_kicker_preview, course.number, region)
+                    else -> stringResource(R.string.ticket_kicker, course.number, region, stringResource(course.vehicle))
                 },
                 style = PbType.kicker.copy(color = Pb.InkSoft),
                 modifier = Modifier.weight(1f),
             )
-            SmallLink("수첩", onJournal)
-            SmallLink("설정", onSettings)
+            SmallLink(stringResource(R.string.journal_short), onJournal)
+            SmallLink(stringResource(R.string.settings), onSettings)
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
-            BasicText(course.title(direction), style = PbType.title.copy(color = Pb.Ink), modifier = Modifier.weight(1f))
-            SmallLink("코스 바꾸기", onCourses)
+            BasicText(course.title(res, direction), style = PbType.title.copy(color = Pb.Ink), modifier = Modifier.weight(1f))
+            SmallLink(stringResource(R.string.change_course), onCourses)
         }
-        BasicText(course.stopsLine(direction), style = PbType.body.copy(color = Pb.InkSoft))
+        BasicText(course.stopsLine(res, direction), style = PbType.body.copy(color = Pb.InkSoft))
         Perforation(panel)
         if (owned) {
             MinuteSelector(minutes, onMinutes)
-            PrimaryButton("${minutes}분 출발하기", onDepart, Modifier.fillMaxWidth())
+            PrimaryButton(stringResource(R.string.depart_minutes, minutes), onDepart, Modifier.fillMaxWidth())
             BasicText(
-                todayLine(today) ?: "도착하면 알려드릴게요. 그동안 창밖만 보셔도 괜찮아요.",
+                todayLine(today) ?: stringResource(R.string.ticket_note),
                 style = PbType.body.copy(color = Pb.InkSoft),
             )
         } else {
-            PrimaryButton("코스 열기 · ${price ?: "가격 준비 중"}", onBuy, Modifier.fillMaxWidth())
-            BasicText("한 번 열면 계속 탈 수 있어요.", style = PbType.body.copy(color = Pb.InkSoft))
+            PrimaryButton(
+                stringResource(R.string.unlock_course_price, price ?: stringResource(R.string.price_pending)),
+                onBuy,
+                Modifier.fillMaxWidth(),
+            )
+            BasicText(stringResource(R.string.unlock_once), style = PbType.body.copy(color = Pb.InkSoft))
         }
     }
 }
@@ -131,14 +141,14 @@ fun ArrivalCard(
     modifier: Modifier = Modifier,
 ) {
     Sheet(paper, modifier) {
-        BasicText("${terminus}에 도착했어요", style = PbType.voice.copy(color = Pb.Ink))
+        BasicText(stringResource(R.string.arrived_at, terminus), style = PbType.voice.copy(color = Pb.Ink))
         BasicText(
-            listOfNotNull("${tripMinutes}분 머물렀어요", todayLine(today)).joinToString(" · "),
+            listOfNotNull(stringResource(R.string.trip_minutes, tripMinutes), todayLine(today)).joinToString(" · "),
             style = PbType.body.copy(color = Pb.InkSoft),
         )
         Spacer(Modifier.height(4.dp))
-        PrimaryButton("${REST_MINUTES}분 쉬고 이어 가기", onRest, Modifier.fillMaxWidth())
-        QuietButton("여기서 내리기", onGetOff, Modifier.fillMaxWidth())
+        PrimaryButton(stringResource(R.string.rest_and_continue, REST_MINUTES), onRest, Modifier.fillMaxWidth())
+        QuietButton(stringResource(R.string.get_off_here), onGetOff, Modifier.fillMaxWidth())
     }
 }
 
@@ -154,17 +164,18 @@ fun RestCard(
     onGetOff: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val left = stringResource(R.string.rest_left_desc, spoken(restLeftSec))
     Sheet(paper, modifier) {
-        BasicText("${terminus}에서 쉬는 중", style = PbType.kicker.copy(color = Pb.InkSoft))
+        BasicText(stringResource(R.string.resting_at, terminus), style = PbType.kicker.copy(color = Pb.InkSoft))
         BasicText(
             clock(restLeftSec),
             style = PbType.timerMid.copy(color = Pb.Ink),
-            modifier = Modifier.semantics { contentDescription = "쉬는 시간 ${spoken(restLeftSec)} 남음" },
+            modifier = Modifier.semantics { contentDescription = left },
         )
-        BasicText("다음 여행 $nextTitle · ${minutes}분", style = PbType.body.copy(color = Pb.InkSoft))
+        BasicText(stringResource(R.string.next_trip, nextTitle, minutes), style = PbType.body.copy(color = Pb.InkSoft))
         Spacer(Modifier.height(4.dp))
-        PrimaryButton("지금 출발하기", onDepart, Modifier.fillMaxWidth())
-        QuietButton("여기서 내리기", onGetOff, Modifier.fillMaxWidth())
+        PrimaryButton(stringResource(R.string.depart_now), onDepart, Modifier.fillMaxWidth())
+        QuietButton(stringResource(R.string.get_off_here), onGetOff, Modifier.fillMaxWidth())
     }
 }
 
@@ -222,7 +233,7 @@ private fun MinuteSelector(selected: Int, onSelect: (Int) -> Unit) {
                     .selectable(on, role = Role.RadioButton) { onSelect(m) },
                 contentAlignment = Alignment.Center,
             ) {
-                BasicText("${m}분", style = PbType.label.copy(color = if (on) Pb.Paper else Pb.Ink))
+                BasicText(stringResource(R.string.minutes, m), style = PbType.label.copy(color = if (on) Pb.Paper else Pb.Ink))
             }
         }
     }
@@ -291,13 +302,14 @@ fun Capsule(text: String, modifier: Modifier = Modifier) {
 /** 여행 끝내기 버튼(아이콘만). */
 @Composable
 fun CloseButton(onClick: () -> Unit, modifier: Modifier = Modifier, background: Color = Pb.Scrim, tint: Color = Pb.OnScrim) {
+    val label = stringResource(R.string.end_trip)
     Box(
         modifier
             .size(48.dp)
             .clip(CircleShape)
             .background(background)
             .clickable(role = Role.Button, onClick = onClick)
-            .semantics { contentDescription = "여행 끝내기" },
+            .semantics { contentDescription = label },
         contentAlignment = Alignment.Center,
     ) {
         Canvas(Modifier.size(14.dp)) {
@@ -311,13 +323,14 @@ fun CloseButton(onClick: () -> Unit, modifier: Modifier = Modifier, background: 
 /** 소리 켜고 끄기(아이콘만). 꺼지면 스피커에 빗금. */
 @Composable
 fun SoundButton(on: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val label = stringResource(if (on) R.string.sound_off else R.string.sound_on)
     Box(
         modifier
             .size(48.dp)
             .clip(CircleShape)
             .background(Color(0x33FFFFFF))
             .clickable(role = Role.Button, onClick = onClick)
-            .semantics { contentDescription = if (on) "소리 끄기" else "소리 켜기" },
+            .semantics { contentDescription = label },
         contentAlignment = Alignment.Center,
     ) {
         Canvas(Modifier.size(20.dp)) {
@@ -357,7 +370,7 @@ fun PauseButton(paused: Boolean, onClick: () -> Unit, modifier: Modifier = Modif
             .padding(horizontal = 18.dp),
         contentAlignment = Alignment.Center,
     ) {
-        BasicText(if (paused) "다시 출발" else "잠깐 멈추기", style = PbType.label.copy(color = Pb.OnScrim))
+        BasicText(stringResource(if (paused) R.string.resume else R.string.pause), style = PbType.label.copy(color = Pb.OnScrim))
     }
 }
 
@@ -366,11 +379,12 @@ fun PauseButton(paused: Boolean, onClick: () -> Unit, modifier: Modifier = Modif
  */
 @Composable
 fun CourseProgress(info: RideInfo, modifier: Modifier = Modifier, labelColor: Color = Pb.OnScrimSoft) {
-    val percent = (info.progress * 100).toInt()
+    val route = stringResource(R.string.progress_desc, info.stations.first(), info.stations.last())
+    val state = stringResource(R.string.progress_state, (info.progress * 100).toInt())
     Column(
         modifier.semantics {
-            contentDescription = "${info.stations.first()}에서 ${info.stations.last()}까지"
-            stateDescription = "${percent}% 왔어요"
+            contentDescription = route
+            stateDescription = state
         },
     ) {
         Canvas(
@@ -409,10 +423,10 @@ fun CourseProgress(info: RideInfo, modifier: Modifier = Modifier, labelColor: Co
 fun NextStopLine(info: RideInfo, color: Color = Pb.OnScrimSoft) {
     val next = info.stations[info.nextStop]
     val line = when {
-        info.paused -> "신호 대기 중 · 잠깐 멈췄어요"
-        info.stoppedAt >= 0 -> "${info.stations[info.stoppedAt]} 정차 중 · 곧 출발"
-        info.last -> "종착 $next · ${clock(info.nextStopSec)}"
-        else -> "다음 정차 $next · ${clock(info.nextStopSec)}"
+        info.paused -> stringResource(R.string.waiting_signal)
+        info.stoppedAt >= 0 -> stringResource(R.string.stopped_leaving_soon, info.stations[info.stoppedAt])
+        info.last -> stringResource(R.string.final_stop_clock, next, clock(info.nextStopSec))
+        else -> stringResource(R.string.next_stop_clock, next, clock(info.nextStopSec))
     }
     BasicText(line, style = PbType.label.copy(color = color, fontFeatureSettings = "tnum"))
 }
@@ -420,10 +434,11 @@ fun NextStopLine(info: RideInfo, color: Color = Pb.OnScrimSoft) {
 /** 종착까지 남은 시간(큰 숫자). */
 @Composable
 fun RemainingTime(info: RideInfo, timer: TextStyle, color: Color = Pb.OnScrim) {
+    val left = stringResource(R.string.remaining_desc, spoken(info.remainingSec))
     BasicText(
         clock(info.remainingSec),
         style = timer.copy(color = color),
-        modifier = Modifier.semantics { contentDescription = "종착까지 ${spoken(info.remainingSec)} 남음" },
+        modifier = Modifier.semantics { contentDescription = left },
     )
 }
 
@@ -517,14 +532,14 @@ fun Notice(text: String, modifier: Modifier = Modifier) {
 @Composable
 fun EndTripDialog(origin: String, paper: Color, onKeep: () -> Unit, onEnd: () -> Unit) {
     Sheet(paper, Modifier.width(320.dp)) {
-        BasicText("여행을 끝낼까요?", style = PbType.title.copy(color = Pb.Ink))
+        BasicText(stringResource(R.string.end_trip_title), style = PbType.title.copy(color = Pb.Ink))
         BasicText(
-            "${origin}역으로 돌아가요. 이번 여행은 기록되지 않아요.",
+            stringResource(R.string.end_trip_body, origin),
             style = PbType.body.copy(color = Pb.InkSoft),
         )
         Spacer(Modifier.height(4.dp))
-        PrimaryButton("계속 가기", onKeep, Modifier.fillMaxWidth())
-        QuietButton("끝내기", onEnd, Modifier.fillMaxWidth())
+        PrimaryButton(stringResource(R.string.keep_going), onKeep, Modifier.fillMaxWidth())
+        QuietButton(stringResource(R.string.end), onEnd, Modifier.fillMaxWidth())
     }
 }
 
@@ -533,8 +548,9 @@ fun EndTripDialog(origin: String, paper: Color, onKeep: () -> Unit, onEnd: () ->
 private val MINUTE_OPTIONS = intArrayOf(25, 50, 90)
 const val REST_MINUTES = 5
 
+@Composable
 private fun todayLine(today: Pair<Int, Int>): String? =
-    if (today.first > 0) "오늘 ${today.first}회 · ${today.second}분" else null
+    if (today.first > 0) pluralStringResource(R.plurals.today_line, today.first, today.first, today.second) else null
 
 /** 18:42, 1:29:59 */
 fun clock(sec: Int): String = formatClock(sec)
@@ -549,8 +565,9 @@ fun formatClock(sec: Int): String {
 }
 
 /** 스크린리더용 "18분 42초". */
+@Composable
 private fun spoken(sec: Int): String {
     val m = sec / 60
     val s = sec % 60
-    return if (m > 0) "${m}분 ${s}초" else "${s}초"
+    return if (m > 0) stringResource(R.string.spoken_min_sec, m, s) else stringResource(R.string.spoken_sec, s)
 }

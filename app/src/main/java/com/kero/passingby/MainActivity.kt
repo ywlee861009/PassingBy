@@ -1,5 +1,6 @@
 package com.kero.passingby
 
+import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
@@ -12,6 +13,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.ViewModelProvider
 import com.kero.passingby.content.Course
+import com.kero.passingby.locale.AppLanguage
 import com.kero.passingby.scene.SceneKind
 import com.kero.passingby.session.AppVisibility
 import com.kero.passingby.scene.TimeOfDay
@@ -20,6 +22,11 @@ import com.kero.passingby.ui.journey.JourneyViewModel
 import com.kero.passingby.ui.journey.JourneyScreen
 
 class MainActivity : ComponentActivity() {
+    /** Android 13 미만에서 설정에서 고른 언어를 화면에 입힌다([AppLanguage]). */
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(AppLanguage.wrap(newBase))
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)

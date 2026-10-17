@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -41,11 +42,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.kero.passingby.BuildConfig
+import com.kero.passingby.R
 import com.kero.passingby.content.Course
+import com.kero.passingby.locale.AppLanguage
 import com.kero.passingby.scene.Weather
 import com.kero.passingby.ui.theme.Pb
 import com.kero.passingby.ui.theme.PbType
@@ -70,7 +76,7 @@ fun AnimatedVisibilityScope.BottomSheet(paper: Color, maxHeight: Dp, onDismiss: 
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
-                    onClickLabel = "닫기",
+                    onClickLabel = stringResource(R.string.close),
                     onClick = onDismiss,
                 ),
         )
@@ -106,8 +112,9 @@ fun CourseSheetContent(
     priceOf: (Course) -> String?,
     onPick: (Course) -> Unit,
 ) {
-    BasicText("코스", style = PbType.title.copy(color = Pb.Ink))
-    BasicText("잠긴 코스도 골라서 창밖을 미리 볼 수 있어요.", style = PbType.body.copy(color = Pb.InkSoft))
+    val res = LocalResources.current
+    BasicText(stringResource(R.string.courses), style = PbType.title.copy(color = Pb.Ink))
+    BasicText(stringResource(R.string.courses_hint), style = PbType.body.copy(color = Pb.InkSoft))
     for (c in Course.ALL) {
         val selected = c == current
         Row(
@@ -120,15 +127,15 @@ fun CourseSheetContent(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                BasicText("${c.number}코스 · ${c.region}", style = PbType.kicker.copy(color = Pb.InkSoft))
-                BasicText(c.title(1), style = PbType.label.copy(color = Pb.Ink))
-                BasicText(c.stopsLine(1), style = PbType.kicker.copy(color = Pb.InkSoft))
+                BasicText(courseLabel(c), style = PbType.kicker.copy(color = Pb.InkSoft))
+                BasicText(c.title(res, 1), style = PbType.label.copy(color = Pb.Ink))
+                BasicText(c.stopsLine(res, 1), style = PbType.kicker.copy(color = Pb.InkSoft))
             }
             Tag(
                 when {
-                    c.free -> "무료"
-                    owns(c) -> "열림"
-                    else -> "잠김 · ${priceOf(c) ?: "가격 준비 중"}"
+                    c.free -> stringResource(R.string.free)
+                    owns(c) -> stringResource(R.string.unlocked)
+                    else -> stringResource(R.string.locked_price, priceOf(c) ?: stringResource(R.string.price_pending))
                 },
                 strong = !owns(c),
             )
@@ -136,7 +143,7 @@ fun CourseSheetContent(
     }
 }
 
-/** 설정: 창밖 날씨, 화면, 코스 구매. */
+/** 설정: 창밖 날씨, 소리, 화면, 언어, 코스 구매. */
 @Composable
 fun SettingsSheetContent(
     weather: Weather?,
@@ -145,6 +152,7 @@ fun SettingsSheetContent(
     ledge: Boolean,
     overlay: Boolean,
     power: Boolean,
+    language: AppLanguage,
     owns: (Course) -> Boolean,
     priceOf: (Course) -> String?,
     devUnlock: Boolean,
@@ -154,72 +162,63 @@ fun SettingsSheetContent(
     onLedge: (Boolean) -> Unit,
     onOverlay: (Boolean) -> Unit,
     onPower: (Boolean) -> Unit,
+    onLanguage: (AppLanguage) -> Unit,
     onBuy: (Course) -> Unit,
     onRestore: () -> Unit,
     onDevUnlock: () -> Unit,
     onLicenses: () -> Unit,
     onPrivacy: () -> Unit,
 ) {
-    BasicText("설정", style = PbType.title.copy(color = Pb.Ink))
+    val res = LocalResources.current
+    BasicText(stringResource(R.string.settings), style = PbType.title.copy(color = Pb.Ink))
 
-    SectionTitle("창밖 날씨")
+    SectionTitle(stringResource(R.string.weather_outside))
     val options = listOf<Weather?>(null) + Weather.entries
     for (row in options.chunked(3)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             for (w in row) {
-                val on = w == weather
-                Box(
-                    Modifier
-                        .weight(1f)
-                        .height(44.dp)
-                        .clip(CircleShape)
-                        .background(if (on) Pb.Ink else Color.Transparent)
-                        .border(1.dp, if (on) Pb.Ink else Pb.Line, CircleShape)
-                        .selectable(on, role = Role.RadioButton) { onWeather(w) },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    BasicText(w?.label ?: "무작위", style = PbType.body.copy(color = if (on) Pb.Paper else Pb.Ink))
-                }
+                Choice(stringResource(w?.label ?: R.string.random), w == weather) { onWeather(w) }
             }
         }
     }
 
-    SectionTitle("소리")
-    Toggle("환경음", "레일·바람·빗소리를 들려줘요. 다른 앱 음악을 멈추지 않아요. 앱이 화면에 있을 때만 나요.", sound, onSound)
+    SectionTitle(stringResource(R.string.sound))
+    Toggle(stringResource(R.string.ambient), stringResource(R.string.ambient_desc), sound, onSound)
     if (sound) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            for ((i, label) in listOf("작게", "보통", "크게").withIndex()) {
-                val on = i == soundLevel
-                Box(
-                    Modifier
-                        .weight(1f)
-                        .height(44.dp)
-                        .clip(CircleShape)
-                        .background(if (on) Pb.Ink else Color.Transparent)
-                        .border(1.dp, if (on) Pb.Ink else Pb.Line, CircleShape)
-                        .selectable(on, role = Role.RadioButton) { onSoundLevel(i) },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    BasicText(label, style = PbType.body.copy(color = if (on) Pb.Paper else Pb.Ink))
-                }
+            for ((i, label) in listOf(R.string.volume_low, R.string.volume_mid, R.string.volume_high).withIndex()) {
+                Choice(stringResource(label), i == soundLevel) { onSoundLevel(i) }
             }
         }
     }
 
-    SectionTitle("화면")
-    Toggle("창턱 안내", "창 아래 벽에 다음 역까지 남은 분을 늘 어둡게 표시해요. 거치해 두고 쓸 때 좋아요.", ledge, onLedge)
-    Toggle("메뉴 늘 보이기", "달리는 동안에도 남은 시간과 진행 바를 숨기지 않아요.", overlay, onOverlay)
-    Toggle("절전 모드", "화면을 1초에 30번만 그려 배터리와 발열을 줄여요. 기기 절전 모드에서는 저절로 켜져요.", power, onPower)
+    SectionTitle(stringResource(R.string.display))
+    Toggle(stringResource(R.string.ledge), stringResource(R.string.ledge_desc), ledge, onLedge)
+    Toggle(stringResource(R.string.overlay_always), stringResource(R.string.overlay_always_desc), overlay, onOverlay)
+    Toggle(stringResource(R.string.power_save), stringResource(R.string.power_save_desc), power, onPower)
 
-    SectionTitle("코스 구매")
+    // 언어 이름은 그 언어로 쓴다. 잘못 골라 읽을 수 없게 돼도 되돌릴 수 있게.
+    SectionTitle(stringResource(R.string.language))
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        for (l in AppLanguage.entries) {
+            val label = when (l) {
+                AppLanguage.SYSTEM -> stringResource(R.string.language_system)
+                AppLanguage.KOREAN -> "한국어"
+                AppLanguage.ENGLISH -> "English"
+            }
+            Choice(label, l == language) { onLanguage(l) }
+        }
+    }
+
+    SectionTitle(stringResource(R.string.buy_courses))
     for (c in Course.ALL.filter { !it.free }) {
         Row(Modifier.fillMaxWidth().heightIn(min = 52.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                BasicText("${c.number}코스 · ${c.region}", style = PbType.label.copy(color = Pb.Ink))
-                BasicText(c.title(1), style = PbType.kicker.copy(color = Pb.InkSoft))
+                BasicText(courseLabel(c), style = PbType.label.copy(color = Pb.Ink))
+                BasicText(c.title(res, 1), style = PbType.kicker.copy(color = Pb.InkSoft))
             }
             if (owns(c)) {
-                Tag("열림", strong = false)
+                Tag(stringResource(R.string.unlocked), strong = false)
             } else {
                 Box(
                     Modifier
@@ -230,19 +229,40 @@ fun SettingsSheetContent(
                         .padding(horizontal = 16.dp),
                     contentAlignment = Alignment.Center,
                 ) {
-                    BasicText(priceOf(c) ?: "열기", style = PbType.label.copy(color = Pb.OnAccent))
+                    BasicText(priceOf(c) ?: stringResource(R.string.unlock), style = PbType.label.copy(color = Pb.OnAccent))
                 }
             }
         }
     }
-    QuietButton("구매 복원", onRestore, Modifier.fillMaxWidth(), color = Pb.Ink)
-    QuietButton("오픈소스 라이선스", onLicenses, Modifier.fillMaxWidth())
-    QuietButton("개인정보 처리방침", onPrivacy, Modifier.fillMaxWidth())
+    QuietButton(stringResource(R.string.restore_purchases), onRestore, Modifier.fillMaxWidth(), color = Pb.Ink)
+    QuietButton(stringResource(R.string.licenses), onLicenses, Modifier.fillMaxWidth())
+    QuietButton(stringResource(R.string.privacy), onPrivacy, Modifier.fillMaxWidth())
+    // 개발용 줄은 출시 빌드에 나오지 않으므로 번역하지 않는다.
     if (BuildConfig.DEV_TOOLS) {
         Toggle("개발용: 모든 코스 열기", "결제 상품 등록 전 확인용. 출시 빌드에는 나오지 않아요.", devUnlock) { onDevUnlock() }
     }
     Spacer(Modifier.height(4.dp))
 }
+
+/** 셋 중 하나를 고르는 둥근 버튼. Row 안에서 같은 폭으로 나눠 쓴다. */
+@Composable
+private fun RowScope.Choice(label: String, on: Boolean, onClick: () -> Unit) {
+    Box(
+        Modifier
+            .weight(1f)
+            .height(44.dp)
+            .clip(CircleShape)
+            .background(if (on) Pb.Ink else Color.Transparent)
+            .border(1.dp, if (on) Pb.Ink else Pb.Line, CircleShape)
+            .selectable(on, role = Role.RadioButton, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        BasicText(label, style = PbType.body.copy(color = if (on) Pb.Paper else Pb.Ink))
+    }
+}
+
+@Composable
+private fun courseLabel(c: Course): String = stringResource(R.string.course_label, c.number, stringResource(c.region))
 
 @Composable
 private fun SectionTitle(text: String) {
@@ -306,9 +326,10 @@ fun JournalSheetContent(
     completions: (Course) -> Int,
     owns: (Course) -> Boolean,
 ) {
-    BasicText("여행 수첩", style = PbType.title.copy(color = Pb.Ink))
+    BasicText(stringResource(R.string.journal), style = PbType.title.copy(color = Pb.Ink))
     BasicText(
-        "오늘 ${today.first}회 · ${today.second}분   지금까지 ${lifetime.first}회 · ${hours(lifetime.second)}",
+        pluralStringResource(R.plurals.today_line, today.first, today.first, today.second) + "   " +
+            pluralStringResource(R.plurals.lifetime_line, lifetime.first, lifetime.first, hours(lifetime.second)),
         style = PbType.body.copy(color = Pb.InkSoft),
     )
     for (c in Course.ALL) {
@@ -323,22 +344,22 @@ fun JournalSheetContent(
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 BasicText(
-                    "${c.number}코스 · ${c.region}",
+                    courseLabel(c),
                     style = PbType.label.copy(color = Pb.Ink),
                     modifier = Modifier.weight(1f),
                 )
                 BasicText(
                     when {
-                        done > 0 -> "완주 ${done}회"
-                        owns(c) -> "아직 완주 전"
-                        else -> "잠김"
+                        done > 0 -> pluralStringResource(R.plurals.completed, done, done)
+                        owns(c) -> stringResource(R.string.not_completed)
+                        else -> stringResource(R.string.locked)
                     },
                     style = PbType.kicker.copy(color = Pb.InkSoft),
                 )
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 for ((i, st) in c.stations.withIndex()) {
-                    Stamp(st.name, "${c.id}:$i" in visited)
+                    Stamp(stringResource(st.name), "${c.id}:$i" in visited)
                 }
             }
         }
@@ -366,7 +387,7 @@ private fun Stamp(name: String, on: Boolean) {
 /** 오픈소스 라이선스(글꼴). [licenses]는 (제목, 원문) 목록. */
 @Composable
 fun LicenseSheetContent(licenses: List<Pair<String, String>>) {
-    BasicText("오픈소스 라이선스", style = PbType.title.copy(color = Pb.Ink))
+    BasicText(stringResource(R.string.licenses), style = PbType.title.copy(color = Pb.Ink))
     for ((title, text) in licenses) {
         Spacer(Modifier.height(4.dp))
         BasicText(title, style = PbType.label.copy(color = Pb.Ink))
@@ -374,4 +395,6 @@ fun LicenseSheetContent(licenses: List<Pair<String, String>>) {
     }
 }
 
-private fun hours(min: Int): String = if (min >= 60) "${min / 60}시간 ${min % 60}분" else "${min}분"
+@Composable
+private fun hours(min: Int): String =
+    if (min >= 60) stringResource(R.string.hours_minutes, min / 60, min % 60) else stringResource(R.string.minutes, min)

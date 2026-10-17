@@ -11,6 +11,7 @@ import android.os.SystemClock
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
+import androidx.annotation.StringRes
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -18,6 +19,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.toArgb
 import androidx.lifecycle.AndroidViewModel
+import com.kero.passingby.R
 import com.kero.passingby.audio.AmbientSound
 import com.kero.passingby.billing.Billing
 import com.kero.passingby.content.Course
@@ -26,6 +28,7 @@ import com.kero.passingby.journey.CoursePlan
 import com.kero.passingby.journey.CourseZones
 import com.kero.passingby.journey.JourneyClock
 import com.kero.passingby.journey.WeatherDirector
+import com.kero.passingby.locale.AppLanguage
 import com.kero.passingby.perf.FrameStats
 import com.kero.passingby.scene.Palette
 import com.kero.passingby.scene.RenderMode
@@ -169,8 +172,8 @@ class JourneyViewModel(app: Application) : AndroidViewModel(app) {
         private set
     var powerSave by mutableStateOf(store.powerSave)
         private set
-    /** 잠깐 띄우는 안내 문구. [messageTick]이 바뀔 때마다 새로 보여 준다. */
-    var message by mutableStateOf<String?>(null)
+    /** 잠깐 띄우는 안내 문구(문자열 리소스). [messageTick]이 바뀔 때마다 새로 보여 준다. */
+    var message by mutableStateOf<Int?>(null)
         private set
     var messageTick by mutableIntStateOf(0)
         private set
@@ -267,12 +270,12 @@ class JourneyViewModel(app: Application) : AndroidViewModel(app) {
     /** 지금 고른(미리 보는) 코스를 산다. 스토어에 상품이 아직 없으면 안내만 띄운다. */
     fun buy(activity: Activity, c: Course = course) {
         val id = c.productId ?: return
-        if (!billing.purchase(activity, id)) notify("아직 구매할 수 없어요. 스토어에 코스가 등록되면 열려요.")
+        if (!billing.purchase(activity, id)) notify(R.string.purchase_unavailable)
     }
 
     fun restorePurchases() {
         billing.restore()
-        notify("구매 내역을 다시 확인했어요")
+        notify(R.string.purchases_restored)
     }
 
     /** 앱 화면이 보이거나 가려질 때 MainActivity가 알린다. */
@@ -327,7 +330,7 @@ class JourneyViewModel(app: Application) : AndroidViewModel(app) {
         store.devUnlockAll = devUnlockAll
     }
 
-    private fun notify(text: String) {
+    private fun notify(@StringRes text: Int) {
         message = text
         messageTick++
     }
@@ -522,30 +525,35 @@ class JourneyViewModel(app: Application) : AndroidViewModel(app) {
     /**
      * 포그라운드 서비스와 알림을 지금 상태에 맞춘다. 달리는 중·쉬는 중에만 서비스를 띄운다.
      * 개발용 빨리 감기 중에는 실제 시간과 어긋나므로 알림 시계를 빼고 문구만 띄운다.
+     * 알림 문구는 앱 언어로 여기서 미리 만들어 넘긴다.
      */
     private fun syncService() {
         val ctx = getApplication<Application>()
-        val title = course.title(direction)
-        val terminus = stations.last().name
+        val res = AppLanguage.localized(ctx).resources
+        val title = course.title(res, direction)
+        val terminus = res.getString(stations.last().name)
         val now = SystemClock.elapsedRealtime()
         val realtime = clock.scale == 1.0
         when (phase) {
             TripPhase.RUNNING -> {
                 val left = (plan.durationSec - clock.seconds()).coerceAtLeast(0.0)
                 TripService.update(
-                    ctx, title, "${course.stopsLine(direction)} · 종착 $terminus",
+                    ctx, title, res.getString(R.string.notif_running, course.stopsLine(res, direction), terminus),
                     if (realtime) now + (left * 1000).toLong() else 0L,
-                    "${terminus}에 도착했어요", "${tripMinutes}분 머물렀어요. 쉬었다 가거나 여기서 내릴 수 있어요.",
+                    res.getString(R.string.arrived_at, terminus), res.getString(R.string.notif_arrived, tripMinutes),
                 )
             }
             TripPhase.PAUSED -> {
                 val left = (plan.durationSec - clock.seconds()).coerceAtLeast(0.0).toInt()
-                TripService.update(ctx, title, "잠깐 멈춤 · 종착까지 ${formatClock(left)}", 0L, "", "")
+                TripService.update(ctx, title, res.getString(R.string.notif_paused, formatClock(left)), 0L, "", "")
             }
-            TripPhase.RESTING -> TripService.update(
-                ctx, "${terminus}에서 쉬는 중", "다음 여행 ${course.title(-direction)}",
-                restEndReal, "쉬는 시간이 끝났어요", "${course.title(-direction)} 승차권이 준비됐어요.",
-            )
+            TripPhase.RESTING -> {
+                val next = course.title(res, -direction)
+                TripService.update(
+                    ctx, res.getString(R.string.resting_at, terminus), res.getString(R.string.notif_next_trip, next),
+                    restEndReal, res.getString(R.string.rest_over), res.getString(R.string.notif_ticket_ready, next),
+                )
+            }
             else -> TripService.stop(ctx)
         }
     }

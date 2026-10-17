@@ -21,6 +21,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -55,7 +56,7 @@ fun DevPanel(vm: JourneyViewModel, onInteract: () -> Unit, modifier: Modifier = 
         }
         ChipRow {
             for (c in Course.ALL) {
-                Chip("${c.number} ${c.region}", vm.course == c) { vm.forceCourse(c); onInteract() }
+                Chip("${c.number} ${stringResource(c.region)}", vm.course == c) { vm.forceCourse(c); onInteract() }
             }
         }
         ChipRow {
@@ -67,7 +68,7 @@ fun DevPanel(vm: JourneyViewModel, onInteract: () -> Unit, modifier: Modifier = 
         ChipRow {
             Chip("무작위", vm.fixedWeather == null) { vm.selectWeather(null); onInteract() }
             for (w in Weather.entries) {
-                Chip(w.label, vm.fixedWeather == w) { vm.selectWeather(w); onInteract() }
+                Chip(stringResource(w.label), vm.fixedWeather == w) { vm.selectWeather(w); onInteract() }
             }
         }
         ChipRow {

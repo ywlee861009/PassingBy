@@ -52,6 +52,7 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
@@ -66,8 +67,10 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.IntSize
@@ -79,6 +82,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.window.layout.FoldingFeature
 import androidx.window.layout.WindowInfoTracker
 import com.kero.passingby.BuildConfig
+import com.kero.passingby.R
+import com.kero.passingby.locale.AppLanguage
 import com.kero.passingby.ui.debug.DevPanel
 import com.kero.passingby.ui.theme.PbType
 import kotlinx.coroutines.delay
@@ -102,6 +107,8 @@ fun JourneyScreen(vm: JourneyViewModel = viewModel()) {
         onDispose { view.keepScreenOn = false }
     }
     val activity = LocalActivity.current
+    val context = LocalContext.current
+    val res = LocalResources.current
     val uriHandler = LocalUriHandler.current
     LaunchedEffect(vm.cap60) {
         activity?.let { applyRefreshCap(it, vm.cap60) }
@@ -130,7 +137,6 @@ fun JourneyScreen(vm: JourneyViewModel = viewModel()) {
     }
 
     // 첫 출발 때 한 번만 알림 권한을 묻는다(Android 13 이상). 거절해도 여행은 그대로 출발한다.
-    val context = LocalContext.current
     val notificationLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
     val depart = {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !vm.notificationAsked &&
@@ -154,8 +160,10 @@ fun JourneyScreen(vm: JourneyViewModel = viewModel()) {
     var confirmEnd by remember { mutableStateOf(false) }
     var backArmed by remember { mutableStateOf(false) }
     var hint by remember { mutableStateOf(false) }
-    var sheet by remember { mutableStateOf(SheetKind.NONE) }
-    var notice by remember { mutableStateOf<String?>(null) }
+    // 언어를 바꾸면 화면을 다시 만든다. 그때 설정 시트가 닫히지 않게 저장해 둔다.
+    var sheet by rememberSaveable { mutableStateOf(SheetKind.NONE) }
+    var language by remember { mutableStateOf(AppLanguage.current(context)) }
+    var notice by remember { mutableStateOf<Int?>(null) }
     LaunchedEffect(vm.messageTick) {
         val m = vm.message ?: return@LaunchedEffect
         notice = m
@@ -304,11 +312,11 @@ fun JourneyScreen(vm: JourneyViewModel = viewModel()) {
             modifier = cardModifier.onSizeChanged { cardSize = it },
         ) {
             val paper = Color(vm.paper)
-            val terminus = vm.stations.last().name
+            val terminus = stringResource(vm.stations.last().name)
             when (phase) {
                 TripPhase.ARRIVED -> ArrivalCard(terminus, vm.tripMinutes, vm.today, paper, vm::rest, vm::getOff)
                 TripPhase.RESTING -> RestCard(
-                    terminus, vm.course.title(-vm.direction), vm.minutes, vm.restLeftSec, paper, depart, vm::getOff,
+                    terminus, vm.course.title(res, -vm.direction), vm.minutes, vm.restLeftSec, paper, depart, vm::getOff,
                 )
                 else -> TicketCard(
                     vm.course, vm.direction, vm.minutes, vm.today, vm.restDone,
@@ -330,7 +338,7 @@ fun JourneyScreen(vm: JourneyViewModel = viewModel()) {
             if (paused) vm.resume() else vm.pause()
         }
         val ride = RideInfo(
-            vm.stations.map { it.name }, vm.stationMarks, vm.progress, vm.remainingSec,
+            vm.stations.map { stringResource(it.name) }, vm.stationMarks, vm.progress, vm.remainingSec,
             vm.stoppedAt, vm.nextStop, vm.nextStopSec, paused, vm.soundOn,
         )
         val toggleSound = {
@@ -372,7 +380,7 @@ fun JourneyScreen(vm: JourneyViewModel = viewModel()) {
                         .padding(CARD_MARGIN),
                 ) {
                     Row(Modifier.align(Alignment.TopCenter).fillMaxWidth()) {
-                        Capsule(vm.course.title(vm.direction))
+                        Capsule(vm.course.title(res, vm.direction))
                         Spacer(Modifier.weight(1f))
                         CloseButton({
                             interactions++
@@ -396,13 +404,13 @@ fun JourneyScreen(vm: JourneyViewModel = viewModel()) {
 
         // ── 창턱 안내: 창 아래 벽에 다음 역까지 남은 분(명세 6장) ──
         if (vm.ledgeInfo && moving && form != FormFactor.TABLETOP && !(overlay || vm.overlayAlways || screenReader)) {
-            val next = vm.stations[vm.nextStop].name
+            val next = stringResource(vm.stations[vm.nextStop].name)
             val mins = (vm.nextStopSec + 59) / 60
             BasicText(
                 when {
-                    vm.stoppedAt >= 0 -> "${vm.stations[vm.stoppedAt].name} 정차 중"
-                    vm.nextStop == vm.stations.size - 1 -> "종착 ${next}까지 ${mins}분"
-                    else -> "${next}까지 ${mins}분"
+                    vm.stoppedAt >= 0 -> stringResource(R.string.stopped_at, stringResource(vm.stations[vm.stoppedAt].name))
+                    vm.nextStop == vm.stations.size - 1 -> stringResource(R.string.minutes_to_final, next, mins)
+                    else -> stringResource(R.string.minutes_to, next, mins)
                 },
                 style = PbType.body.copy(color = Color(0x99E9E1D6)),
                 modifier = Modifier
@@ -414,12 +422,12 @@ fun JourneyScreen(vm: JourneyViewModel = viewModel()) {
 
         // ── 안내 ──
         val message = when {
-            backArmed -> "한 번 더 누르면 여행이 끝나요"
+            backArmed -> R.string.back_again_to_end
             notice != null -> notice
-            hint && form != FormFactor.TABLETOP -> "화면을 누르면 메뉴가 보여요"
+            hint && form != FormFactor.TABLETOP -> R.string.tap_for_menu
             else -> null
         }
-        if (message != null) Notice(message, Modifier.align(Alignment.Center))
+        if (message != null) Notice(stringResource(message), Modifier.align(Alignment.Center))
 
         // ── 개발용 ──
         if (BuildConfig.DEV_TOOLS && vm.showHud && vm.hud.isNotEmpty()) {
@@ -466,9 +474,16 @@ fun JourneyScreen(vm: JourneyViewModel = viewModel()) {
                     SheetKind.JOURNAL -> JournalSheetContent(vm.today, vm.lifetime, vm.visited, vm::completions, vm::owns)
                     SheetKind.LICENSES -> LicenseSheetContent(licenses)
                     else -> SettingsSheetContent(
-                        vm.fixedWeather, vm.soundOn, vm.soundLevel, vm.ledgeInfo, vm.overlayAlways, vm.powerSave, vm::owns, vm::priceOf, vm.devUnlockAll,
+                        vm.fixedWeather, vm.soundOn, vm.soundLevel, vm.ledgeInfo, vm.overlayAlways, vm.powerSave, language,
+                        vm::owns, vm::priceOf, vm.devUnlockAll,
                         onWeather = vm::selectWeather, onSound = { vm.toggleSound() }, onSoundLevel = vm::selectSoundLevel,
                         onLedge = vm::setLedge, onOverlay = vm::setOverlay, onPower = vm::setPower,
+                        onLanguage = { l ->
+                            if (l != language) {
+                                language = l
+                                activity?.let { AppLanguage.set(it, l) }
+                            }
+                        },
                         onBuy = { c -> activity?.let { vm.buy(it, c) } }, onRestore = vm::restorePurchases, onDevUnlock = vm::toggleDevUnlock,
                         onLicenses = { sheet = SheetKind.LICENSES },
                         // 브라우저가 없는 기기에서는 열 앱이 없어 예외가 난다. 그때는 아무 일도 하지 않는다.
@@ -492,7 +507,7 @@ fun JourneyScreen(vm: JourneyViewModel = viewModel()) {
     if (confirmEnd) {
         Dialog(onDismissRequest = { confirmEnd = false }) {
             EndTripDialog(
-                vm.stations.first().name, Color(vm.paper),
+                stringResource(vm.stations.first().name), Color(vm.paper),
                 onKeep = { confirmEnd = false },
                 onEnd = {
                     confirmEnd = false

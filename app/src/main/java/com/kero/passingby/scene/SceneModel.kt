@@ -1,5 +1,7 @@
 package com.kero.passingby.scene
 
+import androidx.annotation.StringRes
+import com.kero.passingby.R
 import kotlin.math.abs
 import kotlin.math.floor
 import kotlin.math.max
@@ -255,12 +257,12 @@ internal fun desaturate(c: Int, k: Float): Int {
 }
 
 /**
- * 날씨. [rain]·[snow]는 목표 세기(0~1)이고, 실제 세기는 [SceneState]에서 서서히 따라간다.
+ * 날씨. [rain]·[snow]는 목표 세기(0~1)이고, 실제 세기는 [SceneState]에서 서서히 따라간다. [label]은 설정 화면에 쓰는 문자열 리소스.
  */
-enum class Weather(val label: String, val rain: Float, val snow: Float) {
-    CLEAR("맑음", 0f, 0f),
-    DRIZZLE("부슬비", .4f, 0f),
-    SHOWER("소나기", 1f, 0f),
-    LIGHT_SNOW("적은 눈", 0f, .35f),
-    HEAVY_SNOW("함박눈", 0f, 1f),
+enum class Weather(@StringRes val label: Int, val rain: Float, val snow: Float) {
+    CLEAR(R.string.weather_clear, 0f, 0f),
+    DRIZZLE(R.string.weather_drizzle, .4f, 0f),
+    SHOWER(R.string.weather_shower, 1f, 0f),
+    LIGHT_SNOW(R.string.weather_light_snow, 0f, .35f),
+    HEAVY_SNOW(R.string.weather_heavy_snow, 0f, 1f),
 }

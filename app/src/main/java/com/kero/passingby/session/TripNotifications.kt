@@ -9,6 +9,7 @@ import android.content.Intent
 import androidx.core.app.NotificationCompat
 import com.kero.passingby.MainActivity
 import com.kero.passingby.R
+import com.kero.passingby.locale.AppLanguage
 
 /** 여행 알림 두 가지: 여행 중 계속 떠 있는 남은 시간 알림, 도착·쉬는 시간 끝 알림. */
 object TripNotifications {
@@ -19,15 +20,17 @@ object TripNotifications {
 
     fun ensureChannels(ctx: Context) {
         val nm = ctx.getSystemService(NotificationManager::class.java) ?: return
+        // 이미 있는 채널이면 이름·설명만 바뀐다. 그래서 앱 언어를 바꾸면 다음 알림 때 채널 이름도 따라간다.
+        val res = AppLanguage.localized(ctx).resources
         nm.createNotificationChannel(
-            NotificationChannel(CH_TRIP, "여행 중", NotificationManager.IMPORTANCE_LOW).apply {
-                description = "달리는 동안 남은 시간을 보여 줘요."
+            NotificationChannel(CH_TRIP, res.getString(R.string.channel_trip), NotificationManager.IMPORTANCE_LOW).apply {
+                description = res.getString(R.string.channel_trip_desc)
                 setShowBadge(false)
             },
         )
         nm.createNotificationChannel(
-            NotificationChannel(CH_ALERT, "도착 알림", NotificationManager.IMPORTANCE_HIGH).apply {
-                description = "종착역에 도착하거나 쉬는 시간이 끝나면 알려 줘요."
+            NotificationChannel(CH_ALERT, res.getString(R.string.channel_alert), NotificationManager.IMPORTANCE_HIGH).apply {
+                description = res.getString(R.string.channel_alert_desc)
                 enableVibration(true)
                 vibrationPattern = longArrayOf(0, 180, 140, 180, 140, 320)
             },
