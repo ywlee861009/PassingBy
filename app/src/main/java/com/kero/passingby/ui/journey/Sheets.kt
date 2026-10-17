@@ -1,5 +1,9 @@
 package com.kero.passingby.ui.journey
 
+import androidx.compose.animation.AnimatedVisibilityScope
+import androidx.compose.animation.EnterExitState
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -30,11 +34,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -44,13 +50,22 @@ import com.kero.passingby.scene.Weather
 import com.kero.passingby.ui.theme.Pb
 import com.kero.passingby.ui.theme.PbType
 
-/** 아래에서 올라오는 시트. 바깥(어두운 막)을 누르면 닫힌다. */
+/**
+ * 아래에서 올라오는 시트. 바깥(어두운 막)을 누르면 닫힌다.
+ * 막은 시트와 같이 움직이지 않고 제자리에 있으면서, 시트가 올라온 만큼 짙어진다.
+ */
 @Composable
-fun BottomSheet(paper: Color, maxHeight: Dp, onDismiss: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
+fun AnimatedVisibilityScope.BottomSheet(paper: Color, maxHeight: Dp, onDismiss: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
+    // 0 = 다 내려감, 1 = 다 올라옴. 시트 위치와 막 농도가 이 값 하나를 같이 따른다.
+    val raised by transition.animateFloat(
+        transitionSpec = { tween(if (targetState == EnterExitState.Visible) 300 else 220) },
+        label = "sheet",
+    ) { if (it == EnterExitState.Visible) 1f else 0f }
     Box(Modifier.fillMaxSize()) {
         Box(
             Modifier
                 .fillMaxSize()
+                .graphicsLayer { alpha = raised }
                 .background(Color(0x66000000))
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
@@ -59,18 +74,19 @@ fun BottomSheet(paper: Color, maxHeight: Dp, onDismiss: () -> Unit, content: @Co
                     onClick = onDismiss,
                 ),
         )
-        SheetBody(paper, maxHeight, content)
+        SheetBody(paper, maxHeight, { raised }, content)
     }
 }
 
 @Composable
-private fun BoxScope.SheetBody(paper: Color, maxHeight: Dp, content: @Composable ColumnScope.() -> Unit) {
+private fun BoxScope.SheetBody(paper: Color, maxHeight: Dp, raised: () -> Float, content: @Composable ColumnScope.() -> Unit) {
     Column(
         Modifier
             .align(Alignment.BottomCenter)
             .widthIn(max = 560.dp)
             .fillMaxWidth()
             .heightIn(max = maxHeight)
+            .graphicsLayer { translationY = (1f - raised()) * size.height }
             .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
             .background(paper)
             .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { }

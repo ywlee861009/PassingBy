@@ -404,9 +404,9 @@ fun CourseProgress(info: RideInfo, modifier: Modifier = Modifier, labelColor: Co
     }
 }
 
-/** 남은 시간 묶음: 다음 정차 안내 + 종착까지 남은 시간(큰 숫자). */
+/** 다음 정차 안내 한 줄. 정차·신호 대기 중에는 그 상태를 알린다. */
 @Composable
-fun Remaining(info: RideInfo, timer: TextStyle, color: Color = Pb.OnScrim, soft: Color = Pb.OnScrimSoft) {
+fun NextStopLine(info: RideInfo, color: Color = Pb.OnScrimSoft) {
     val next = info.stations[info.nextStop]
     val line = when {
         info.paused -> "신호 대기 중 · 잠깐 멈췄어요"
@@ -414,14 +414,28 @@ fun Remaining(info: RideInfo, timer: TextStyle, color: Color = Pb.OnScrim, soft:
         info.last -> "종착 $next · ${clock(info.nextStopSec)}"
         else -> "다음 정차 $next · ${clock(info.nextStopSec)}"
     }
-    Column {
-        // 이 줄이 큰 숫자보다 넓어 묶음 폭을 정하므로, 초가 바뀔 때 옆 진행 바가 흔들리지 않게 숫자 폭을 고정한다.
-        BasicText(line, style = PbType.label.copy(color = soft, fontFeatureSettings = "tnum"))
-        BasicText(
-            clock(info.remainingSec),
-            style = timer.copy(color = color),
-            modifier = Modifier.semantics { contentDescription = "종착까지 ${spoken(info.remainingSec)} 남음" },
-        )
+    BasicText(line, style = PbType.label.copy(color = color, fontFeatureSettings = "tnum"))
+}
+
+/** 종착까지 남은 시간(큰 숫자). */
+@Composable
+fun RemainingTime(info: RideInfo, timer: TextStyle, color: Color = Pb.OnScrim) {
+    BasicText(
+        clock(info.remainingSec),
+        style = timer.copy(color = color),
+        modifier = Modifier.semantics { contentDescription = "종착까지 ${spoken(info.remainingSec)} 남음" },
+    )
+}
+
+/**
+ * 가로·반접기 화면의 진행 묶음: 다음 정차 안내를 진행 바 위에 둔다.
+ * 안내 문구는 역 이름·상태에 따라 폭이 바뀌므로, 큰 숫자 옆에 두면 그때마다 진행 바가 밀린다.
+ */
+@Composable
+fun ProgressWithNextStop(info: RideInfo, modifier: Modifier = Modifier) {
+    Column(modifier) {
+        NextStopLine(info)
+        CourseProgress(info)
     }
 }
 
@@ -435,7 +449,10 @@ fun StackedPanel(info: RideInfo, onPause: () -> Unit, onSound: () -> Unit, modif
             .padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        Remaining(info, PbType.timerLarge)
+        Column {
+            NextStopLine(info)
+            RemainingTime(info, PbType.timerLarge)
+        }
         CourseProgress(info)
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
             PauseButton(info.paused, onPause)
@@ -444,7 +461,7 @@ fun StackedPanel(info: RideInfo, onPause: () -> Unit, onSound: () -> Unit, modif
     }
 }
 
-/** 가로·큰 화면 하단 한 줄: 왼쪽 시간, 가운데 진행 바, 오른쪽 조작. */
+/** 가로·큰 화면 하단 한 줄: 왼쪽 시간, 가운데 다음 정차 안내와 진행 바, 오른쪽 조작. */
 @Composable
 fun RowPanel(info: RideInfo, onPause: () -> Unit, onSound: () -> Unit, modifier: Modifier = Modifier) {
     Row(
@@ -455,8 +472,8 @@ fun RowPanel(info: RideInfo, onPause: () -> Unit, onSound: () -> Unit, modifier:
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(20.dp),
     ) {
-        Remaining(info, PbType.timerMid)
-        CourseProgress(info, Modifier.weight(1f))
+        RemainingTime(info, PbType.timerMid)
+        ProgressWithNextStop(info, Modifier.weight(1f))
         PauseButton(info.paused, onPause)
         SoundButton(info.soundOn, onSound)
     }
@@ -475,8 +492,8 @@ fun TabletopPanel(info: RideInfo, onPause: () -> Unit, onSound: () -> Unit, onCl
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(24.dp),
     ) {
-        Remaining(info, PbType.timerMid)
-        CourseProgress(info, Modifier.weight(1f))
+        RemainingTime(info, PbType.timerMid)
+        ProgressWithNextStop(info, Modifier.weight(1f))
         PauseButton(info.paused, onPause)
         SoundButton(info.soundOn, onSound)
         CloseButton(onClose, background = Color(0x33FFFFFF))

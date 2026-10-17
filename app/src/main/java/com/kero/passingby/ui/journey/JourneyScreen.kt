@@ -15,13 +15,14 @@ import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
@@ -434,11 +435,11 @@ fun JourneyScreen(vm: JourneyViewModel = viewModel()) {
             DevPanel(vm, onInteract = { interactions++ }, modifier = Modifier.align(Alignment.TopCenter))
         }
 
-        // ── 시트 ──
+        // ── 시트 ── (올라오고 내려가는 움직임은 BottomSheet가 맡는다)
         AnimatedVisibility(
             visible = sheet != SheetKind.NONE,
-            enter = fadeIn(tween(200)) + slideInVertically(tween(260)) { it / 3 },
-            exit = fadeOut(tween(180)),
+            enter = EnterTransition.None,
+            exit = ExitTransition.None,
             modifier = Modifier.fillMaxSize(),
         ) {
             val shown = remember { mutableStateOf(sheet) }
