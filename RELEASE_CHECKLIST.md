@@ -12,7 +12,7 @@
   - debug에서만 `true`, release에서는 `false`다. 켜져 있으면 "모든 코스 열기" 스위치, 길게 눌러 여는 개발 패널, adb 실행 옵션(`MainActivity.applyDebugExtras`)이 모두 사용자에게 열린다.
   - 그래서 release 빌드로 성능을 잴 때는 HUD와 개발 패널이 없다. 필요해지면 release를 복사한 별도 빌드 타입(예: `perf`)을 만들어 거기서만 켠다.
 - [x] **출시 서명** — `app/build.gradle.kts`의 release `signingConfig`
-  - brayne과 같은 업로드 키(`kero-studio.jks`, alias `kero`)를 쓴다. 키 파일은 ethan-of-brain 프로젝트의 `android/keystore/`에 있고, 경로와 비밀번호는 커밋하지 않는 `local.properties`의 `kero.upload.*`에 있다.
+  - brayne과 같은 업로드 키(`kero-studio.jks`, alias `kero`)를 쓴다. 키 파일은 ethan-of-brain에서 복사해 이 프로젝트의 `keystore/`에 두었고(`.gitignore`의 `*.jks`로 제외), 경로와 비밀번호는 커밋하지 않는 `local.properties`의 `kero.upload.*`에 있다. 다른 기기에서 빌드하려면 둘 다 따로 옮겨야 한다.
   - 인증서 SHA-256 지문은 `C8:51:47:22:…:8E:0E:39:FA`. 업로드한 번들의 지문은 `keytool -J-Duser.language=en -printcert -jarfile app-release.aab`로 확인한다(한국어 로케일에서는 JDK 24 keytool이 오류를 낸다).
   - `local.properties`에 이 값이 없는 기기에서는 debug 키로 서명된다. 그 번들은 Play에 올릴 수 없다.
 - [x] **앱 아이콘**
