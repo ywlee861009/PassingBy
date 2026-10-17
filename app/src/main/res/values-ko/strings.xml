@@ -31,12 +31,11 @@
     <!-- 역 -->
     <string name="station_seoul">서울</string>
     <string name="station_daejeon">대전</string>
-    <string name="station_dongdaegu">동대구</string>
+    <string name="station_daegu">대구</string>
     <string name="station_busan">부산</string>
-    <string name="station_yongsan">용산</string>
     <string name="station_jeonju">전주</string>
     <string name="station_suncheon">순천</string>
-    <string name="station_yeosu_expo">여수엑스포</string>
+    <string name="station_yeosu">여수</string>
     <string name="station_yangpyeong">양평</string>
     <string name="station_pyeongchang">평창</string>
     <string name="station_gangneung">강릉</string>

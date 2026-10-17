@@ -54,7 +54,7 @@ class Course(
         return "${res.getString(s.first().name)} → ${res.getString(s.last().name)}"
     }
 
-    /** 중간 정차역 문구. "대전 · 동대구 정차" */
+    /** 중간 정차역 문구. "대전 · 대구 정차" */
     fun stopsLine(res: Resources, direction: Int): String {
         val mid = ordered(direction).drop(1).dropLast(1)
         return if (mid.isEmpty()) {

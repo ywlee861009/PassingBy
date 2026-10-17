@@ -36,12 +36,11 @@
     <!-- 역 -->
     <string name="station_seoul">Seoul</string>
     <string name="station_daejeon">Daejeon</string>
-    <string name="station_dongdaegu">Dongdaegu</string>
+    <string name="station_daegu">Daegu</string>
     <string name="station_busan">Busan</string>
-    <string name="station_yongsan">Yongsan</string>
     <string name="station_jeonju">Jeonju</string>
     <string name="station_suncheon">Suncheon</string>
-    <string name="station_yeosu_expo">Yeosu EXPO</string>
+    <string name="station_yeosu">Yeosu</string>
     <string name="station_yangpyeong">Yangpyeong</string>
     <string name="station_pyeongchang">Pyeongchang</string>
     <string name="station_gangneung">Gangneung</string>

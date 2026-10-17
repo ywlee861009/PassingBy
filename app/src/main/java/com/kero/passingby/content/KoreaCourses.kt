@@ -9,12 +9,15 @@ import com.kero.passingby.scene.LandmarkKind
 import com.kero.passingby.scene.RoofCap
 import com.kero.passingby.scene.Themes
 
-/** 한국 고속열차 노선. 정차역은 실제 고속열차가 서는 역에서 고른다. */
+/**
+ * 한국 고속열차 노선. 정차역은 실제 고속열차가 서는 역에서 고르고, 화면과 이름판에는 역 이름 대신 도시 이름을 쓴다
+ * (용산역 → 서울, 동대구역 → 대구, 여수엑스포역 → 여수).
+ */
 object KoreaCourses {
-    /** 서울·용산: 북한산·관악산이 둘러싼 고층 도시. */
+    /** 서울: 북한산·관악산이 둘러싼 고층 도시. */
     private val SEOUL = CityLook(rise = 1.15f, mountains = .9f)
-    /** 동대구: 팔공산이 감싼 분지의 아파트 도시. */
-    private val DONGDAEGU = CityLook(mountains = .8f)
+    /** 대구: 팔공산이 감싼 분지의 아파트 도시. */
+    private val DAEGU = CityLook(mountains = .8f)
     /** 부산: 바다 앞 초고층과 바로 뒤의 가파른 산. */
     private val BUSAN = CityLook(rise = 1.25f, mountains = 1.3f)
     /** 전주: 검은 기와 한옥 지붕이 낮게 깔린 마을과 뒤의 산. */
@@ -39,7 +42,7 @@ object KoreaCourses {
         listOf(
             seoul,
             Station(R.string.station_daejeon, "대전", "Daejeon", CityLook(mountains = .4f)),
-            Station(R.string.station_dongdaegu, "동대구", "Dongdaegu", DONGDAEGU),
+            Station(R.string.station_daegu, "대구", "Daegu", DAEGU),
             Station(R.string.station_busan, "부산", "Busan", BUSAN),
         ),
         Course.FAST, null, snowy = true, Themes.KOREA,
@@ -65,14 +68,14 @@ object KoreaCourses {
     val JEOLLA = Course(
         "korea-jeolla", 3, R.string.region_korea_jeolla, R.string.vehicle_high_speed,
         listOf(
-            Station(R.string.station_yongsan, "용산", "Yongsan", SEOUL),
+            seoul,
             Station(R.string.station_jeonju, "전주", "Jeonju", JEONJU),
             Station(R.string.station_suncheon, "순천", "Suncheon", SUNCHEON),
-            Station(R.string.station_yeosu_expo, "여수엑스포", "Yeosu EXPO", YEOSU),
+            Station(R.string.station_yeosu, "여수", "Yeosu", YEOSU),
         ),
         Course.FAST, "course_korea_jeolla", snowy = true, Themes.KOREA_JEOLLA,
         features = listOf(
-            // 용산을 떠나 바로 한강 철교.
+            // 서울(용산역)을 떠나 바로 한강 철교.
             Feature(Feature.Kind.BRIDGE, 0, .1f, .125f),
             Feature(Feature.Kind.FIELD, 0, .3f, .5f, FieldStyle.PADDY),
             // 익산에서 전주까지 호남평야.
@@ -84,7 +87,7 @@ object KoreaCourses {
             Feature(Feature.Kind.SEA, 2, .72f, 1.2f),
         ),
         landmarks = listOf(
-            // 용산역은 남산 바로 아래. 여수엑스포역에 서면 바다 위 돌산대교.
+            // 출발하는 용산역은 남산 바로 아래. 여수에 서면 바다 위 돌산대교.
             LandmarkSpot.atStation(LandmarkKind.N_TOWER, 0, -110f),
             LandmarkSpot.atStation(LandmarkKind.CABLE_BRIDGE, 3, -70f),
             // 여수 앞바다의 섬들.
