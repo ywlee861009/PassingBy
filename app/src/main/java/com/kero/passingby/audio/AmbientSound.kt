@@ -16,9 +16,13 @@ import kotlin.random.Random
  * - 실내 울림: 낮게 거른 갈색 잡음 + 공조기 같은 낮은 웅웅거림. 서 있어도 조금 들린다.
  * - 바람: 높게 거른 흰 잡음. 속도의 제곱에 비례.
  * - 레일 이음매: 바퀴 두 쌍이 지나가는 둔한 "덜컹-덜컹". 간격은 속도에 반비례.
+ *   폰 스피커는 500Hz 아래를 거의 못 내므로 150~800Hz 대역의 몸통 소리를 함께 낸다.
  * - 빗방울: 비 세기만큼 유리에 톡톡 떨어지는 짧은 소리.
  * - 터널: 울림이 커지고 바람이 먹먹해진다.
  * - 차임: 중간 역에 설 때 두 음 "띵-동"(실제 역 안내음이 아닌 일반 음).
+ *
+ * 폰 스피커로 들을 때 바람 1 : 빗방울 3 : 덜컹 6 정도가 되게 맞췄다(고속 열차 순항, 비 최대 기준).
+ * 완행은 덜컹이 두 배쯤 크다([clack]).
  *
  * 다른 앱 음악을 멈추지 않도록 오디오 포커스를 요청하지 않는다(명세 5.6).
  * 소리 매개변수는 화면 프레임에서 정하고, 소리 스레드는 그것을 부드럽게 따라간다.
@@ -96,6 +100,7 @@ class AmbientSound {
         var thump = 0f
         var secondIn = -1
         var lowThump = 0f
+        var midThump = 0f
         // 빗방울
         var drop = 0f
         var dropTone = 0f
@@ -121,7 +126,7 @@ class AmbientSound {
                 val rumble = lowRumble * (.9f + 2.6f * sp) * (1 + 1.8f * tn)
                 // 바람: 흰 잡음에서 낮은 성분을 빼 높은 소리만 남긴다. 터널에서는 먹먹하게.
                 lowWind += (white - lowWind) * (.08f + .25f * (1 - tn))
-                val wind = (white - lowWind) * .07f * sp * sp * (1 - .6f * tn) + lowWind * .05f * sp * sp * tn
+                val wind = (white - lowWind) * .023f * sp * sp * (1 - .6f * tn) + lowWind * .016f * sp * sp * tn
                 // 레일 이음매: 일정 거리마다 둔한 소리 두 번(앞뒤 바퀴).
                 travel += sp / RATE
                 if (travel >= JOINT) {
@@ -131,15 +136,18 @@ class AmbientSound {
                 }
                 if (secondIn > 0 && --secondIn == 0) thump = .8f
                 thump *= .9992f
-                lowThump += (white * thump - lowThump) * .04f
-                val rail = lowThump * 1.6f * clack * min(1f, sp * 2.5f)
+                val hit = white * thump
+                // 150Hz 아래는 이어폰에서 들리는 둔한 울림, 150~800Hz는 폰 스피커에서도 들리는 몸통 소리.
+                lowThump += (hit - lowThump) * .04f
+                midThump += (hit - midThump) * .2f
+                val rail = (lowThump * 1.6f + (midThump - lowThump) * 1.8f) * clack * min(1f, sp * 2.5f)
                 // 빗방울: 드물게 짧고 높은 톡.
                 if (rn > .01f && rnd.nextFloat() < rn * 45f / RATE) {
                     drop = .4f + rnd.nextFloat() * .6f
                     dropTone = rnd.nextFloat()
                 }
                 drop *= .985f - .01f * dropTone
-                val rainTick = drop * white * .12f * rn + white * .006f * rn
+                val rainTick = drop * white * .225f * rn + white * .0112f * rn
                 // 공조기 같은 낮은 웅웅거림.
                 humPhase += 2 * PI * 58 / RATE
                 if (humPhase > 2 * PI) humPhase -= 2 * PI
