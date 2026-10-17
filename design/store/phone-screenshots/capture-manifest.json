@@ -1,0 +1,118 @@
+{
+  "source": "Actual Android app screenshots; no generated artwork or text overlays.",
+  "emulator": "Medium Phone API 35, isolated read-only instance",
+  "orientation": "landscape",
+  "screenshots": [
+    {
+      "filename": "01-japan-clear-day.png",
+      "course": "japan",
+      "time": "DAY",
+      "weather": "CLEAR",
+      "journey_fraction": 0.1502,
+      "launch_command": "am start -W -n com.kero.passingby/.MainActivity --es course japan --es time DAY --es weather CLEAR --ei minutes 25 --ef at 0.1502 --ef speedup 0 --ez instant true",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "mode": "RGB",
+      "bytes": 347983,
+      "sha256": "8aa3b8ac396473b3966177a3dc408ed5209190847dd98a2a8db3046b8ffcbd56",
+      "on_screen_text": [],
+      "alt_ko": "맑은 낮, 후지산과 일본 시골 마을을 바라보는 기차 창가.",
+      "alt_en": "A train window overlooking Mount Fuji and a Japanese village on a clear day."
+    },
+    {
+      "filename": "02-korea-dawn.png",
+      "course": "korea",
+      "time": "DAWN",
+      "weather": "CLEAR",
+      "journey_fraction": 0.14,
+      "launch_command": "am start -W -n com.kero.passingby/.MainActivity --es course korea --es time DAWN --es weather CLEAR --ei minutes 25 --ef at 0.14 --ef speedup 0 --ez instant true",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "mode": "RGB",
+      "bytes": 326653,
+      "sha256": "7b78e639c4ea7a06ac9f6314413653ca7c19bb8cb2d1c158457f55d3c938f9d6",
+      "on_screen_text": [],
+      "alt_ko": "새벽빛 하늘 아래 한국의 산과 논을 지나가는 기차 창가.",
+      "alt_en": "A train window overlooking Korean hills and rice fields beneath a dawn sky."
+    },
+    {
+      "filename": "03-portugal-river.png",
+      "course": "portugal",
+      "time": "DAY",
+      "weather": "CLEAR",
+      "journey_fraction": 0.83,
+      "launch_command": "am start -W -n com.kero.passingby/.MainActivity --es course portugal --es time DAY --es weather CLEAR --ei minutes 25 --ef at 0.83 --ef speedup 0 --ez instant true",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "mode": "RGB",
+      "bytes": 332593,
+      "sha256": "7965ddc54ac57805891d45fe8de8beb28e61987101ec29f82c339b3e573344c5",
+      "on_screen_text": [],
+      "alt_ko": "밝은 낮, 포르투갈의 강과 포도밭 풍경을 바라보는 기차 창가.",
+      "alt_en": "A train window overlooking a river and vineyard countryside in Portugal."
+    },
+    {
+      "filename": "04-france-sunset.png",
+      "course": "france",
+      "time": "DUSK",
+      "weather": "CLEAR",
+      "journey_fraction": 0.81,
+      "launch_command": "am start -W -n com.kero.passingby/.MainActivity --es course france --es time DUSK --es weather CLEAR --ei minutes 25 --ef at 0.81 --ef speedup 0 --ez instant true",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "mode": "RGB",
+      "bytes": 292819,
+      "sha256": "27575b0dfaa068697f225415fb7946251d3c1f16d2ef6070234beeece6acd1ef",
+      "on_screen_text": [],
+      "alt_ko": "노을빛으로 물든 프랑스 시골과 라벤더 밭을 지나는 기차 창가.",
+      "alt_en": "A train window overlooking French countryside and lavender fields at sunset."
+    },
+    {
+      "filename": "05-china-south-rain.png",
+      "course": "china-south",
+      "time": "DAY",
+      "weather": "DRIZZLE",
+      "journey_fraction": 0.64,
+      "launch_command": "am start -W -n com.kero.passingby/.MainActivity --es course china-south --es time DAY --es weather DRIZZLE --ei minutes 25 --ef at 0.64 --ef speedup 0 --ez instant true",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "mode": "RGB",
+      "bytes": 449405,
+      "sha256": "0c07c179e3bbc77ce1addc1736033e64d6dfaf6b282c1ef65832c3a9e09512ee",
+      "on_screen_text": [],
+      "alt_ko": "빗방울 맺힌 창 너머 중국 남부의 봉우리와 강이 보이는 기차 여행.",
+      "alt_en": "A rainy train window overlooking karst peaks and a river in southern China."
+    },
+    {
+      "filename": "06-japan-snowy-night.png",
+      "course": "japan",
+      "time": "NIGHT",
+      "weather": "LIGHT_SNOW",
+      "journey_fraction": 0.4,
+      "launch_command": "am start -W -n com.kero.passingby/.MainActivity --es course japan --es time NIGHT --es weather LIGHT_SNOW --ei minutes 25 --ef at 0.4 --ef speedup 0 --ez instant true",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "mode": "RGB",
+      "bytes": 289338,
+      "sha256": "95de6ffd33a1af84779fe61b31fec9de19fd7c98dac83748b2ec90a91aa418ee",
+      "on_screen_text": [],
+      "alt_ko": "눈이 내리는 조용한 밤, 일본의 시골 풍경을 바라보는 기차 창가.",
+      "alt_en": "A quiet train journey past Japanese countryside on a snowy night."
+    }
+  ],
+  "package": "com.kero.passingby",
+  "guide": "https://support.google.com/googleplay/android-developer/answer/9866151?hl=en",
+  "image_processing": "Captured at native 1920x1080; converted to RGB PNG only. No cropping, stretching, generated graphics, or text overlays."
+}
