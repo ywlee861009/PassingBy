@@ -4,9 +4,7 @@
 
     <!-- 도착·쉬는 시간 끝을 화면 밖에서도 알 수 있게 진동으로 알린다. -->
     <uses-permission android:name="android.permission.VIBRATE" />
-    <!-- 여행 중 남은 시간 알림과 도착 알림(명세 10.5). -->
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <!-- 여행 중 남은 시간 알림과 도착 알림(명세 10.5). 포그라운드 서비스는 쓰지 않는다. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- Firebase Analytics가 합쳐 넣는 광고 ID·광고 측정(Privacy Sandbox) 권한을 뺀다.
          광고가 없고 광고 ID를 쓰지 않는다(개인정보 처리방침). -->
@@ -48,15 +46,6 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-
-        <service
-            android:name=".session.TripService"
-            android:exported="false"
-            android:foregroundServiceType="specialUse">
-            <property
-                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="Focus timer: keeps the user's focus session countdown and arrival alert running while the screen is off or another app is open." />
-        </service>
 
         <receiver
             android:name=".session.TripAlarmReceiver"

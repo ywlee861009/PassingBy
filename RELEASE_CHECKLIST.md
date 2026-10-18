@@ -29,7 +29,7 @@
   - 광고 ID·기기 ID(SSAID)·광고 측정 권한은 매니페스트에서 뺐다. 처리방침의 "광고 ID 미사용"과 Play의 광고 ID 신고("사용 안 함")가 이것에 기대므로 라이브러리를 올릴 때 병합된 매니페스트에 `AD_ID`가 다시 들어오지 않았는지 본다.
   - 사용자는 설정 → 정보 보내기에서 끌 수 있다(기본 켜짐). 끄면 아직 보내지 않은 오류 보고도 지운다.
   - Firebase 콘솔: Analytics 데이터 보관 기간 2개월(기본값, 처리방침 3항과 같아야 함), Google 신호·Google Ads 연결은 켜지 않는다(처리방침 7항). Play Console과 Firebase를 연결하면 인앱 구매가 `in_app_purchase` 이벤트로 자동 기록된다.
-  - 이벤트: `trip_start`·`trip_pause`·`trip_resume`·`trip_end_early`·`trip_arrive`·`rest_start`·`rest_end`·`trip_get_off`·`course_select`·`purchase_tap`·`purchase_result`·`restore_tap`·`course_unlock`·`billing_error`(stage·code)·`billing_products_missing`·`notification_permission`. 비치명 오류: 포그라운드 서비스 시작·정지 실패, 도착 알림 실패, 결제 DEVELOPER_ERROR·ERROR.
+  - 이벤트: `trip_start`·`trip_pause`·`trip_resume`·`trip_end_early`·`trip_arrive`·`rest_start`·`rest_end`·`trip_get_off`·`course_select`·`purchase_tap`·`purchase_result`·`restore_tap`·`course_unlock`·`billing_error`(stage·code)·`billing_products_missing`·`notification_permission`. 비치명 오류: 남은 시간 알림 실패, 도착 알림 실패, 결제 DEVELOPER_ERROR·ERROR.
 
 ## 2. 코드 — 결제 품질 (권장)
 
@@ -57,7 +57,11 @@ release 빌드를 테스트 트랙에 올리고 Play에서 설치해서 시험�
 - [ ] 앱을 지우고 다시 설치한 뒤 구매 복원
 - [ ] 비행기 모드에서 구매·복원을 눌렀을 때 나오는 문구
 - [ ] 잠긴 코스 미리 보기 → 가격 표시 → 구매까지 이어지는지
-- [ ] 위 항목 전부와 도착 알림(포그라운드 서비스)을 R8이 적용된 빌드에서 확인
+- [ ] 위 항목 전부와 남은 시간 알림·도착 알림을 R8이 적용된 빌드에서 확인
+- [ ] **앱 프로세스가 종료된 뒤의 여행** — 포그라운드 서비스가 없어서(명세 10.5) 백그라운드에서 프로세스가 자주 종료된다.
+  - 달리는 중·멈춘 동안·쉬는 중 각각, 홈으로 나간 뒤 `adb shell am kill com.kero.passingby`(백그라운드 프로세스만 종료)로 끄거나 최근 앱 목록에서 지운다.
+  - 남은 시간 알림이 계속 줄어드는지, 끝나는 시각에 그 알림이 사라지는지, 그 뒤 도착 안내 알림이 오는지, 앱을 다시 열면 여행이 이어지는지(도착 뒤에 열면 도착 화면이고 소리가 다시 울리지 않는지) 본다.
+  - 도착 안내는 늦게 와도 된다(명세 10.5). 다만 오지 않으면 안 되므로, 절전이 강한 제조사 기기(삼성·샤오미 등)에서 화면을 끈 채 25분 여행을 하고 도착 알림이 결국 오는지, 얼마나 늦었는지 적어 둔다.
 - [ ] **언어 전환** — 설정 → 언어에서 기기 설정·한국어·영어를 바꿔 가며 화면과 알림 문구가 따라가는지
   - Android 12 이하 기기에서 꼭 확인한다. 13 이상은 시스템 앱별 언어를 쓰고, 12 이하는 앱이 직접 저장해 화면에 입히는 다른 경로라서(`AppLanguage`) 에뮬레이터 API 35에서만 확인했다.
   - Play에서 설치한 빌드로도 확인한다. 번들의 언어별 분할을 꺼 두었는데(`bundle.language.enableSplit = false`), 켜져 있으면 기기 언어가 아닌 쪽 문구가 설치되지 않는다.
@@ -94,9 +98,13 @@ release 빌드를 테스트 트랙에 올리고 Play에서 설치해서 시험�
      - 광고 ID: "사용하지 않음".
    - [ ] 광고 없음 신고, 콘텐츠 등급 설문
    - [ ] 타깃 연령 — 13세 미만을 넣으면 가족 정책 요건이 추가된다.
-   - [ ] **포그라운드 서비스 권한 신고** — `specialUse`를 쓰는 이유를 적는다(명세 10.5에 "반려 위험 있음"으로 적어 둔 항목). `AndroidManifest.xml`의 `PROPERTY_SPECIAL_USE_FGS_SUBTYPE` 설명과 같은 내용으로 쓰고, 실제 사용 장면 영상을 요구받을 수 있다.
+   - [ ] **포그라운드 서비스 권한 신고 — 해당 없게 만든다** — 2026-10-18에 포그라운드 서비스를 뺐다(명세 10.5).
+     - 자동 배포로 올린 versionCode 2~4 번들(태그 `android-internal-2`~`4`)에는 `FOREGROUND_SERVICE_SPECIAL_USE`가 들어 있어서 앱 콘텐츠에 이 신고 항목이 뜬다.
+     - 권한을 뺀 빌드를 올려 권한이 든 번들이 활성 상태로 남은 트랙이 없게 한 뒤, 이 항목이 사라지는지 확인한다. 그래도 신고를 요구하면 Play Console 도움말에서 처리 방법을 확인한다.
+     - 라이브러리를 올릴 때 병합된 매니페스트에 `FOREGROUND_SERVICE` 권한이나 `foregroundServiceType`이 있는 서비스가 들어오지 않았는지 본다.
 9. [ ] **스토어 등록정보**
    - 앱 이름 — 명세 15장에 이름 확정과 상표 검색이 미결로 남아 있다.
+   - 도착 알림은 늦을 수 있는 안내라서(명세 10.5) "정확한 시각에 울리는 알람"처럼 약속하는 설명을 쓰지 않는다.
    - 짧은 설명(80자), 자세한 설명, 아이콘 512×512, 그래픽 이미지 1024×500, 휴대전화 스크린샷 2장 이상
    - 앱이 영어도 지원하므로 영어 등록정보(번역)와 영어 화면 스크린샷도 함께 넣는다.
    - 폴더블·태블릿 레이아웃이 있으니 태블릿 스크린샷도 넣으면 좋다.

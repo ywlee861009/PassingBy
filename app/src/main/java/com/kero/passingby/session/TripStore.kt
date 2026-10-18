@@ -8,7 +8,7 @@ import java.time.LocalDate
  * 앱을 다시 열어도 남아야 하는 값. 값이 몇 개 안 돼서 SharedPreferences로 둔다.
  *
  * 진행 중인 여행도 여기에 둔다. SavedStateHandle은 최근 앱 목록에서 앱을 지우면 사라지지만,
- * 여행은 포그라운드 서비스로 계속 흐르므로 앱을 다시 열었을 때 이어 붙여야 한다.
+ * 여정 시계는 앱이 닫혀 있어도 흐르므로(남은 시간 알림과 도착 알람은 앱 없이 동작) 앱을 다시 열었을 때 이어 붙여야 한다.
  * 여정 시계는 elapsedRealtime 기준이라 재부팅하면 무효가 되므로 부팅 횟수를 함께 저장해 확인한다.
  */
 class TripStore(private val context: Context) {

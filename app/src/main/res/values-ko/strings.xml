@@ -68,7 +68,7 @@
     <string name="settings">설정</string>
     <string name="change_course">코스 바꾸기</string>
     <string name="depart_minutes">%1$d분 출발하기</string>
-    <string name="ticket_note">도착하면 알려드릴게요. 그동안 창밖만 보셔도 괜찮아요.</string>
+    <string name="ticket_note">남은 시간은 알림에 띄워 둘게요. 그동안 창밖만 보셔도 괜찮아요.</string>
     <string name="unlock_course_price">코스 열기 · %1$s</string>
     <string name="price_pending">가격 준비 중</string>
     <string name="unlock_once">한 번 열면 계속 탈 수 있어요.</string>

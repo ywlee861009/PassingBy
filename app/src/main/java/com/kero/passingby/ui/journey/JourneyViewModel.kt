@@ -39,7 +39,7 @@ import com.kero.passingby.scene.TimeOfDay
 import com.kero.passingby.scene.UrbanField
 import com.kero.passingby.scene.Weather
 import com.kero.passingby.scene.mix
-import com.kero.passingby.session.TripService
+import com.kero.passingby.session.TripTimer
 import com.kero.passingby.session.TripStore
 import com.kero.passingby.telemetry.Telemetry
 import com.kero.passingby.ui.theme.Pb
@@ -63,7 +63,7 @@ enum class TripPhase { DOCKED, RUNNING, PAUSED, ARRIVED, RESTING }
  *   └──────────────────────────────────┘
  * ```
  *
- * 진행 중인 여행은 [TripStore]에 저장해, 앱을 지웠다 다시 열어도(포그라운드 서비스로 계속 흐르는 동안) 이어 붙인다.
+ * 진행 중인 여행은 [TripStore]에 저장해, 백그라운드에서 앱 프로세스가 종료되거나 최근 앱 목록에서 지웠다 다시 열어도 이어 붙인다.
  */
 class JourneyViewModel(app: Application) : AndroidViewModel(app) {
     val scene = SceneState()
@@ -212,8 +212,8 @@ class JourneyViewModel(app: Application) : AndroidViewModel(app) {
         applyLand()
         applyStations()
         updateTicks(clock.seconds())
-        // 앱을 다시 열었을 때 달리던 여행이 있으면 알림 서비스를 이어 붙인다.
-        if (phase != TripPhase.DOCKED) syncService()
+        // 앱을 다시 열었을 때 진행 중인 여행이 있으면 남은 시간 알림과 알람을 다시 맞춘다.
+        if (phase != TripPhase.DOCKED) syncTimer()
         Telemetry.state(phase.name, course.id, tripMinutes, direction)
         reportSettings()
     }
@@ -570,11 +570,11 @@ class JourneyViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /**
-     * 포그라운드 서비스와 알림을 지금 상태에 맞춘다. 달리는 중·쉬는 중에만 서비스를 띄운다.
+     * 남은 시간 알림과 알람을 지금 상태에 맞춘다. 달리는 중·멈춘 동안·쉬는 중에만 알림을 띄운다.
      * 개발용 빨리 감기 중에는 실제 시간과 어긋나므로 알림 시계를 빼고 문구만 띄운다.
      * 알림 문구는 앱 언어로 여기서 미리 만들어 넘긴다.
      */
-    private fun syncService() {
+    private fun syncTimer() {
         val ctx = getApplication<Application>()
         val res = AppLanguage.localized(ctx).resources
         val title = course.title(res, direction)
@@ -584,7 +584,7 @@ class JourneyViewModel(app: Application) : AndroidViewModel(app) {
         when (phase) {
             TripPhase.RUNNING -> {
                 val left = (plan.durationSec - clock.seconds()).coerceAtLeast(0.0)
-                TripService.update(
+                TripTimer.update(
                     ctx, title, res.getString(R.string.notif_running, course.stopsLine(res, direction), terminus),
                     if (realtime) now + (left * 1000).toLong() else 0L,
                     res.getString(R.string.arrived_at, terminus), res.getString(R.string.notif_arrived, tripMinutes),
@@ -592,16 +592,16 @@ class JourneyViewModel(app: Application) : AndroidViewModel(app) {
             }
             TripPhase.PAUSED -> {
                 val left = (plan.durationSec - clock.seconds()).coerceAtLeast(0.0).toInt()
-                TripService.update(ctx, title, res.getString(R.string.notif_paused, formatClock(left)), 0L, "", "")
+                TripTimer.update(ctx, title, res.getString(R.string.notif_paused, formatClock(left)), 0L, "", "")
             }
             TripPhase.RESTING -> {
                 val next = course.title(res, -direction)
-                TripService.update(
+                TripTimer.update(
                     ctx, res.getString(R.string.resting_at, terminus), res.getString(R.string.notif_next_trip, next),
                     restEndReal, res.getString(R.string.rest_over), res.getString(R.string.notif_ticket_ready, next),
                 )
             }
-            else -> TripService.stop(ctx)
+            else -> TripTimer.stop(ctx)
         }
     }
 
@@ -609,7 +609,7 @@ class JourneyViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun save() {
         Telemetry.state(phase.name, course.id, tripMinutes, direction)
-        syncService()
+        syncTimer()
         store.saveActive(
             TripStore.Active(
                 phase.name, tripMinutes, baseDistance, clock.save(), restEndReal, restDone, weatherSeed,

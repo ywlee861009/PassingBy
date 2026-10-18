@@ -1,6 +1,5 @@
 package com.kero.passingby.session
 
-import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -14,7 +13,7 @@ import com.kero.passingby.telemetry.Telemetry
 
 /** 여행 알림 두 가지: 여행 중 계속 떠 있는 남은 시간 알림, 도착·쉬는 시간 끝 알림. */
 object TripNotifications {
-    const val ONGOING_ID = 1
+    private const val ONGOING_ID = 1
     private const val ALERT_ID = 2
     private const val CH_TRIP = "trip"
     private const val CH_ALERT = "alert"
@@ -39,9 +38,11 @@ object TripNotifications {
     }
 
     /**
-     * 여행 중 알림. [endWallMillis]가 있으면 그 시각까지 거꾸로 세는 시계를 붙인다(시스템이 그리므로 1초마다 갱신할 필요 없음).
+     * 여행 중 알림을 띄우거나 내용을 바꾼다. [endWallMillis]가 있으면 그 시각까지 거꾸로 세는 시계를 붙인다
+     * (시스템이 그리므로 1초마다 갱신할 필요 없고, 앱 프로세스가 없어도 줄어든다).
+     * 그 시각이 지나면 알림이 저절로 사라진다. 절전 때문에 도착 알람이 늦어져도 시계가 0을 지나 음수로 가지 않는다.
      */
-    fun ongoing(ctx: Context, title: String, text: String, endWallMillis: Long?): Notification {
+    fun ongoing(ctx: Context, title: String, text: String, endWallMillis: Long?) {
         ensureChannels(ctx)
         val b = NotificationCompat.Builder(ctx, CH_TRIP)
             .setSmallIcon(R.drawable.ic_stat_window)
@@ -52,14 +53,20 @@ object TripNotifications {
             .setSilent(true)
             .setCategory(NotificationCompat.CATEGORY_PROGRESS)
             .setContentIntent(openApp(ctx))
-            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
         if (endWallMillis != null) {
             b.setUsesChronometer(true)
                 .setChronometerCountDown(true)
                 .setWhen(endWallMillis)
                 .setShowWhen(true)
+            val left = endWallMillis - System.currentTimeMillis()
+            if (left > 0) b.setTimeoutAfter(left)
         }
-        return b.build()
+        runCatching { ctx.getSystemService(NotificationManager::class.java)?.notify(ONGOING_ID, b.build()) }
+            .onFailure { Telemetry.error(it, "notify_ongoing") }
+    }
+
+    fun cancelOngoing(ctx: Context) {
+        ctx.getSystemService(NotificationManager::class.java)?.cancel(ONGOING_ID)
     }
 
     /** 도착·쉬는 시간 끝 알림. 소리·진동은 채널 설정을 따른다. */

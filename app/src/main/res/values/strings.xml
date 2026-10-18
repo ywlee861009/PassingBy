@@ -73,7 +73,7 @@
     <string name="settings">Settings</string>
     <string name="change_course">Change course</string>
     <string name="depart_minutes">Depart · %1$d min</string>
-    <string name="ticket_note">We\'ll let you know when you arrive. Until then, just enjoy the view.</string>
+    <string name="ticket_note">We\'ll keep the time left in your notifications. Just enjoy the view.</string>
     <string name="unlock_course_price">Unlock course · %1$s</string>
     <string name="price_pending">Price coming soon</string>
     <string name="unlock_once">Unlock once and ride any time.</string>
