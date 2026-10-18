@@ -5,6 +5,9 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    // app/google-services.json이 있어야 빌드된다. 공개 저장소라 커밋하지 않는다(.gitignore). CI는 Secret으로 받는다.
+    alias(libs.plugins.google.services)
+    alias(libs.plugins.firebase.crashlytics)
 }
 
 val localProperties = Properties().apply {
@@ -16,6 +19,10 @@ val localProperties = Properties().apply {
 fun uploadKeyValue(localKey: String, envKey: String): String? =
     localProperties.getProperty("kero.upload.$localKey")?.takeIf { it.isNotBlank() }
         ?: System.getenv(envKey)?.takeIf { it.isNotBlank() }
+
+// 사용 통계·오류 보고(Firebase). release는 켜고, debug는 개발 중 기록이 섞이지 않게 끈다.
+// debug에서 확인하려면 -Ppassingby.telemetry=true 로 빌드한다.
+val debugTelemetry = providers.gradleProperty("passingby.telemetry").orNull == "true"
 
 val uploadKeyFile: File? = uploadKeyValue("storeFile", "KERO_UPLOAD_STORE_FILE")
     ?.let { rootProject.file(it) }?.takeIf { it.exists() }
@@ -79,6 +86,8 @@ android {
         debug {
             // 개발용 패널·HUD·실행 옵션·"모든 코스 열기". 사용자에게 가는 release에서는 끈다.
             buildConfigField("boolean", "DEV_TOOLS", "true")
+            buildConfigField("boolean", "TELEMETRY", debugTelemetry.toString())
+            manifestPlaceholders["telemetry"] = debugTelemetry.toString()
         }
         release {
             isMinifyEnabled = true
@@ -87,6 +96,8 @@ android {
             // 업로드 키가 없는 환경에서는 debug 키로 서명한다. 이 번들은 Play에 올릴 수 없다.
             signingConfig = signingConfigs.findByName("upload") ?: signingConfigs.getByName("debug")
             buildConfigField("boolean", "DEV_TOOLS", "false")
+            buildConfigField("boolean", "TELEMETRY", "true")
+            manifestPlaceholders["telemetry"] = "true"
         }
     }
     androidResources {
@@ -124,4 +135,7 @@ dependencies {
     implementation(libs.androidx.compose.foundation)
     implementation(libs.androidx.window)
     implementation(libs.billing)
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.analytics)
+    implementation(libs.firebase.crashlytics)
 }

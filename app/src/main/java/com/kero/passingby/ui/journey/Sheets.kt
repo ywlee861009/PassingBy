@@ -143,7 +143,7 @@ fun CourseSheetContent(
     }
 }
 
-/** 설정: 창밖 날씨, 소리, 화면, 언어, 코스 구매, Play 스토어. */
+/** 설정: 창밖 날씨, 소리, 화면, 언어, 정보 보내기, 코스 구매, Play 스토어. */
 @Composable
 fun SettingsSheetContent(
     weather: Weather?,
@@ -153,6 +153,7 @@ fun SettingsSheetContent(
     overlay: Boolean,
     power: Boolean,
     language: AppLanguage,
+    telemetry: Boolean,
     owns: (Course) -> Boolean,
     priceOf: (Course) -> String?,
     devUnlock: Boolean,
@@ -163,6 +164,7 @@ fun SettingsSheetContent(
     onOverlay: (Boolean) -> Unit,
     onPower: (Boolean) -> Unit,
     onLanguage: (AppLanguage) -> Unit,
+    onTelemetry: (Boolean) -> Unit,
     onBuy: (Course) -> Unit,
     onRestore: () -> Unit,
     onDevUnlock: () -> Unit,
@@ -210,6 +212,9 @@ fun SettingsSheetContent(
             Choice(label, l == language) { onLanguage(l) }
         }
     }
+
+    SectionTitle(stringResource(R.string.data_section))
+    Toggle(stringResource(R.string.telemetry), stringResource(R.string.telemetry_desc), telemetry, onTelemetry)
 
     SectionTitle(stringResource(R.string.buy_courses))
     for (c in Course.ALL.filter { !it.free }) {

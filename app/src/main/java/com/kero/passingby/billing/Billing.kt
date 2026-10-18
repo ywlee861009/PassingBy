@@ -15,6 +15,7 @@ import com.android.billingclient.api.Purchase
 import com.android.billingclient.api.PurchasesUpdatedListener
 import com.android.billingclient.api.QueryProductDetailsParams
 import com.android.billingclient.api.QueryPurchasesParams
+import com.kero.passingby.telemetry.Telemetry
 
 /**
  * 코스 결제(Play Billing, 일회성 상품). 상품이 Play Console에 등록되기 전에는 상품 정보를 못 받아 오므로
@@ -33,6 +34,8 @@ class Billing(
 ) : PurchasesUpdatedListener {
     private val main = Handler(Looper.getMainLooper())
     private val details = mutableMapOf<String, ProductDetails>()
+    /** 마지막으로 결제 창을 띄운 상품. 결제 결과에는 실패 시 상품 정보가 없어 이걸로 남긴다. */
+    @Volatile private var lastProduct = ""
     private val client = BillingClient.newBuilder(context)
         .setListener(this)
         .enablePendingPurchases(PendingPurchasesParams.newBuilder().enableOneTimeProducts().build())
@@ -42,7 +45,10 @@ class Billing(
     fun connect() {
         client.startConnection(object : BillingClientStateListener {
             override fun onBillingSetupFinished(result: BillingResult) {
-                if (result.responseCode != BillingClient.BillingResponseCode.OK) return
+                if (result.responseCode != BillingClient.BillingResponseCode.OK) {
+                    report("setup", result)
+                    return
+                }
                 queryProducts()
                 restore()
             }
@@ -51,12 +57,16 @@ class Billing(
         })
     }
 
+    /** Play 결제에 연결돼 있는지. 연결 전이면 구매 복원이 아무 일도 하지 않는다. */
+    val ready: Boolean
+        get() = client.isReady
+
     /** 이미 산 상품을 다시 확인한다(구매 복원). */
     fun restore() {
         if (!client.isReady) return
         val params = QueryPurchasesParams.newBuilder().setProductType(BillingClient.ProductType.INAPP).build()
         client.queryPurchasesAsync(params) { result, purchases ->
-            if (result.responseCode == BillingClient.BillingResponseCode.OK) handle(purchases)
+            if (result.responseCode == BillingClient.BillingResponseCode.OK) handle(purchases) else report("purchases", result)
         }
     }
 
@@ -72,7 +82,10 @@ class Billing(
             .apply { d.oneTimePurchaseOfferDetails?.offerToken?.let { setOfferToken(it) } }
             .build()
         val params = BillingFlowParams.newBuilder().setProductDetailsParamsList(listOf(product)).build()
-        return client.launchBillingFlow(activity, params).responseCode == BillingClient.BillingResponseCode.OK
+        lastProduct = productId
+        val result = client.launchBillingFlow(activity, params)
+        if (result.responseCode != BillingClient.BillingResponseCode.OK) report("launch", result)
+        return result.responseCode == BillingClient.BillingResponseCode.OK
     }
 
     fun end() {
@@ -80,7 +93,12 @@ class Billing(
     }
 
     override fun onPurchasesUpdated(result: BillingResult, purchases: MutableList<Purchase>?) {
-        if (result.responseCode == BillingClient.BillingResponseCode.OK && purchases != null) handle(purchases)
+        Telemetry.event("purchase_result", "product" to lastProduct, "code" to result.responseCode)
+        when (result.responseCode) {
+            BillingClient.BillingResponseCode.OK -> if (purchases != null) handle(purchases)
+            BillingClient.BillingResponseCode.USER_CANCELED -> Unit
+            else -> report("purchase", result)
+        }
     }
 
     private fun queryProducts() {
@@ -92,7 +110,15 @@ class Billing(
         }
         val params = QueryProductDetailsParams.newBuilder().setProductList(products).build()
         client.queryProductDetailsAsync(params) { result, r ->
-            if (result.responseCode != BillingClient.BillingResponseCode.OK) return@queryProductDetailsAsync
+            if (result.responseCode != BillingClient.BillingResponseCode.OK) {
+                report("products", result)
+                return@queryProductDetailsAsync
+            }
+            // Play Console에서 비활성화했거나 ID가 다른 상품은 목록에서 빠진다. 그 코스는 살 수 없게 된다.
+            val missing = productIds - r.productDetailsList.map { it.productId }.toSet()
+            if (missing.isNotEmpty()) {
+                Telemetry.event("billing_products_missing", "count" to missing.size, "ids" to missing.joinToString(",").take(100))
+            }
             val prices = mutableMapOf<String, String>()
             for (d in r.productDetailsList) {
                 details[d.productId] = d
@@ -110,9 +136,22 @@ class Billing(
             owned += p.products
             if (!p.isAcknowledged) {
                 val ack = AcknowledgePurchaseParams.newBuilder().setPurchaseToken(p.purchaseToken).build()
-                client.acknowledgePurchase(ack) { }
+                client.acknowledgePurchase(ack) { r ->
+                    if (r.responseCode != BillingClient.BillingResponseCode.OK) report("ack", r)
+                }
             }
         }
         main.post { onOwned(owned) }
     }
+
+    /** 결제 단계의 실패를 남긴다. 개발 실수(DEVELOPER_ERROR)나 알 수 없는 오류(ERROR)는 오류 보고로도 올린다. */
+    private fun report(stage: String, result: BillingResult) {
+        val code = result.responseCode
+        Telemetry.event("billing_error", "stage" to stage, "code" to code)
+        if (code == BillingClient.BillingResponseCode.DEVELOPER_ERROR || code == BillingClient.BillingResponseCode.ERROR) {
+            Telemetry.error(BillingFailure(stage, code, result.debugMessage), "billing_$stage")
+        }
+    }
+
+    private class BillingFailure(stage: String, code: Int, message: String) : Exception("$stage: code=$code $message")
 }

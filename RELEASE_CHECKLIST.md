@@ -23,6 +23,13 @@
   - 표시 버전의 앞자리를 바꾸려면 `version_major`·`version_minor`를 고친다. patch는 0001부터 다시 시작하고 `versionCode`는 계속 올라간다.
   - 자동 배포를 켠 뒤에는 손으로 업로드하지 않는다. 로컬 빌드도 `versionCode 2`라서 다음 자동 배포와 번호가 겹친다.
 - [ ] **AAB로 빌드** — 새 앱은 APK가 아니라 `./gradlew :app:bundleRelease`로 만든 `.aab`를 올린다.
+- [x] **사용 통계·오류 보고(Firebase)** — `telemetry/Telemetry.kt`에서만 Firebase를 부른다.
+  - Firebase 프로젝트 `passingby-c112d`. 설정 파일 `app/google-services.json`은 공개 저장소라 커밋하지 않는다(`.gitignore`). 다른 기기에서 빌드하려면 이 파일을 따로 옮기고, CI는 `GOOGLE_SERVICES_JSON` Secret으로 받는다.
+  - release만 수집하고 debug는 끈다. debug에서 확인하려면 `./gradlew :app:installDebug -Ppassingby.telemetry=true`로 빌드하고, 개발 패널의 "테스트 크래시"로 Crashlytics 연결을 확인한다.
+  - 광고 ID·기기 ID(SSAID)·광고 측정 권한은 매니페스트에서 뺐다. 처리방침의 "광고 ID 미사용"과 Play의 광고 ID 신고("사용 안 함")가 이것에 기대므로 라이브러리를 올릴 때 병합된 매니페스트에 `AD_ID`가 다시 들어오지 않았는지 본다.
+  - 사용자는 설정 → 정보 보내기에서 끌 수 있다(기본 켜짐). 끄면 아직 보내지 않은 오류 보고도 지운다.
+  - Firebase 콘솔: Analytics 데이터 보관 기간 2개월(기본값, 처리방침 3항과 같아야 함), Google 신호·Google Ads 연결은 켜지 않는다(처리방침 7항). Play Console과 Firebase를 연결하면 인앱 구매가 `in_app_purchase` 이벤트로 자동 기록된다.
+  - 이벤트: `trip_start`·`trip_pause`·`trip_resume`·`trip_end_early`·`trip_arrive`·`rest_start`·`rest_end`·`trip_get_off`·`course_select`·`purchase_tap`·`purchase_result`·`restore_tap`·`course_unlock`·`billing_error`(stage·code)·`billing_products_missing`·`notification_permission`. 비치명 오류: 포그라운드 서비스 시작·정지 실패, 도착 알림 실패, 결제 DEVELOPER_ERROR·ERROR.
 
 ## 2. 코드 — 결제 품질 (권장)
 
@@ -83,6 +90,8 @@ release 빌드를 테스트 트랙에 올리고 Play에서 설치해서 시험�
 8. [ ] **앱 콘텐츠**
    - [ ] 개인정보처리방침 URL — 데이터를 수집하지 않는 앱도 필수
    - [ ] 데이터 보안 양식 — 내부 테스트에만 있는 동안은 면제이고, 비공개·공개 테스트나 프로덕션에 올리는 순간부터 필수다. 결제 관련 항목을 신고해야 하는지는 도움말을 확인한다.
+     - Firebase를 넣었으므로 "수집함"으로 신고한다: 앱 활동(앱 상호작용), 앱 정보 및 성능(비정상 종료 로그, 진단), 기기 또는 기타 ID(Firebase 설치 ID·앱 인스턴스 ID). 목적은 분석·앱 기능, 전송 중 암호화됨. Google은 서비스 제공자라 "공유"에는 넣지 않는다.
+     - 광고 ID: "사용하지 않음".
    - [ ] 광고 없음 신고, 콘텐츠 등급 설문
    - [ ] 타깃 연령 — 13세 미만을 넣으면 가족 정책 요건이 추가된다.
    - [ ] **포그라운드 서비스 권한 신고** — `specialUse`를 쓰는 이유를 적는다(명세 10.5에 "반려 위험 있음"으로 적어 둔 항목). `AndroidManifest.xml`의 `PROPERTY_SPECIAL_USE_FGS_SUBTYPE` 설명과 같은 내용으로 쓰고, 실제 사용 장면 영상을 요구받을 수 있다.

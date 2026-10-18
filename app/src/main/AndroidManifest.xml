@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <!-- 도착·쉬는 시간 끝을 화면 밖에서도 알 수 있게 진동으로 알린다. -->
     <uses-permission android:name="android.permission.VIBRATE" />
@@ -7,14 +8,38 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Firebase Analytics가 합쳐 넣는 광고 ID·광고 측정(Privacy Sandbox) 권한을 뺀다.
+         광고가 없고 광고 ID를 쓰지 않는다(개인정보 처리방침). -->
+    <uses-permission android:name="com.google.android.gms.permission.AD_ID" tools:node="remove" />
+    <uses-permission android:name="android.permission.ACCESS_ADSERVICES_AD_ID" tools:node="remove" />
+    <uses-permission android:name="android.permission.ACCESS_ADSERVICES_ATTRIBUTION" tools:node="remove" />
 
     <application
+        android:name=".PassingByApp"
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:localeConfig="@xml/locales_config"
         android:supportsRtl="true"
         android:theme="@style/Theme.PassingBy">
+        <!-- 사용 통계·오류 보고의 기본값. release는 켜고 debug는 끈다(app/build.gradle.kts의 telemetry).
+             사용자가 설정에서 끄면 PassingByApp이 실행 중에 덮어쓴다. -->
+        <meta-data
+            android:name="firebase_analytics_collection_enabled"
+            android:value="${telemetry}" />
+        <meta-data
+            android:name="firebase_crashlytics_collection_enabled"
+            android:value="${telemetry}" />
+        <!-- 광고 ID와 기기 ID(SSAID)를 모으지 않고, 광고 맞춤 신호도 끈다. -->
+        <meta-data
+            android:name="google_analytics_adid_collection_enabled"
+            android:value="false" />
+        <meta-data
+            android:name="google_analytics_ssaid_collection_enabled"
+            android:value="false" />
+        <meta-data
+            android:name="google_analytics_default_allow_ad_personalization_signals"
+            android:value="false" />
         <activity
             android:name=".MainActivity"
             android:exported="true">

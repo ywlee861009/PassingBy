@@ -87,6 +87,9 @@ fun DevPanel(vm: JourneyViewModel, onInteract: () -> Unit, modifier: Modifier = 
             Gap()
             Chip("60Hz", vm.cap60) { vm.toggleCap60(); onInteract() }
             Chip("HUD", vm.showHud) { vm.toggleHud(); onInteract() }
+            Gap()
+            // Crashlytics 연결 확인용. -Ppassingby.telemetry=true 로 빌드해야 실제로 올라간다.
+            Chip("테스트 크래시", false) { throw RuntimeException("Crashlytics 테스트 크래시") }
         }
     }
 }

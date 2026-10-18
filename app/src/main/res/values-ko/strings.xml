@@ -142,6 +142,9 @@
     <string name="power_save">절전 모드</string>
     <string name="power_save_desc">화면을 1초에 30번만 그려 배터리와 발열을 줄여요. 기기 절전 모드에서는 저절로 켜져요.</string>
     <string name="language">언어</string>
+    <string name="data_section">정보 보내기</string>
+    <string name="telemetry">사용 통계·오류 보고 보내기</string>
+    <string name="telemetry_desc">앱을 어떻게 쓰는지와 어디서 문제가 났는지 Google Firebase로 보내 고치는 데 써요. 이름이나 연락처는 보내지 않아요.</string>
     <string name="language_system">기기 설정</string>
     <string name="buy_courses">코스 구매</string>
     <string name="unlock">열기</string>

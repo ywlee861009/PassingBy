@@ -86,6 +86,7 @@ import androidx.window.layout.WindowInfoTracker
 import com.kero.passingby.BuildConfig
 import com.kero.passingby.R
 import com.kero.passingby.locale.AppLanguage
+import com.kero.passingby.telemetry.Telemetry
 import com.kero.passingby.ui.debug.DevPanel
 import com.kero.passingby.ui.theme.PbType
 import kotlinx.coroutines.delay
@@ -139,7 +140,9 @@ fun JourneyScreen(vm: JourneyViewModel = viewModel()) {
     }
 
     // 첫 출발 때 한 번만 알림 권한을 묻는다(Android 13 이상). 거절해도 여행은 그대로 출발한다.
-    val notificationLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
+    val notificationLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        Telemetry.event("notification_permission", "granted" to granted)
+    }
     val depart = {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !vm.notificationAsked &&
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
@@ -477,15 +480,18 @@ fun JourneyScreen(vm: JourneyViewModel = viewModel()) {
                     SheetKind.LICENSES -> LicenseSheetContent(licenses)
                     else -> SettingsSheetContent(
                         vm.fixedWeather, vm.soundOn, vm.soundLevel, vm.ledgeInfo, vm.overlayAlways, vm.powerSave, language,
+                        vm.telemetryOn,
                         vm::owns, vm::priceOf, vm.devUnlockAll,
                         onWeather = vm::selectWeather, onSound = { vm.toggleSound() }, onSoundLevel = vm::selectSoundLevel,
                         onLedge = vm::setLedge, onOverlay = vm::setOverlay, onPower = vm::setPower,
                         onLanguage = { l ->
                             if (l != language) {
                                 language = l
+                                Telemetry.property("app_language", l.name.lowercase())
                                 activity?.let { AppLanguage.set(it, l) }
                             }
                         },
+                        onTelemetry = vm::setTelemetry,
                         onBuy = { c -> activity?.let { vm.buy(it, c) } }, onRestore = vm::restorePurchases, onDevUnlock = vm::toggleDevUnlock,
                         onPlayStore = { openPlayStore(context, uriHandler) },
                         onLicenses = { sheet = SheetKind.LICENSES },

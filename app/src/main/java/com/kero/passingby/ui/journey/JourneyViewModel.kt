@@ -41,6 +41,7 @@ import com.kero.passingby.scene.Weather
 import com.kero.passingby.scene.mix
 import com.kero.passingby.session.TripService
 import com.kero.passingby.session.TripStore
+import com.kero.passingby.telemetry.Telemetry
 import com.kero.passingby.ui.theme.Pb
 import java.util.Locale
 import kotlin.math.ceil
@@ -151,6 +152,7 @@ class JourneyViewModel(app: Application) : AndroidViewModel(app) {
         onOwned = { ids ->
             val courses = Course.ALL.filter { it.productId in ids }.map { it.id }.toSet()
             if (!unlocked.containsAll(courses)) {
+                for (id in courses - unlocked) Telemetry.event("course_unlock", "course" to id)
                 unlocked = unlocked + courses
                 store.unlocked = unlocked
             }
@@ -170,6 +172,9 @@ class JourneyViewModel(app: Application) : AndroidViewModel(app) {
     var overlayAlways by mutableStateOf(store.overlayAlways)
         private set
     var powerSave by mutableStateOf(store.powerSave)
+        private set
+    /** 사용 통계·오류 보고 보내기(설정). */
+    var telemetryOn by mutableStateOf(store.telemetryOn)
         private set
     /** 잠깐 띄우는 안내 문구(문자열 리소스). [messageTick]이 바뀔 때마다 새로 보여 준다. */
     var message by mutableStateOf<Int?>(null)
@@ -209,6 +214,8 @@ class JourneyViewModel(app: Application) : AndroidViewModel(app) {
         updateTicks(clock.seconds())
         // 앱을 다시 열었을 때 달리던 여행이 있으면 알림 서비스를 이어 붙인다.
         if (phase != TripPhase.DOCKED) syncService()
+        Telemetry.state(phase.name, course.id, tripMinutes, direction)
+        reportSettings()
     }
 
     /** 프레임마다 호출된다. 여정 시각으로 위치·하늘·날씨를 정하고, 상태 전환(도착·쉬는 시간 끝)을 확인한다. */
@@ -241,6 +248,9 @@ class JourneyViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun moving() = phase == TripPhase.RUNNING || phase == TripPhase.PAUSED
 
+    /** 이번 세션을 몇 % 달렸는지(시간 기준). */
+    private fun progressPct(): Int = (clock.seconds() / plan.durationSec * 100).toInt().coerceIn(0, 100)
+
     // ── 사용자 동작 ──
 
     fun selectMinutes(m: Int) {
@@ -269,10 +279,13 @@ class JourneyViewModel(app: Application) : AndroidViewModel(app) {
     /** 지금 고른(미리 보는) 코스를 산다. 스토어에 상품이 아직 없으면 안내만 띄운다. */
     fun buy(activity: Activity, c: Course = course) {
         val id = c.productId ?: return
-        if (!billing.purchase(activity, id)) notify(R.string.purchase_unavailable)
+        val launched = billing.purchase(activity, id)
+        Telemetry.event("purchase_tap", "course" to c.id, "launched" to launched)
+        if (!launched) notify(R.string.purchase_unavailable)
     }
 
     fun restorePurchases() {
+        Telemetry.event("restore_tap", "ready" to billing.ready)
         billing.restore()
         notify(R.string.purchases_restored)
     }
@@ -287,12 +300,14 @@ class JourneyViewModel(app: Application) : AndroidViewModel(app) {
         soundOn = !soundOn
         store.soundOn = soundOn
         applySound()
+        reportSettings()
     }
 
     fun selectSoundLevel(level: Int) {
         soundLevel = level
         store.soundLevel = level
         sound.volume = SOUND_LEVELS[level]
+        reportSettings()
     }
 
     private fun applySound() {
@@ -322,6 +337,23 @@ class JourneyViewModel(app: Application) : AndroidViewModel(app) {
     fun setPower(v: Boolean) {
         powerSave = v
         store.powerSave = v
+        reportSettings()
+    }
+
+    fun setTelemetry(v: Boolean) {
+        telemetryOn = v
+        store.telemetryOn = v
+        Telemetry.setEnabled(v)
+        if (v) {
+            Telemetry.state(phase.name, course.id, tripMinutes, direction)
+            reportSettings()
+        }
+    }
+
+    /** 소리·절전 설정을 사용자 속성으로 남긴다. 설정별로 이용 패턴이 다른지 볼 때 쓴다. */
+    private fun reportSettings() {
+        Telemetry.property("sound", if (soundOn) SOUND_NAMES[soundLevel.coerceIn(0, 2)] else "off")
+        Telemetry.property("power_save", powerSave.toString())
     }
 
     fun toggleDevUnlock() {
@@ -337,6 +369,7 @@ class JourneyViewModel(app: Application) : AndroidViewModel(app) {
     /** 정차·도착·휴식 중 어디서든 출발한다. 도착·휴식 중이면 종착역에서 역방향으로 떠난다. 잠긴 코스는 출발하지 않는다. */
     fun depart() {
         if (!owns(course)) return
+        val from = phase
         if (phase == TripPhase.ARRIVED || phase == TripPhase.RESTING) dockAtTerminus()
         tripMinutes = minutes
         weatherSeed = Random.nextInt()
@@ -345,6 +378,10 @@ class JourneyViewModel(app: Application) : AndroidViewModel(app) {
         restDone = false
         phase = TripPhase.RUNNING
         stamp(0)
+        Telemetry.event(
+            "trip_start", "course" to course.id, "minutes" to tripMinutes, "direction" to direction,
+            "from" to from.name.lowercase(),
+        )
         save()
     }
 
@@ -353,6 +390,7 @@ class JourneyViewModel(app: Application) : AndroidViewModel(app) {
         if (phase != TripPhase.RUNNING) return
         clock.setRate(0.0, STOP_SEC)
         phase = TripPhase.PAUSED
+        Telemetry.event("trip_pause", "course" to course.id, "progress" to progressPct())
         save()
     }
 
@@ -360,12 +398,14 @@ class JourneyViewModel(app: Application) : AndroidViewModel(app) {
         if (phase != TripPhase.PAUSED) return
         clock.setRate(1.0, STOP_SEC)
         phase = TripPhase.RUNNING
+        Telemetry.event("trip_resume", "course" to course.id)
         save()
     }
 
     /** 여행을 중간에 끝낸다. 출발역 정차 상태로 돌아가며 장면은 순간 이동한다. */
     fun endTrip() {
         if (!moving()) return
+        Telemetry.event("trip_end_early", "course" to course.id, "minutes" to tripMinutes, "progress" to progressPct())
         tripMinutes = minutes
         rebuildPlan()
         clock.seek(0.0, 0.0)
@@ -378,12 +418,14 @@ class JourneyViewModel(app: Application) : AndroidViewModel(app) {
         if (phase != TripPhase.ARRIVED) return
         restEndReal = SystemClock.elapsedRealtime() + REST_SEC * 1000L
         phase = TripPhase.RESTING
+        Telemetry.event("rest_start", "course" to course.id)
         save()
     }
 
     /** 종착역에서 내린다. 그 역에서 역방향 승차권이 준비된다. */
     fun getOff() {
         if (phase != TripPhase.ARRIVED && phase != TripPhase.RESTING) return
+        Telemetry.event("trip_get_off", "course" to course.id, "from" to phase.name.lowercase())
         dockAtTerminus()
         phase = TripPhase.DOCKED
         save()
@@ -414,12 +456,15 @@ class JourneyViewModel(app: Application) : AndroidViewModel(app) {
         stamp(stations.size - 1)
         today = store.today()
         lifetime = store.lifetime()
+        // late면 앱 밖에서 도착해 화면을 다시 열 때 알아챈 것이다.
+        Telemetry.event("trip_arrive", "course" to course.id, "minutes" to tripMinutes, "late" to late)
         if (!late) signal(ARRIVAL_PATTERN)
         save()
     }
 
     private fun finishRest() {
         val late = SystemClock.elapsedRealtime() - restEndReal > LATE_SEC * 1000
+        Telemetry.event("rest_end", "course" to course.id, "late" to late)
         dockAtTerminus()
         restDone = true
         phase = TripPhase.DOCKED
@@ -563,6 +608,7 @@ class JourneyViewModel(app: Application) : AndroidViewModel(app) {
     // ── 저장·복원 ──
 
     private fun save() {
+        Telemetry.state(phase.name, course.id, tripMinutes, direction)
         syncService()
         store.saveActive(
             TripStore.Active(
@@ -587,6 +633,7 @@ class JourneyViewModel(app: Application) : AndroidViewModel(app) {
     /** 코스를 바꾼다. 정차 중에만 되고, 새 코스의 출발역으로 순간 이동한다. */
     fun selectCourse(c: Course) {
         if (phase != TripPhase.DOCKED || c == course) return
+        Telemetry.event("course_select", "course" to c.id, "owned" to owns(c))
         course = c
         store.courseId = c.id
         direction = 1
@@ -754,5 +801,6 @@ class JourneyViewModel(app: Application) : AndroidViewModel(app) {
         val ARRIVAL_PATTERN = longArrayOf(0, 180, 140, 180, 140, 320)
         val REST_PATTERN = longArrayOf(0, 120, 120, 120)
         val SOUND_LEVELS = floatArrayOf(.35f, .6f, .9f)
+        val SOUND_NAMES = arrayOf("low", "mid", "high")
     }
 }

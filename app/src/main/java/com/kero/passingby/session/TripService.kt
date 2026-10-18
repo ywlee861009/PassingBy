@@ -11,6 +11,7 @@ import android.os.IBinder
 import android.os.SystemClock
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
+import com.kero.passingby.telemetry.Telemetry
 
 /**
  * 여행 중 포그라운드 서비스(명세 10.5). 남은 시간 알림을 띄우고, 도착·쉬는 시간 끝에 알람을 걸어 둔다.
@@ -65,12 +66,14 @@ class TripService : Service() {
                 .putExtra(EXTRA_END_ELAPSED, endElapsed)
                 .putExtra(EXTRA_ALERT_TITLE, alertTitle)
                 .putExtra(EXTRA_ALERT_TEXT, alertText)
-            runCatching { ContextCompat.startForegroundService(ctx, i) }
+            // 백그라운드에서 시작하면 Android 12+가 막는다(ForegroundServiceStartNotAllowedException). 앱은 계속 쓰게 두고 기록만 남긴다.
+            runCatching { ContextCompat.startForegroundService(ctx, i) }.onFailure { Telemetry.error(it, "fgs_start") }
         }
 
         fun stop(ctx: Context) {
             cancelAlarm(ctx)
             runCatching { ctx.startService(Intent(ctx, TripService::class.java).setAction(ACTION_STOP)) }
+                .onFailure { Telemetry.error(it, "fgs_stop") }
         }
 
         private fun alarmIntent(ctx: Context, title: String? = null, text: String? = null): PendingIntent {

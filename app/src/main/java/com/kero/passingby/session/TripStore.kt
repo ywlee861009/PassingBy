@@ -114,6 +114,11 @@ class TripStore(private val context: Context) {
         get() = prefs.getInt(KEY_SOUND_LEVEL, 1)
         set(v) = prefs.edit().putInt(KEY_SOUND_LEVEL, v).apply()
 
+    /** 사용 통계·오류 보고를 Firebase로 보낼지(기본 켜짐). 끄면 [com.kero.passingby.telemetry.Telemetry]가 수집을 멈춘다. */
+    var telemetryOn: Boolean
+        get() = prefs.getBoolean(KEY_TELEMETRY, true)
+        set(v) = prefs.edit().putBoolean(KEY_TELEMETRY, v).apply()
+
     /** 창밖 날씨. null이면 무작위, 아니면 [com.kero.passingby.scene.Weather] 이름. */
     var weather: String?
         get() = prefs.getString(KEY_WEATHER, null)
@@ -184,6 +189,7 @@ class TripStore(private val context: Context) {
         const val KEY_WEATHER = "weather"
         const val KEY_SOUND = "sound"
         const val KEY_SOUND_LEVEL = "sound_level"
+        const val KEY_TELEMETRY = "telemetry"
         const val KEY_A_PHASE = "a_phase"
         const val KEY_A_MINUTES = "a_minutes"
         const val KEY_A_BASE = "a_base"

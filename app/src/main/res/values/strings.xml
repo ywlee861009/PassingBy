@@ -147,6 +147,9 @@
     <string name="power_save">Power saving</string>
     <string name="power_save_desc">Draws the screen only 30 times a second to save battery and reduce heat. Turns on by itself in the device\'s battery saver.</string>
     <string name="language">Language</string>
+    <string name="data_section">Data sharing</string>
+    <string name="telemetry">Send usage stats and crash reports</string>
+    <string name="telemetry_desc">Shares how the app is used and where it went wrong with Google Firebase so it can be fixed. Never your name or contact details.</string>
     <string name="language_system">System</string>
     <string name="buy_courses">Buy courses</string>
     <string name="unlock">Unlock</string>

@@ -10,6 +10,7 @@ import androidx.core.app.NotificationCompat
 import com.kero.passingby.MainActivity
 import com.kero.passingby.R
 import com.kero.passingby.locale.AppLanguage
+import com.kero.passingby.telemetry.Telemetry
 
 /** 여행 알림 두 가지: 여행 중 계속 떠 있는 남은 시간 알림, 도착·쉬는 시간 끝 알림. */
 object TripNotifications {
@@ -74,6 +75,7 @@ object TripNotifications {
             .setContentIntent(openApp(ctx))
             .build()
         runCatching { ctx.getSystemService(NotificationManager::class.java)?.notify(ALERT_ID, n) }
+            .onFailure { Telemetry.error(it, "notify_alert") }
     }
 
     private fun openApp(ctx: Context): PendingIntent = PendingIntent.getActivity(

@@ -6,6 +6,7 @@
 #   PLAY_SERVICE_ACCOUNT_JSON  Play Console 에 초대된 서비스 계정의 JSON 키 원문
 #   UPLOAD_KEYSTORE_BASE64     업로드 keystore(kero-studio.jks) 를 base64 인코딩한 값
 #   UPLOAD_STORE_PASSWORD / UPLOAD_KEY_ALIAS / UPLOAD_KEY_PASSWORD
+#   GOOGLE_SERVICES_JSON       Firebase 콘솔에서 받은 google-services.json 원문(공개 저장소라 커밋하지 않는다)
 #
 # Play 쪽 선행 조건: 앱 등록과 첫 AAB 수동 업로드(내부 테스트 출시까지), Google Play Android Developer API
 # 사용 설정, 서비스 계정을 Play Console "사용자 및 권한"에 이 앱 권한으로 초대. 하나라도 빠지면 업로드가 실패한다.
@@ -59,6 +60,22 @@ jobs:
           test -n "$UPLOAD_KEYSTORE_BASE64" || { echo "UPLOAD_KEYSTORE_BASE64 secret 이 비어 있다"; exit 1; }
           mkdir -p keystore
           printf '%s' "$UPLOAD_KEYSTORE_BASE64" | base64 -d > keystore/upload.jks
+
+      # Firebase(사용 통계·오류 보고) 설정 파일. 없으면 google-services 플러그인이 빌드를 멈춘다.
+      # release 빌드는 Crashlytics가 R8 매핑을 Firebase에 올려 비정상 종료 스택을 복원한다.
+      - name: Write google-services.json
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          test -n "$GOOGLE_SERVICES_JSON" || { echo "GOOGLE_SERVICES_JSON secret 이 비어 있다"; exit 1; }
+          printf '%s' "$GOOGLE_SERVICES_JSON" > app/google-services.json
+          python3 - <<'PY'
+          import json, os, sys
+          clients = json.load(open('app/google-services.json'))['client']
+          names = [c['client_info']['android_client_info']['package_name'] for c in clients]
+          if os.environ['PACKAGE_NAME'] not in names:
+              sys.exit(f"google-services.json 에 {os.environ['PACKAGE_NAME']} 가 없다: {names}")
+          PY
 
       - name: Resolve release version
         id: version
