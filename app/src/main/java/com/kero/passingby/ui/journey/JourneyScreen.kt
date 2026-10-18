@@ -319,7 +319,10 @@ fun JourneyScreen(vm: JourneyViewModel = viewModel()) {
             val paper = Color(vm.paper)
             val terminus = stringResource(vm.stations.last().name)
             when (phase) {
-                TripPhase.ARRIVED -> ArrivalCard(terminus, vm.tripMinutes, vm.today, paper, vm::rest, vm::getOff)
+                TripPhase.ARRIVED -> ArrivalCard(
+                    terminus, vm.tripMinutes, vm.today, paper, vm::rest, vm::getOff,
+                    onShare = { shareApp(context, "arrival") },
+                )
                 TripPhase.RESTING -> RestCard(
                     terminus, vm.course.title(res, -vm.direction), vm.minutes, vm.restLeftSec, paper, depart, vm::getOff,
                 )
@@ -493,6 +496,7 @@ fun JourneyScreen(vm: JourneyViewModel = viewModel()) {
                         },
                         onTelemetry = vm::setTelemetry,
                         onBuy = { c -> activity?.let { vm.buy(it, c) } }, onRestore = vm::restorePurchases, onDevUnlock = vm::toggleDevUnlock,
+                        onShare = { shareApp(context, "settings") },
                         onPlayStore = { openPlayStore(context, uriHandler) },
                         onLicenses = { sheet = SheetKind.LICENSES },
                         // 브라우저가 없는 기기에서는 열 앱이 없어 예외가 난다. 그때는 아무 일도 하지 않는다.
@@ -591,7 +595,27 @@ private fun openPlayStore(context: Context, uriHandler: UriHandler) {
     val id = BuildConfig.APPLICATION_ID
     val app = Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$id")).setPackage("com.android.vending")
     runCatching { context.startActivity(app) }
-        .recoverCatching { uriHandler.openUri("https://play.google.com/store/apps/details?id=$id") }
+        .recoverCatching { uriHandler.openUri(playStoreUrl()) }
+}
+
+private fun playStoreUrl() = "https://play.google.com/store/apps/details?id=${BuildConfig.APPLICATION_ID}"
+
+private const val KAKAOTALK = "com.kakao.talk"
+
+/**
+ * 친구에게 이 앱의 Play 스토어 주소를 보낸다. 카카오톡이 있으면 카카오톡의 친구 고르기 화면을 바로 열고,
+ * 없으면 시스템 공유 시트를 띄운다. 설치 여부는 미리 묻지 않고 열어 본다(그래서 <queries>가 필요 없다).
+ * 통계는 공유 화면을 연 것까지만 센다. 실제로 보냈는지는 앱이 알 수 없다. [from]은 버튼 위치.
+ */
+private fun shareApp(context: Context, from: String) {
+    val send = Intent(Intent.ACTION_SEND)
+        .setType("text/plain")
+        .putExtra(Intent.EXTRA_TEXT, context.getString(R.string.share_app_text, playStoreUrl()))
+    val kakao = runCatching { context.startActivity(Intent(send).setPackage(KAKAOTALK)) }.isSuccess
+    val opened = kakao || runCatching {
+        context.startActivity(Intent.createChooser(send, context.getString(R.string.share_app)))
+    }.isSuccess
+    if (opened) Telemetry.event("share", "content_type" to "app", "method" to if (kakao) "kakaotalk" else "chooser", "from" to from)
 }
 private val CARD_MARGIN = 16.dp
 private const val SAVER_FRAME_NANOS = 31_000_000L

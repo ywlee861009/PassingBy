@@ -154,6 +154,9 @@
     <string name="buy_courses">Buy courses</string>
     <string name="unlock">Unlock</string>
     <string name="restore_purchases">Restore purchases</string>
+    <string name="share_app">Tell a friend</string>
+    <!-- %1$s: Play 스토어 주소. 카카오톡·메신저가 이 주소로 미리보기를 만든다. -->
+    <string name="share_app_text">Passing By — a focus timer where the view drifts past your train window.\n%1$s</string>
     <string name="play_store">Rate on Google Play</string>
     <string name="licenses">Open source licenses</string>
     <string name="privacy">Privacy policy</string>

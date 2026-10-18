@@ -138,6 +138,7 @@ fun ArrivalCard(
     paper: Color,
     onRest: () -> Unit,
     onGetOff: () -> Unit,
+    onShare: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Sheet(paper, modifier) {
@@ -149,6 +150,10 @@ fun ArrivalCard(
         Spacer(Modifier.height(4.dp))
         PrimaryButton(stringResource(R.string.rest_and_continue, REST_MINUTES), onRest, Modifier.fillMaxWidth())
         QuietButton(stringResource(R.string.get_off_here), onGetOff, Modifier.fillMaxWidth())
+        // 다 왔을 때가 친구에게 알려 주고 싶은 순간이라 여기에 둔다. 두 버튼보다 눈에 덜 띄게 작은 글자로.
+        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+            SmallLink(stringResource(R.string.share_app), onShare)
+        }
     }
 }
 

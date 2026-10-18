@@ -168,6 +168,7 @@ fun SettingsSheetContent(
     onBuy: (Course) -> Unit,
     onRestore: () -> Unit,
     onDevUnlock: () -> Unit,
+    onShare: () -> Unit,
     onPlayStore: () -> Unit,
     onLicenses: () -> Unit,
     onPrivacy: () -> Unit,
@@ -241,6 +242,7 @@ fun SettingsSheetContent(
         }
     }
     QuietButton(stringResource(R.string.restore_purchases), onRestore, Modifier.fillMaxWidth(), color = Pb.Ink)
+    QuietButton(stringResource(R.string.share_app), onShare, Modifier.fillMaxWidth())
     QuietButton(stringResource(R.string.play_store), onPlayStore, Modifier.fillMaxWidth())
     QuietButton(stringResource(R.string.licenses), onLicenses, Modifier.fillMaxWidth())
     QuietButton(stringResource(R.string.privacy), onPrivacy, Modifier.fillMaxWidth())
