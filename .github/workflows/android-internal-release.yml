@@ -41,7 +41,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # 직전 배포 태그와 커밋 히스토리로 릴리스 노트를 만든다
+          fetch-depth: 0 # 직전 성공 배포 태그와 두 언어 출시 노트의 갱신 여부를 확인한다
 
       - name: Test release version resolver
         run: python3 -m unittest discover -s scripts -p 'test_*.py'
@@ -83,64 +83,41 @@ jobs:
 
       # Play "새로운 기능" 노트를 만든다. 파일명은 upload-google-play 규약(whatsnew-<BCP47>)을 따르고,
       # 해당 언어는 Play Console 스토어 등록정보에 있어야 한다. Play는 언어별 500자 제한이 있다.
-      # - release-notes/whatsnew-* 가 직전 배포 태그 이후 바뀌었으면 사람이 쓴 노트를 그대로 쓴다.
-      #   500자를 넘거나 비어 있으면 잘라 올리지 않고 실패한다.
-      # - 바뀌지 않았으면 직전 배포 이후 커밋 제목으로 한국어 노트만 만든다.
-      - name: Generate release notes
-        env:
-          VERSION_CODE: ${{ steps.version.outputs.code }}
-          VERSION_NAME: ${{ steps.version.outputs.name }}
+      # - 한국어(ko-KR)와 영어(en-US)를 항상 함께 올린다. 커밋 제목으로 대체하지 않는다.
+      # - 앱 코드가 바뀌었으면 두 언어 모두 직전 성공 배포 이후 갱신되어야 한다.
+      # - 파일 누락, 빈 내용, 500자 초과는 빌드·업로드 전에 실패한다.
+      - name: Validate and prepare bilingual release notes
         run: |
           prev="$(git tag --list 'android-internal-*' --sort=-v:refname | head -n1)"
           notes_dir=release-notes
-          authored=false
-          if [ -n "$prev" ]; then
-            range="$prev..HEAD"
-            header="내부 테스트 $VERSION_NAME (코드 $VERSION_CODE) — 이전 빌드(${prev#android-internal-}) 이후 변경사항"
-            git diff --quiet "$prev" HEAD -- "$notes_dir" || authored=true
-          else
-            range="HEAD~30..HEAD"
-            git rev-parse -q --verify HEAD~30 >/dev/null 2>&1 || range="HEAD"
-            header="내부 테스트 $VERSION_NAME (코드 $VERSION_CODE) — 첫 자동 배포. 최근 변경사항"
-            [ -d "$notes_dir" ] && authored=true
+          if [ -n "$prev" ] && ! git diff --quiet "$prev" HEAD -- app; then
+            for locale in ko-KR en-US; do
+              if git diff --quiet "$prev" HEAD -- "$notes_dir/whatsnew-$locale"; then
+                echo "::error::앱 변경사항에 맞춰 $notes_dir/whatsnew-$locale 를 갱신해야 한다"
+                exit 1
+              fi
+            done
           fi
-          git log --no-merges --format='%s' $range > "$RUNNER_TEMP/subjects.txt"
           # 빌드 중 생성하는 릴리스 노트는 소스 작업트리를 오염시키지 않도록 runner 임시 폴더에 둔다.
-          mkdir -p "$RUNNER_TEMP/whatsnew"
-          python3 - "$header" "$authored" "$notes_dir" <<'PY'
-          import glob, os, re, sys
-          header, authored, notes_dir = sys.argv[1], sys.argv[2] == 'true', sys.argv[3]
-          temp = os.environ['RUNNER_TEMP']
-          out_dir = os.path.join(temp, 'whatsnew')
-          LIMIT = 500
-          if authored:
-              paths = sorted(glob.glob(os.path.join(notes_dir, 'whatsnew-*')))
-              if not paths:
-                  sys.exit(f'{notes_dir}에 whatsnew-* 파일이 없다')
-              for path in paths:
-                  body = open(path, encoding='utf-8').read().strip()
-                  if not body:
-                      sys.exit(f'{path}가 비어 있다')
-                  if len(body) > LIMIT:
-                      sys.exit(f'{path}가 {len(body)}자다 — Play 언어별 {LIMIT}자 제한을 넘는다')
-                  open(os.path.join(out_dir, os.path.basename(path)), 'w', encoding='utf-8').write(body)
-              print(f'작성한 출시 노트 사용: {", ".join(os.path.basename(p) for p in paths)}')
-          else:
-              subjects = [l.strip() for l in open(os.path.join(temp, 'subjects.txt'), encoding='utf-8') if l.strip()]
-              # conventional commit 접두어(feat(ui): 등)는 테스터에게 의미가 없어 뺀다.
-              lines = []
-              for s in subjects:
-                  s = re.sub(r'^[a-z]+(\([^)]*\))?!?:\s*', '', s)
-                  if s and s not in lines:
-                      lines.append(s)
-              if not lines:
-                  lines = ['소스 변경 없음(재빌드)']
-              body = header + '\n' + '\n'.join('• ' + l for l in lines)
-              if len(body) > LIMIT:
-                  cut = body[:LIMIT - 2].rsplit('\n', 1)[0]
-                  body = cut + '\n…'
-              open(os.path.join(out_dir, 'whatsnew-ko-KR'), 'w', encoding='utf-8').write(body)
-              print('커밋 제목으로 한국어 출시 노트 생성')
+          python3 - "$notes_dir" "$RUNNER_TEMP/whatsnew" <<'PY'
+          import sys
+          from pathlib import Path
+          notes_dir, out_dir = map(Path, sys.argv[1:])
+          notes = {}
+          for locale in ('ko-KR', 'en-US'):
+              path = notes_dir / f'whatsnew-{locale}'
+              if not path.is_file():
+                  sys.exit(f'필수 출시 노트가 없다: {path}')
+              body = path.read_text(encoding='utf-8').strip()
+              if not body:
+                  sys.exit(f'{path}가 비어 있다')
+              if len(body) > 500:
+                  sys.exit(f'{path}가 {len(body)}자다 — Play 언어별 500자 제한을 넘는다')
+              notes[path.name] = body
+          out_dir.mkdir(parents=True, exist_ok=True)
+          for name, body in notes.items():
+              (out_dir / name).write_text(body, encoding='utf-8')
+              print(f'{name}: {len(body)}자')
           PY
           for f in "$RUNNER_TEMP"/whatsnew/whatsnew-*; do
             {

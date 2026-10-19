@@ -84,7 +84,7 @@ release 빌드를 테스트 트랙에 올리고 Play에서 설치해서 시험�
    - 첫 번들(`versionCode 1`)은 Play Console에서 손으로 올리고 내부 테스트로 **출시**까지 한다. API로는 새 앱의 첫 업로드를 할 수 없고, 출시한 적 없는 앱에는 자동 배포가 초안만 만들 수 있다.
    - 그 뒤는 `git push origin main:release`로 자동 배포한다(`.github/workflows/android-internal-release.yml`). 빌드 → 업로드 키 서명 확인 → 내부 테스트 업로드 → `android-internal-<versionCode>` 태그 순서로 진행한다.
    - 자동 배포 준비: Google Cloud에서 Google Play Android Developer API 사용 설정, 서비스 계정을 Play Console "사용자 및 권한"에 이 앱 권한(테스트 트랙 출시)으로 초대, GitHub 저장소 Secrets에 `PLAY_SERVICE_ACCOUNT_JSON`·`UPLOAD_KEYSTORE_BASE64`·`UPLOAD_STORE_PASSWORD`·`UPLOAD_KEY_ALIAS`·`UPLOAD_KEY_PASSWORD` 등록. brayne에 쓰는 서비스 계정을 그대로 초대해도 된다.
-   - 릴리스 노트는 직전 배포 이후 커밋 제목으로 만든다(커밋 제목이 테스터에게 그대로 보인다). 직접 쓰려면 `release-notes/whatsnew-ko-KR`에 500자 이내로 쓴다.
+   - What's new는 항상 한국어(`release-notes/whatsnew-ko-KR`)와 영어(`release-notes/whatsnew-en-US`) 두 버전으로 작성한다. 각 언어는 비어 있지 않은 500자 이내이며 같은 변경사항을 담는다. 앱 코드가 바뀌면 직전 성공 배포 이후 변경사항에 맞춰 두 파일을 모두 갱신한다. CI가 두 언어와 글자 수를 검증하고 함께 업로드하며, 한국어 커밋 제목만으로 대체하지 않는다.
 6. [x] **인앱 상품 6개 등록 (일회성 상품)**
    - 2026-10-17: 6개 모두 만들어 활성화했다. 상품마다 구매 옵션 `buy`(구입, 이전 버전과의 호환성) 하나뿐이고 혜택(오퍼)은 없다. 앱이 호환 옵션의 가격만 읽으므로 혜택을 추가하기 전에 결제 코드를 먼저 고친다.
    - ID는 코드(`Course.productId`, 나라별 `content/*Courses.kt`)와 정확히 같아야 한다: `course_korea_jeolla`, `course_korea_gangneung`, `course_china_north`, `course_china_south`, `course_portugal`, `course_france`
