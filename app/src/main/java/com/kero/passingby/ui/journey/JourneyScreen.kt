@@ -482,9 +482,10 @@ fun JourneyScreen(vm: JourneyViewModel = viewModel()) {
                     SheetKind.JOURNAL -> JournalSheetContent(vm.today, vm.lifetime, vm.visited, vm::completions, vm::owns)
                     SheetKind.LICENSES -> LicenseSheetContent(licenses)
                     else -> SettingsSheetContent(
-                        vm.fixedWeather, vm.soundOn, vm.soundLevel, vm.ledgeInfo, vm.overlayAlways, vm.powerSave, language,
+                        vm.fixedTime, vm.fixedWeather, vm.soundOn, vm.soundLevel, vm.ledgeInfo, vm.overlayAlways, vm.powerSave, language,
                         vm.telemetryOn,
-                        vm::owns, vm::priceOf, vm.devUnlockAll,
+                        vm.devUnlockAll,
+                        onTime = vm::selectTime,
                         onWeather = vm::selectWeather, onSound = { vm.toggleSound() }, onSoundLevel = vm::selectSoundLevel,
                         onLedge = vm::setLedge, onOverlay = vm::setOverlay, onPower = vm::setPower,
                         onLanguage = { l ->
@@ -495,7 +496,7 @@ fun JourneyScreen(vm: JourneyViewModel = viewModel()) {
                             }
                         },
                         onTelemetry = vm::setTelemetry,
-                        onBuy = { c -> activity?.let { vm.buy(it, c) } }, onRestore = vm::restorePurchases, onDevUnlock = vm::toggleDevUnlock,
+                        onRestore = vm::restorePurchases, onDevUnlock = vm::toggleDevUnlock,
                         onShare = { shareApp(context, "settings") },
                         onPlayStore = { openPlayStore(context, uriHandler) },
                         onLicenses = { sheet = SheetKind.LICENSES },

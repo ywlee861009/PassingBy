@@ -62,7 +62,7 @@ fun DevPanel(vm: JourneyViewModel, onInteract: () -> Unit, modifier: Modifier = 
         ChipRow {
             Chip("순환", vm.fixedTime == null) { vm.selectTime(null); onInteract() }
             for (t in TimeOfDay.entries) {
-                Chip(t.label, vm.fixedTime == t) { vm.selectTime(t); onInteract() }
+                Chip(stringResource(t.label), vm.fixedTime == t) { vm.selectTime(t); onInteract() }
             }
         }
         ChipRow {

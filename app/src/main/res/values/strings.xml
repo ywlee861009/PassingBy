@@ -128,6 +128,13 @@
     <string name="locked_price">Locked · %1$s</string>
 
     <!-- 설정 -->
+    <string name="time_of_day">Time of day</string>
+    <string name="time_of_day_desc">Automatic follows your journey. Pick a time to keep that sky.</string>
+    <string name="automatic">Automatic</string>
+    <string name="time_dawn">Dawn</string>
+    <string name="time_day">Day</string>
+    <string name="time_dusk">Sunset</string>
+    <string name="time_night">Night</string>
     <string name="weather_outside">Weather outside</string>
     <string name="random">Random</string>
     <string name="weather_clear">Clear</string>
@@ -153,8 +160,7 @@
     <string name="telemetry">Send usage stats and crash reports</string>
     <string name="telemetry_desc">Shares how the app is used and where it went wrong with Google Firebase so it can be fixed. Never your name or contact details.</string>
     <string name="language_system">System</string>
-    <string name="buy_courses">Buy courses</string>
-    <string name="unlock">Unlock</string>
+    <string name="purchases">Purchases</string>
     <string name="restore_purchases">Restore purchases</string>
     <string name="share_app">Tell a friend</string>
     <!-- %1$s: Play 스토어 주소. 카카오톡·메신저가 이 주소로 미리보기를 만든다. -->

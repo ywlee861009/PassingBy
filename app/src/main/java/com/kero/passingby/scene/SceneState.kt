@@ -17,7 +17,7 @@ enum class RenderMode(val label: String) {
 class SceneState {
     @Volatile var mode = RenderMode.BAKED
 
-    /** 고정 시간대(개발용). null이면 세션 진행에 따라 하늘이 돈다([SkyCycle]). */
+    /** 설정에서 고른 시간대. null이면 세션 진행에 따라 하늘이 돈다([SkyCycle]). */
     var fixedTime: TimeOfDay? = null
         private set
     private var cycleTime = TimeOfDay.NIGHT
@@ -111,7 +111,7 @@ class SceneState {
         effective.copyFrom(target)
     }
 
-    /** 시간대를 고정한다(개발용). null이면 세션 진행을 따른다. 어느 쪽이든 1.4초에 걸쳐 바뀐다. */
+    /** 시간대를 고정한다. null이면 세션 진행을 따른다. 어느 쪽이든 1.4초에 걸쳐 바뀐다. */
     fun setTimeOfDay(t: TimeOfDay?) {
         if (t == fixedTime) return
         fixedTime = t

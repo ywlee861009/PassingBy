@@ -124,6 +124,11 @@ class TripStore(private val context: Context) {
         get() = prefs.getString(KEY_WEATHER, null)
         set(v) = prefs.edit().putString(KEY_WEATHER, v).apply()
 
+    /** 창밖 시간대. null이면 여행에 맞춰 자동 순환, 아니면 [com.kero.passingby.scene.TimeOfDay] 이름. */
+    var timeOfDay: String?
+        get() = prefs.getString(KEY_TIME, null)
+        set(v) = prefs.edit().putString(KEY_TIME, v).apply()
+
     // ── 진행 중인 여행 ──
 
     class Active(
@@ -187,6 +192,7 @@ class TripStore(private val context: Context) {
         const val KEY_OVERLAY = "overlay_always"
         const val KEY_POWER = "power_save"
         const val KEY_WEATHER = "weather"
+        const val KEY_TIME = "time_of_day"
         const val KEY_SOUND = "sound"
         const val KEY_SOUND_LEVEL = "sound_level"
         const val KEY_TELEMETRY = "telemetry"

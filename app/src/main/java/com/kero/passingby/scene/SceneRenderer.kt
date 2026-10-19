@@ -74,8 +74,7 @@ class SceneRenderer(private val state: SceneState) {
     private var skyKeyTop = 0
     private var skyKeyBot = 0
     private var shaderLayoutValid = false
-    private val starPaint = Paint().apply { color = Color.WHITE }
-    private val sunPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val celestialPainter = CelestialPainter()
     private val spritePaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
     private val windowPaint = Paint().apply { color = WINDOW_COLOR }
     private val groundPaint = Paint()
@@ -106,10 +105,6 @@ class SceneRenderer(private val state: SceneState) {
     private val barrierOn = BooleanArray(MAX_BARRIER)
     /** 화면 폭의 절반(장면 단위). 사물의 레이어 좌표를 세계 위치로 환산할 때 쓴다. */
     private var halfWU = 0.0
-    private val starX = FloatArray(STARS) { hash01(it, 1).toFloat() }
-    private val starY = FloatArray(STARS) { Math.pow(hash01(it, 2), 1.4).toFloat() }
-    private val starPhase = FloatArray(STARS) { (hash01(it, 3) * 6.28).toFloat() }
-    private val starSize = FloatArray(STARS) { if (hash01(it, 4) < .15) 2f else 1.2f }
     // 내리는 비
     private val dropX = FloatArray(MAX_DROPS)
     private val dropY = FloatArray(MAX_DROPS)
@@ -220,8 +215,7 @@ class SceneRenderer(private val state: SceneState) {
         }
         if (state.zones !== appliedZones || halfWU != shapedHalfWU) applyZones()
         drawSky(canvas, p)
-        drawStars(canvas, p)
-        drawSun(canvas, p)
+        celestialPainter.draw(canvas, layout, p, state.elapsedSec)
         drawClouds(canvas, p)
         drawLand(canvas, p)
         drawStations(canvas, p)
@@ -335,35 +329,6 @@ class SceneRenderer(private val state: SceneState) {
             }
         }
         canvas.drawRect(0f, 0f, layout.w.toFloat(), layout.h.toFloat(), skyPaint)
-    }
-
-    private fun drawStars(canvas: Canvas, p: Palette) {
-        val amount = p.f[Palette.STARS]
-        if (amount <= .01f) return
-        val skyH = layout.h - layout.g * .45f
-        val t = state.elapsedSec
-        for (i in 0 until STARS) {
-            val a = amount * (.35f + .4f * (.5f + .5f * sin(t * 1.7 + starPhase[i]).toFloat()))
-            starPaint.alpha = (a * 255).toInt().coerceIn(0, 255)
-            val x = starX[i] * layout.w
-            val y = starY[i] * skyH
-            val s = starSize[i] * layout.u
-            canvas.drawRect(x, y, x + s, y + s, starPaint)
-        }
-    }
-
-    private fun drawSun(canvas: Canvas, p: Palette) {
-        val a = p.f[Palette.SUN_A]
-        if (a <= .01f) return
-        val skyH = layout.h - layout.g * .45f
-        val sx = p.f[Palette.SUN_X] * layout.w
-        val sy = p.f[Palette.SUN_Y] * skyH
-        val sr = p.f[Palette.SUN_R] * layout.u
-        sunPaint.color = p.c[Palette.SUN]
-        sunPaint.alpha = (.16f * a * 255).toInt()
-        canvas.drawCircle(sx, sy, sr * 2.4f, sunPaint)
-        sunPaint.alpha = (a * 255).toInt()
-        canvas.drawCircle(sx, sy, sr, sunPaint)
     }
 
     private fun drawClouds(canvas: Canvas, p: Palette) {
@@ -1783,7 +1748,6 @@ class SceneRenderer(private val state: SceneState) {
 
     private companion object {
         const val STEP_PX = 3f
-        const val STARS = 110
         const val MAX_DROPS = 420
         const val MAX_FLAKES = 600
         const val GLASS_DROPS = 70

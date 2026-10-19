@@ -160,6 +160,9 @@ class JourneyViewModel(app: Application) : AndroidViewModel(app) {
     )
 
     // ── 설정 ──
+    /** 직접 고른 시간대. null이면 여행에 맞춰 자동 순환한다. */
+    var fixedTime by mutableStateOf(store.timeOfDay?.let { name -> TimeOfDay.entries.firstOrNull { it.name == name } })
+        private set
     var soundOn by mutableStateOf(store.soundOn)
         private set
     var soundLevel by mutableIntStateOf(store.soundLevel)
@@ -187,8 +190,6 @@ class JourneyViewModel(app: Application) : AndroidViewModel(app) {
         private set
     var land by mutableStateOf<SceneKind?>(null)
         private set
-    var fixedTime by mutableStateOf<TimeOfDay?>(null)
-        private set
     var timeScale by mutableStateOf(1.0)
         private set
     var mode by mutableStateOf(scene.mode)
@@ -207,6 +208,8 @@ class JourneyViewModel(app: Application) : AndroidViewModel(app) {
 
     init {
         restore()
+        scene.setTimeOfDay(fixedTime)
+        scene.snapTimeOfDay()
         store.weather?.let { name -> runCatching { Weather.valueOf(name) }.getOrNull() }?.let { applyWeather(it) }
         billing.connect()
         applyLand()
@@ -671,6 +674,7 @@ class JourneyViewModel(app: Application) : AndroidViewModel(app) {
 
     fun selectTime(t: TimeOfDay?) {
         fixedTime = t
+        store.timeOfDay = t?.name
         scene.setTimeOfDay(t)
     }
 
@@ -780,7 +784,8 @@ class JourneyViewModel(app: Application) : AndroidViewModel(app) {
             stats.avgDraw(), stats.maxDraw(),
             renderer.bitmapBytes / MB, Debug.getNativeHeapAllocatedSize() / MB, (rt.totalMemory() - rt.freeMemory()) / MB,
             phase.name, shown / 60, shown % 60, total / 60, total % 60, timeScale,
-            scene.urban.at(scene.distanceU), scene.speed, scene.timeOfDay.label, scene.rainAmount, scene.snowAmount,
+            scene.urban.at(scene.distanceU), scene.speed, getApplication<Application>().getString(scene.timeOfDay.label),
+            scene.rainAmount, scene.snowAmount,
         )
     }
 

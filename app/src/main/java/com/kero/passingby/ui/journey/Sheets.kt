@@ -52,6 +52,7 @@ import com.kero.passingby.BuildConfig
 import com.kero.passingby.R
 import com.kero.passingby.content.Course
 import com.kero.passingby.locale.AppLanguage
+import com.kero.passingby.scene.TimeOfDay
 import com.kero.passingby.scene.Weather
 import com.kero.passingby.ui.theme.Pb
 import com.kero.passingby.ui.theme.PbType
@@ -143,9 +144,10 @@ fun CourseSheetContent(
     }
 }
 
-/** 설정: 창밖 날씨, 소리, 화면, 언어, 정보 보내기, 코스 구매, Play 스토어. */
+/** 설정: 창밖 시간대·날씨, 소리, 화면, 언어, 정보 보내기, 구매 복원, Play 스토어. */
 @Composable
 fun SettingsSheetContent(
+    time: TimeOfDay?,
     weather: Weather?,
     sound: Boolean,
     soundLevel: Int,
@@ -154,9 +156,8 @@ fun SettingsSheetContent(
     power: Boolean,
     language: AppLanguage,
     telemetry: Boolean,
-    owns: (Course) -> Boolean,
-    priceOf: (Course) -> String?,
     devUnlock: Boolean,
+    onTime: (TimeOfDay?) -> Unit,
     onWeather: (Weather?) -> Unit,
     onSound: (Boolean) -> Unit,
     onSoundLevel: (Int) -> Unit,
@@ -165,7 +166,6 @@ fun SettingsSheetContent(
     onPower: (Boolean) -> Unit,
     onLanguage: (AppLanguage) -> Unit,
     onTelemetry: (Boolean) -> Unit,
-    onBuy: (Course) -> Unit,
     onRestore: () -> Unit,
     onDevUnlock: () -> Unit,
     onShare: () -> Unit,
@@ -173,8 +173,18 @@ fun SettingsSheetContent(
     onLicenses: () -> Unit,
     onPrivacy: () -> Unit,
 ) {
-    val res = LocalResources.current
     BasicText(stringResource(R.string.settings), style = PbType.title.copy(color = Pb.Ink))
+
+    SectionTitle(stringResource(R.string.time_of_day))
+    BasicText(stringResource(R.string.time_of_day_desc), style = PbType.kicker.copy(color = Pb.InkSoft))
+    val times = listOf<TimeOfDay?>(null) + TimeOfDay.entries
+    for (row in times.chunked(3)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            for (t in row) {
+                Choice(stringResource(t?.label ?: R.string.automatic), t == time) { onTime(t) }
+            }
+        }
+    }
 
     SectionTitle(stringResource(R.string.weather_outside))
     val options = listOf<Weather?>(null) + Weather.entries
@@ -217,30 +227,7 @@ fun SettingsSheetContent(
     SectionTitle(stringResource(R.string.data_section))
     Toggle(stringResource(R.string.telemetry), stringResource(R.string.telemetry_desc), telemetry, onTelemetry)
 
-    SectionTitle(stringResource(R.string.buy_courses))
-    for (c in Course.ALL.filter { !it.free }) {
-        Row(Modifier.fillMaxWidth().heightIn(min = 52.dp), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                BasicText(courseLabel(c), style = PbType.label.copy(color = Pb.Ink))
-                BasicText(c.title(res, 1), style = PbType.kicker.copy(color = Pb.InkSoft))
-            }
-            if (owns(c)) {
-                Tag(stringResource(R.string.unlocked), strong = false)
-            } else {
-                Box(
-                    Modifier
-                        .heightIn(min = 44.dp)
-                        .clip(CircleShape)
-                        .background(Pb.Accent)
-                        .clickable(role = Role.Button) { onBuy(c) }
-                        .padding(horizontal = 16.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    BasicText(priceOf(c) ?: stringResource(R.string.unlock), style = PbType.label.copy(color = Pb.OnAccent))
-                }
-            }
-        }
-    }
+    SectionTitle(stringResource(R.string.purchases))
     QuietButton(stringResource(R.string.restore_purchases), onRestore, Modifier.fillMaxWidth(), color = Pb.Ink)
     QuietButton(stringResource(R.string.share_app), onShare, Modifier.fillMaxWidth())
     QuietButton(stringResource(R.string.play_store), onPlayStore, Modifier.fillMaxWidth())
@@ -253,7 +240,7 @@ fun SettingsSheetContent(
     Spacer(Modifier.height(4.dp))
 }
 
-/** 셋 중 하나를 고르는 둥근 버튼. Row 안에서 같은 폭으로 나눠 쓴다. */
+/** 옵션 중 하나를 고르는 둥근 버튼. Row 안에서 같은 폭으로 나눠 쓴다. */
 @Composable
 private fun RowScope.Choice(label: String, on: Boolean, onClick: () -> Unit) {
     Box(

@@ -1,8 +1,12 @@
 package com.kero.passingby.scene
 
 import android.graphics.Color
+import androidx.annotation.StringRes
+import com.kero.passingby.R
 
-enum class TimeOfDay(val label: String) { DAWN("새벽"), DAY("낮"), DUSK("노을"), NIGHT("밤") }
+enum class TimeOfDay(@param:StringRes val label: Int) {
+    DAWN(R.string.time_dawn), DAY(R.string.time_day), DUSK(R.string.time_dusk), NIGHT(R.string.time_night),
+}
 
 /**
  * 시간대 팔레트. 모든 레이어 색은 이 팔레트와 "멀수록 안개색(HAZE)에 가깝게" 규칙으로 정해진다.
