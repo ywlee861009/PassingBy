@@ -1,0 +1,10 @@
+<resources>
+    <style name="Theme.PassingBy" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/launch_cream</item>
+        <!-- Android 12 이상의 시스템 시작 화면은 단색 배경과 중앙 그림만 허용한다.
+             적응형 런처 아이콘 대신 투명 배경의 열차를 써서 원형 마스크를 피한다. -->
+        <item name="android:windowSplashScreenBackground">@color/launch_cream</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_splash_train</item>
+        <item name="android:windowSplashScreenIconBackgroundColor">@color/launch_cream</item>
+    </style>
+</resources>

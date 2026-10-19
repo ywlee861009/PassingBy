@@ -20,6 +20,7 @@ import com.kero.passingby.scene.TimeOfDay
 import com.kero.passingby.scene.Weather
 import com.kero.passingby.ui.journey.JourneyViewModel
 import com.kero.passingby.ui.journey.JourneyScreen
+import com.kero.passingby.ui.startup.LaunchScreen
 
 class MainActivity : ComponentActivity() {
     /** Android 13 미만에서 설정에서 고른 언어를 화면에 입힌다([AppLanguage]). */
@@ -30,6 +31,10 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            // 첫 프레임부터 전체 여행 그림을 보여 준다. 시스템 아이콘 화면을 더 붙잡아 두지 않는다.
+            splashScreen.setOnExitAnimationListener { it.remove() }
+        }
         // 펀치홀 영역까지 풍경으로 채운다. LayoutParams는 다시 대입해야 적용된다.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             window.attributes = window.attributes.apply {
@@ -40,7 +45,10 @@ class MainActivity : ComponentActivity() {
         if (savedInstanceState == null && BuildConfig.DEV_TOOLS) {
             applyDebugExtras(intent)
         }
-        setContent { JourneyScreen() }
+        val showLaunchArtwork = (application as PassingByApp).claimLaunchArtwork()
+        setContent {
+            LaunchScreen(showOnLaunch = showLaunchArtwork) { JourneyScreen() }
+        }
     }
 
     /**

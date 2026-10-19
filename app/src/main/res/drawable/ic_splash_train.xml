@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 런처의 단색 열차·아치 다리와 같은 모양. 배경이 없어 원형 앱 아이콘처럼 보이지 않는다. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#E8B75B"
+        android:pathData="M49,34C49,36.21 47.21,38 45,38C42.79,38 41,36.21 41,34C41,31.79 42.79,30 45,30C47.21,30 49,31.79 49,34Z" />
+    <path
+        android:fillColor="#B4532A"
+        android:fillType="evenOdd"
+        android:pathData="M40,43H63V45H75C77.21,45 79,46.79 79,49V56H29V53L35,46C36.25,44.16 37.78,43 40,43Z M38,46H44V50H34.5Z M47,46H52V50H47Z M55,46H60V50H55Z M64,48H69V52H64Z M72,48H76V52H72Z M61,45H62.5V54H61Z" />
+    <path
+        android:fillColor="#526B5A"
+        android:pathData="M41,56C41,57.66 39.66,59 38,59C36.34,59 35,57.66 35,56Z M58,56C58,57.66 56.66,59 55,59C53.34,59 52,57.66 52,56Z M74,56C74,57.66 72.66,59 71,59C69.34,59 68,57.66 68,56Z M28,59.5H80V61.5H28Z" />
+    <path
+        android:fillColor="#C99859"
+        android:pathData="M29,61H79V74H75V69C75,66.24 72.76,64 70,64C67.24,64 65,66.24 65,69V74H59V69C59,66.24 56.76,64 54,64C51.24,64 49,66.24 49,69V74H43V69C43,66.24 40.76,64 38,64C35.24,64 33,66.24 33,69V74H29Z" />
+</vector>

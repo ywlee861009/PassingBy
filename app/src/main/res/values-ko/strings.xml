@@ -1,4 +1,5 @@
 <resources>
+    <string name="skip_launch_artwork">시작 그림 건너뛰기</string>
     <!-- 공통 -->
     <string name="close">닫기</string>
     <string name="minutes">%1$d분</string>

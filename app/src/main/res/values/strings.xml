@@ -1,6 +1,8 @@
 <resources>
     <!-- 기본(values) 문구는 영어다. 한국어는 values-ko에 있고, 그 밖의 기기 언어는 영어로 보인다. -->
     <string name="app_name" translatable="false">PassingBy</string>
+    <string name="launch_wordmark" translatable="false">Passing By</string>
+    <string name="skip_launch_artwork">Skip the welcome illustration</string>
 
     <!-- 공통 -->
     <string name="close">Close</string>
