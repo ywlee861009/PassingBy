@@ -2,8 +2,12 @@ package com.kero.passingby.ui.journey
 
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.EnterExitState
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -35,18 +39,30 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import com.kero.passingby.BuildConfig
 import com.kero.passingby.R
@@ -56,9 +72,86 @@ import com.kero.passingby.scene.TimeOfDay
 import com.kero.passingby.scene.Weather
 import com.kero.passingby.ui.theme.Pb
 import com.kero.passingby.ui.theme.PbType
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
+
+/** 본문 스크롤이 맨 위일 때 남는 드래그만 시트 이동으로 이어 받는다. */
+private class SheetDragConnection(
+    private val scroll: ScrollState,
+    private val scope: CoroutineScope,
+    private val distanceThreshold: Float,
+    private val velocityThreshold: Float,
+    private val enabled: () -> Boolean,
+    private val onDismiss: () -> Unit,
+) : NestedScrollConnection {
+    var offset by mutableFloatStateOf(0f)
+        private set
+    var height by mutableFloatStateOf(0f)
+        private set
+    private var returnAnimation: Job? = null
+
+    fun updateHeight(height: Int) {
+        this.height = height.toFloat()
+        offset = offset.coerceAtMost(this.height)
+    }
+
+    fun stopAnimation() {
+        returnAnimation?.cancel()
+    }
+
+    private fun dragBy(delta: Float): Offset {
+        stopAnimation()
+        val previous = offset
+        offset = (offset + delta).coerceIn(0f, height)
+        return Offset(0f, offset - previous)
+    }
+
+    override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+        if (!enabled() || source != NestedScrollSource.UserInput) return Offset.Zero
+        // 내려온 시트를 되돌리는 움직임도 본문 스크롤보다 먼저 처리한다.
+        return if (offset > 0f || (available.y > 0f && scroll.value == 0)) {
+            dragBy(available.y)
+        } else {
+            Offset.Zero
+        }
+    }
+
+    override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
+        // 관성으로 맨 위에 도달한 것만으로 닫히지 않게, 직접 당긴 움직임만 받는다.
+        return if (enabled() && source == NestedScrollSource.UserInput && available.y > 0f) {
+            dragBy(available.y)
+        } else {
+            Offset.Zero
+        }
+    }
+
+    override suspend fun onPreFling(available: Velocity): Velocity {
+        if (!enabled() || offset <= 0f) return Velocity.Zero
+        stopAnimation()
+        val farEnough = offset >= minOf(distanceThreshold, height * .25f)
+        val dismiss = available.y >= velocityThreshold || (farEnough && available.y > -velocityThreshold)
+        if (dismiss) {
+            // 당긴 위치를 유지한 채 기존 퇴장 애니메이션으로 이어진다.
+            onDismiss()
+        } else {
+            val animation = scope.launch {
+                animate(
+                    initialValue = offset,
+                    targetValue = 0f,
+                    initialVelocity = available.y,
+                    animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy),
+                ) { value, _ -> offset = value.coerceIn(0f, height) }
+            }
+            returnAnimation = animation
+            animation.join()
+        }
+        return Velocity(0f, available.y)
+    }
+}
 
 /**
- * 아래에서 올라오는 시트. 바깥(어두운 막)을 누르면 닫힌다.
+ * 아래에서 올라오는 시트. 바깥(어두운 막)을 누르거나, 본문 맨 위에서 아래로 끌면 닫힌다.
  * 막은 시트와 같이 움직이지 않고 제자리에 있으면서, 시트가 올라온 만큼 짙어진다.
  */
 @Composable
@@ -68,11 +161,29 @@ fun AnimatedVisibilityScope.BottomSheet(paper: Color, maxHeight: Dp, onDismiss: 
         transitionSpec = { tween(if (targetState == EnterExitState.Visible) 300 else 220) },
         label = "sheet",
     ) { if (it == EnterExitState.Visible) 1f else 0f }
+    val scroll = rememberScrollState()
+    val scope = rememberCoroutineScope()
+    val density = LocalDensity.current
+    val canDrag = transition.currentState == EnterExitState.Visible && transition.targetState == EnterExitState.Visible
+    val enabled by rememberUpdatedState(canDrag)
+    val dismiss by rememberUpdatedState(onDismiss)
+    val drag = remember(scroll, scope, density) {
+        SheetDragConnection(
+            scroll, scope,
+            distanceThreshold = with(density) { 96.dp.toPx() },
+            velocityThreshold = with(density) { 900.dp.toPx() },
+            enabled = { enabled },
+            onDismiss = { dismiss() },
+        )
+    }
+    LaunchedEffect(canDrag) {
+        if (!canDrag) drag.stopAnimation()
+    }
     Box(Modifier.fillMaxSize()) {
         Box(
             Modifier
                 .fillMaxSize()
-                .graphicsLayer { alpha = raised }
+                .graphicsLayer { alpha = raised * (1f - drag.offset / drag.height.coerceAtLeast(1f)) }
                 .background(Color(0x66000000))
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
@@ -81,24 +192,34 @@ fun AnimatedVisibilityScope.BottomSheet(paper: Color, maxHeight: Dp, onDismiss: 
                     onClick = onDismiss,
                 ),
         )
-        SheetBody(paper, maxHeight, { raised }, content)
+        SheetBody(paper, maxHeight, { raised }, scroll, drag, canDrag, content)
     }
 }
 
 @Composable
-private fun BoxScope.SheetBody(paper: Color, maxHeight: Dp, raised: () -> Float, content: @Composable ColumnScope.() -> Unit) {
+private fun BoxScope.SheetBody(
+    paper: Color,
+    maxHeight: Dp,
+    raised: () -> Float,
+    scroll: ScrollState,
+    drag: SheetDragConnection,
+    canDrag: Boolean,
+    content: @Composable ColumnScope.() -> Unit,
+) {
     Column(
         Modifier
             .align(Alignment.BottomCenter)
             .widthIn(max = 560.dp)
             .fillMaxWidth()
             .heightIn(max = maxHeight)
-            .graphicsLayer { translationY = (1f - raised()) * size.height }
+            .onSizeChanged { drag.updateHeight(it.height) }
+            .graphicsLayer { translationY = (1f - raised()) * size.height + raised() * drag.offset }
             .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
             .background(paper)
             .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { }
             .windowInsetsPadding(WindowInsets.safeDrawing)
-            .verticalScroll(rememberScrollState())
+            .nestedScroll(drag)
+            .verticalScroll(scroll, enabled = canDrag, overscrollEffect = null)
             .padding(horizontal = 20.dp, vertical = 18.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
         content = content,
