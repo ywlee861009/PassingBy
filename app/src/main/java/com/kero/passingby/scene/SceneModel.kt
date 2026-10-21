@@ -109,7 +109,10 @@ object Scenery {
 
     const val CLOUD_SPEED = 0.025
     const val BED_SPEED = 1.15
-    const val POLE_SPEED = 1.7
+    /** 승강장 너머에 있는 전봇대는 승강장보다 조금 느리게 지나간다. */
+    const val POLE_SPEED = 1.0
+    /** 창 바로 앞의 철교 구조물은 가장 빠르게 지나간다. */
+    const val TRUSS_SPEED = 1.7
 }
 
 /** 0(낮음)~1(높음) 정규화 높이. */

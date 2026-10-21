@@ -218,8 +218,8 @@ class SceneRenderer(private val state: SceneState) {
         celestialPainter.draw(canvas, layout, p, state.elapsedSec)
         drawClouds(canvas, p)
         drawLand(canvas, p)
-        drawStations(canvas, p)
         drawPoles(canvas, p)
+        drawStations(canvas, p)
         drawTruss(canvas, p)
         drawFalling(canvas, p)
         drawTunnels(canvas, p)
@@ -924,37 +924,10 @@ class SceneRenderer(private val state: SceneState) {
     }
 
     /**
-     * 선로 옆 전봇대와 처진 전선. 역 승강장이 걸친 화면 구간에서는 그리지 않는다.
-     * 실제 역에서는 전차선이 선로 바로 위에 팽팽하게 지나가 창으로는 지붕·기둥만 보이고,
-     * 처진 전선이 승강장 앞을 가로지르지 않는다. 구간째 잘라 내므로 역에 들어서면 전봇대가 지붕 뒤로 사라지듯 보인다.
+     * 승강장 너머 선로 옆 전봇대와 처진 전선. 역에서도 같은 간격으로 이어 그린다.
+     * 뒤에 그리는 승강장의 지붕·기둥·이름판이 겹친 부분만 가려야 역 끝에서 전선이 잘리지 않는다.
      */
     private fun drawPoles(canvas: Canvas, p: Palette) {
-        val clipped = clipOutPlatforms(canvas)
-        drawPoleLine(canvas, p)
-        if (clipped) canvas.restore()
-    }
-
-    /** 화면에 걸친 승강장 구간을 그리기 영역에서 뺀다. 뺐으면 true(그리고 나서 restore해야 한다). */
-    private fun clipOutPlatforms(canvas: Canvas): Boolean {
-        val xs = state.stationX
-        if (xs.isEmpty()) return false
-        val u = layout.u
-        val w = layout.w.toFloat()
-        val half = PLATFORM_HALF * u
-        var saved = false
-        for (x in xs) {
-            val cx = (((x - state.distanceU) * Scenery.BED_SPEED + halfWU) * u).toFloat()
-            if (cx + half < 0 || cx - half > w) continue
-            if (!saved) {
-                canvas.save()
-                saved = true
-            }
-            canvas.clipOutRect(cx - half, 0f, cx + half, layout.h.toFloat())
-        }
-        return saved
-    }
-
-    private fun drawPoleLine(canvas: Canvas, p: Palette) {
         val u = layout.u
         val spacing = 360.0
         val off = state.distanceU * Scenery.POLE_SPEED
@@ -1311,7 +1284,7 @@ class SceneRenderer(private val state: SceneState) {
         val u = layout.u
         val w = layout.w.toFloat()
         val d = state.distanceU
-        val s = Scenery.POLE_SPEED
+        val s = Scenery.TRUSS_SPEED
         val top = layout.h * .07f
         val bot = layout.yAt(.905f)
         trussPaint.color = mix(p.c[Palette.POLE], p.c[Palette.HAZE], .12f)
@@ -1461,6 +1434,7 @@ class SceneRenderer(private val state: SceneState) {
         val d = state.distanceU
         val s = Scenery.BED_SPEED
         val half = PLATFORM_HALF * u
+        val eave = 10 * u
         val lit = p.f[Palette.LIT]
         val floorTop = layout.yAt(.885f)
         val roof = h * .16f
@@ -1468,7 +1442,7 @@ class SceneRenderer(private val state: SceneState) {
         val dark = mix(p.c[Palette.POLE], p.c[Palette.HAZE], .18f)
         for (i in xs.indices) {
             val cx = (((xs[i] - d) * s + halfWU) * u).toFloat()
-            if (cx + half < 0 || cx - half > w) continue
+            if (cx + half + eave < 0 || cx - half - eave > w) continue
             val x0 = cx - half
             val x1 = cx + half
             // 바닥: 먼 쪽 낮은 벽, 콘크리트 면, 선로 쪽 노란 안전선.
@@ -1481,9 +1455,14 @@ class SceneRenderer(private val state: SceneState) {
             canvas.drawRect(x0, ly, x1, ly + 2.4f * u, platformPaint)
             // 지붕과 기둥.
             platformPaint.color = dark
-            canvas.drawRect(x0, -2f, x1, roof, platformPaint)
+            canvas.drawRect(x0 - eave, -2f, x1 + eave, roof, platformPaint)
             platformPaint.color = mix(dark, Color.WHITE, .18f)
-            canvas.drawRect(x0, roof - 2.2f * u, x1, roof, platformPaint)
+            canvas.drawRect(x0 - eave, roof - 2.2f * u, x1 + eave, roof, platformPaint)
+            // 처마 아래 두께와 양 끝 지지대. 끝을 지나도 그 뒤의 전선은 계속 이어진다.
+            platformPaint.color = dark
+            canvas.drawRect(x0 - eave, roof, x1 + eave, roof + 3 * u, platformPaint)
+            canvas.drawRect(x0 + 5 * u, roof, x0 + 11 * u, floorTop, platformPaint)
+            canvas.drawRect(x1 - 11 * u, roof, x1 - 5 * u, floorTop, platformPaint)
             var px = x0 + PILLAR_GAP * u / 2
             while (px < x1) {
                 platformPaint.color = dark
