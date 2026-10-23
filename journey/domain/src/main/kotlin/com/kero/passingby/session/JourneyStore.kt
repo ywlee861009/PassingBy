@@ -28,6 +28,10 @@ interface JourneyStore {
     fun saveActive(active: Active)
     fun loadActive(): Active?
 
+    /** One atomic storage edit: session, route, stamps and optional completion share a checkpoint. */
+    fun saveSession(active: Active, courseId: String, direction: Int, stations: Set<Int> = emptySet(), arrived: Boolean = false)
+
+
     class Active(
         val phase: String,
         val tripMinutes: Int,
@@ -36,5 +40,6 @@ interface JourneyStore {
         val restEnd: Long,
         val restDone: Boolean,
         val weatherSeed: Int,
+        val sessionId: String = "",
     )
 }

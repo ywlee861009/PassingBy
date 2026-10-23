@@ -143,6 +143,9 @@ class JourneyViewModel(
     /** 지난 세션들의 누적 거리. 세션이 바뀌어도 풍경이 이어지게 다음 계획을 이만큼 뒤로 민다. */
     private var baseDistance = 0.0
     private val planField = UrbanField { x -> plan.at(x - baseDistance) }
+    private var sessionId = java.util.UUID.randomUUID().toString()
+    private var pendingArrival = false
+    private val pendingStations = mutableSetOf<Int>()
     private var weatherSeed = Random.nextInt()
     private var weather = WeatherDirector(weatherSeed, course.snowy, SeasonChoice.fromId(store.seasonChoiceId).resolve(weatherSeed))
 
@@ -289,8 +292,7 @@ class JourneyViewModel(
     /** 여행 수첩에 역 도장을 찍는다. [i]는 지금 방향 기준 역 번호. */
     private fun stamp(i: Int) {
         val forward = if (direction > 0) i else course.stations.size - 1 - i
-        store.visit(course.id, forward)
-        visited = store.visited
+        pendingStations += forward
     }
 
     fun completions(c: Course): Int = store.completions(c.id)
@@ -429,6 +431,7 @@ class JourneyViewModel(
         sessionState = session.state
         when (event) {
             is SessionEvent.Departed -> {
+                sessionId = java.util.UUID.randomUUID().toString()
                 if (event.from == SessionPhase.ARRIVED || event.from == SessionPhase.RESTING) prepareReturn()
                 weatherSeed = Random.nextInt()
                 season = seasonChoice.resolve(weatherSeed)
@@ -454,11 +457,8 @@ class JourneyViewModel(
                 rebuildPlan()
             }
             is SessionEvent.Arrived -> {
-                store.recordArrival(tripMinutes)
-                store.recordCompletion(course.id, tripMinutes)
+                pendingArrival = true
                 stamp(stations.size - 1)
-                today = store.today()
-                lifetime = store.lifetime()
                 Telemetry.event("trip_arrive", "course" to course.id, "minutes" to tripMinutes, "late" to event.late)
                 if (!event.late) signal(ARRIVAL_PATTERN)
             }
@@ -476,7 +476,6 @@ class JourneyViewModel(
     private fun prepareReturn() {
         baseDistance += plan.totalDistance
         direction = -direction
-        store.direction = direction
     }
 
     private fun rebuildPlan() {
@@ -519,6 +518,7 @@ class JourneyViewModel(
                     if (stop >= 0 && stoppedAt < 0) {
                         sound.chime()
                         stamp(stop)
+                        save()
                     }
                     stoppedAt = stop
                     val next = if (stop >= 0) stop + 1 else plan.segmentAt(t) + 1
@@ -609,12 +609,17 @@ class JourneyViewModel(
         Telemetry.state(phase.name, course.id, tripMinutes, direction)
         syncTimer()
         val snapshot = session.snapshot()
-        store.saveActive(
+        store.saveSession(
             JourneyStore.Active(
                 snapshot.state.phase.name, snapshot.state.tripMinutes, baseDistance, snapshot.clock,
-                snapshot.state.restEndElapsedMillis, snapshot.state.restDone, weatherSeed,
-            ),
+                snapshot.state.restEndElapsedMillis, snapshot.state.restDone, weatherSeed, sessionId,
+            ), course.id, direction, pendingStations.toSet(), pendingArrival,
         )
+        pendingArrival = false
+        pendingStations.clear()
+        today = store.today()
+        lifetime = store.lifetime()
+        visited = store.visited
     }
 
     private fun restore() {
@@ -633,6 +638,7 @@ class JourneyViewModel(
         if (restored.isFailure) return
         sessionState = session.state
         timeScale = session.scale
+        sessionId = a.sessionId
         baseDistance = a.base
         weatherSeed = a.weatherSeed
         season = seasonChoice.resolve(weatherSeed)
@@ -645,9 +651,7 @@ class JourneyViewModel(
         if (phase != SessionPhase.DOCKED || c == course) return
         Telemetry.event("course_select", "course" to c.id, "owned" to owns(c))
         course = c
-        store.courseId = c.id
         direction = 1
-        store.direction = 1
         baseDistance = 0.0
         session.reset()
         sessionState = session.state

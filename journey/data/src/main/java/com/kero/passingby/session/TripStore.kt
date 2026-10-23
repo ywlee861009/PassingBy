@@ -131,17 +131,38 @@ class TripStore(private val context: Context) : JourneyStore {
 
     // ── 진행 중인 여행 ──
 
-    override fun saveActive(active: Active) {
-        prefs.edit()
-            .putString(KEY_A_PHASE, active.phase)
-            .putInt(KEY_A_MINUTES, active.tripMinutes)
-            .putString(KEY_A_BASE, active.base.toString())
-            .putString(KEY_A_CLOCK, active.clock.joinToString(","))
-            .putLong(KEY_A_REST_END, active.restEnd)
-            .putBoolean(KEY_A_REST_DONE, active.restDone)
-            .putInt(KEY_A_SEED, active.weatherSeed)
-            .putInt(KEY_A_BOOT, bootCount())
-            .apply()
+    private fun android.content.SharedPreferences.Editor.active(active: Active) = apply {
+        putString(KEY_A_PHASE, active.phase)
+        putInt(KEY_A_MINUTES, active.tripMinutes)
+        putString(KEY_A_BASE, active.base.toString())
+        putString(KEY_A_CLOCK, active.clock.joinToString(","))
+        putLong(KEY_A_REST_END, active.restEnd)
+        putBoolean(KEY_A_REST_DONE, active.restDone)
+        putInt(KEY_A_SEED, active.weatherSeed)
+        putString(KEY_A_ID, active.sessionId)
+        putInt(KEY_A_BOOT, bootCount())
+    }
+
+    override fun saveActive(active: Active) { prefs.edit().active(active).apply() }
+
+    override fun saveSession(active: Active, courseId: String, direction: Int, stations: Set<Int>, arrived: Boolean) {
+        require(active.sessionId.isNotBlank())
+        synchronized(prefs) {
+            val editor = prefs.edit().active(active)
+                .putString(KEY_COURSE, courseId).putInt(KEY_DIRECTION, direction)
+            if (stations.isNotEmpty()) editor.putStringSet(KEY_VISITED, visited + stations.map { "$courseId:$it" })
+            if (arrived && prefs.getString(KEY_RECORDED_SESSION, null) != active.sessionId) {
+                val (dayTrips, dayMinutes) = today()
+                val (allTrips, allMinutes) = lifetime()
+                editor.putString(KEY_DAY, LocalDate.now().toString())
+                    .putInt(KEY_DAY_TRIPS, dayTrips + 1).putInt(KEY_DAY_MINUTES, dayMinutes + active.tripMinutes)
+                    .putInt(KEY_DONE + courseId, completions(courseId) + 1)
+                    .putInt(KEY_ALL_TRIPS, allTrips + 1).putInt(KEY_ALL_MINUTES, allMinutes + active.tripMinutes)
+                    .putString(KEY_RECORDED_SESSION, active.sessionId)
+            }
+            // SharedPreferences publishes one map and writes it with its atomic-file backup protocol.
+            editor.apply()
+        }
     }
 
     /** 저장된 여행. 재부팅으로 시계가 무효가 됐으면 null. */
@@ -158,6 +179,8 @@ class TripStore(private val context: Context) : JourneyStore {
             prefs.getLong(KEY_A_REST_END, 0L),
             prefs.getBoolean(KEY_A_REST_DONE, false),
             prefs.getInt(KEY_A_SEED, 0),
+            prefs.getString(KEY_A_ID, null)?.takeIf { it.isNotBlank() }
+                ?: "legacy:${bootCount()}:${prefs.getString(KEY_COURSE, null)}:${clock.firstOrNull()}",
         )
     }
 
@@ -186,6 +209,8 @@ class TripStore(private val context: Context) : JourneyStore {
         const val KEY_SOUND = "sound"
         const val KEY_SOUND_LEVEL = "sound_level"
         const val KEY_TELEMETRY = "telemetry"
+        const val KEY_A_ID = "a_session_id"
+        const val KEY_RECORDED_SESSION = "recorded_session_id"
         const val KEY_A_PHASE = "a_phase"
         const val KEY_A_MINUTES = "a_minutes"
         const val KEY_A_BASE = "a_base"

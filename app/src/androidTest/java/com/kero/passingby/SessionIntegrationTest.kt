@@ -117,6 +117,35 @@ class SessionIntegrationTest {
         }
     }
 
+    @Test fun completionCheckpointCanBeRetriedWithoutDuplicatingAnyCounters() = withSession { models ->
+        val vm = models.vm
+        val store = TripStore(context)
+        vm.depart()
+        vm.seekFraction(1f)
+        vm.onFrame(0L, 60f)
+        val active = store.loadActive()!!
+        assertTrue(active.sessionId.isNotBlank())
+        repeat(3) {
+            TripStore(context).saveSession(active, vm.course.id, vm.direction, setOf(vm.stations.lastIndex), arrived = true)
+        }
+        assertEquals(1 to 25, store.today())
+        assertEquals(1 to 25, store.lifetime())
+        assertEquals(1, store.completions(vm.course.id))
+        assertEquals("ARRIVED", store.loadActive()!!.phase)
+    }
+
+    @Test fun legacySessionWithoutAnIdRestoresWithAStableIdentity() = withSession { models ->
+        models.vm.depart()
+        context.getSharedPreferences("trip", 0).edit().remove("a_session_id").commit()
+        val first = TripStore(context).loadActive()!!
+        val second = TripStore(context).loadActive()!!
+        assertTrue(first.sessionId.startsWith("legacy:"))
+        assertEquals(first.sessionId, second.sessionId)
+        models.recreate()
+        models.vm.pause()
+        assertEquals(first.sessionId, TripStore(context).loadActive()!!.sessionId)
+    }
+
     private class Models(private val factory: ViewModelProvider.Factory) : AutoCloseable {
         private var store = ViewModelStore()
         val vm get() = ViewModelProvider(store, factory)[JourneyViewModel::class.java]
