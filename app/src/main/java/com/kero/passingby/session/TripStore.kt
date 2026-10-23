@@ -2,7 +2,7 @@ package com.kero.passingby.session
 
 import android.content.Context
 import android.provider.Settings
-import com.kero.passingby.scene.Season
+import com.kero.passingby.scene.SeasonChoice
 import com.kero.passingby.scene.TimeOfDay
 import java.time.LocalDate
 
@@ -126,8 +126,8 @@ class TripStore(private val context: Context) {
         get() = TimeOfDay.fromSetting(prefs.getString(KEY_TIME, null))
         set(v) = prefs.edit().putString(KEY_TIME, TimeOfDay.fromSetting(v?.name)?.name).apply()
 
-    var season: Season
-        get() = Season.fromId(prefs.getString(KEY_SEASON, null))
+    var seasonChoice: SeasonChoice
+        get() = SeasonChoice.fromId(prefs.getString(KEY_SEASON, null))
         set(v) = prefs.edit().putString(KEY_SEASON, v.id).apply()
 
     // ── 진행 중인 여행 ──

@@ -70,6 +70,7 @@ import com.kero.passingby.content.Course
 import com.kero.passingby.locale.AppLanguage
 import com.kero.passingby.scene.TimeOfDay
 import com.kero.passingby.scene.Season
+import com.kero.passingby.scene.SeasonChoice
 import com.kero.passingby.ui.theme.Pb
 import com.kero.passingby.ui.theme.PbType
 import kotlinx.coroutines.CoroutineScope
@@ -279,7 +280,8 @@ fun SettingsSheetContent(
     devUnlock: Boolean,
     restoringPurchases: Boolean,
     season: Season,
-    onSeason: (Season) -> Unit,
+    seasonChoice: SeasonChoice,
+    onSeason: (SeasonChoice) -> Unit,
     onTime: (TimeOfDay?) -> Unit,
     onSound: (Boolean) -> Unit,
     onSoundLevel: (Int) -> Unit,
@@ -310,8 +312,16 @@ fun SettingsSheetContent(
 
     SectionTitle(stringResource(R.string.season))
     BasicText(stringResource(R.string.season_desc), style = PbType.kicker.copy(color = Pb.InkSoft))
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        for (option in Season.entries) Choice(stringResource(option.label), option == season) { onSeason(option) }
+    for (row in SeasonChoice.entries.chunked(3)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            for (option in row) Choice(stringResource(option.label), option == seasonChoice) { onSeason(option) }
+        }
+    }
+    if (seasonChoice == SeasonChoice.RANDOM) {
+        BasicText(
+            stringResource(R.string.season_random_desc, stringResource(season.label)),
+            style = PbType.kicker.copy(color = Pb.InkSoft),
+        )
     }
 
     SectionTitle(stringResource(R.string.sound))

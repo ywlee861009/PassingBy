@@ -198,4 +198,5 @@
     <string name="season_spring">Spring</string>
     <string name="season_summer">Summer</string>
     <string name="season_winter">Winter</string>
+    <string name="season_random_desc">This journey: %1$s. A season is picked for each new journey.</string>
 </resources>

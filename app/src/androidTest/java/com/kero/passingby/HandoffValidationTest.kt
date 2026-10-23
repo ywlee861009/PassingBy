@@ -51,21 +51,76 @@ class HandoffValidationTest {
         val savedTime = prefs.getString("time_of_day", null)
         try {
             prefs.edit().remove("season").commit()
-            assertEquals(Season.SUMMER, TripStore(context).season)
-            for (season in Season.entries) {
-                TripStore(context).season = season
-                assertEquals(season, TripStore(context).season)
+            assertEquals(SeasonChoice.SUMMER, TripStore(context).seasonChoice)
+            for (choice in SeasonChoice.entries) {
+                TripStore(context).seasonChoice = choice
+                assertEquals(choice, TripStore(context).seasonChoice)
             }
             prefs.edit().putString("season", "default").commit()
-            assertEquals(Season.SUMMER, TripStore(context).season)
+            assertEquals(SeasonChoice.SUMMER, TripStore(context).seasonChoice)
             prefs.edit().putString("time_of_day", "DAWN").commit()
             assertEquals(TimeOfDay.DAY, TripStore(context).timeOfDay)
             prefs.edit().putString("time_of_day", "DUSK").commit()
             assertEquals(TimeOfDay.NIGHT, TripStore(context).timeOfDay)
             prefs.edit().putString("season", "unknown").commit()
-            assertEquals(Season.SUMMER, TripStore(context).season)
+            assertEquals(SeasonChoice.SUMMER, TripStore(context).seasonChoice)
         } finally {
             prefs.edit().putString("season", saved).putString("time_of_day", savedTime).commit()
+        }
+    }
+
+    @Test fun randomSeasonRestoresForTheActiveJourneyAndResolvesAgainOnDeparture() {
+        val prefs = context.getSharedPreferences("trip", 0)
+        val saved = prefs.all
+        try {
+            prefs.edit().clear().commit()
+            InstrumentationRegistry.getInstrumentation().runOnMainSync {
+                val app = context.applicationContext as Application
+                val factory = ViewModelProvider.AndroidViewModelFactory.getInstance(app)
+                var models = ViewModelStore()
+                try {
+                    var vm = ViewModelProvider(models, factory)[JourneyViewModel::class.java]
+                    vm.selectSeasonChoice(SeasonChoice.RANDOM)
+                    assertEquals(SeasonChoice.RANDOM, TripStore(context).seasonChoice)
+                    vm.depart()
+                    val active = TripStore(context).loadActive()!!
+                    val first = vm.season
+                    assertEquals(SeasonChoice.RANDOM.resolve(active.weatherSeed), first)
+                    models.clear()
+                    models = ViewModelStore()
+                    vm = ViewModelProvider(models, factory)[JourneyViewModel::class.java]
+                    assertEquals(SeasonChoice.RANDOM, vm.seasonChoice)
+                    assertEquals(first, vm.season)
+                    assertEquals(first, vm.scene.season)
+                    repeat(4) {
+                        vm.endTrip()
+                        vm.depart()
+                        val next = TripStore(context).loadActive()!!
+                        assertEquals(SeasonChoice.RANDOM.resolve(next.weatherSeed), vm.season)
+                        assertEquals(vm.season, vm.scene.season)
+                        assertTrue(vm.scene.autoWeather)
+                    }
+                    vm.selectSeason(Season.WINTER)
+                    vm.endTrip()
+                    vm.depart()
+                    assertEquals(SeasonChoice.WINTER, vm.seasonChoice)
+                    assertEquals(Season.WINTER, vm.season)
+                } finally {
+                    models.clear()
+                    com.kero.passingby.session.TripTimer.stop(context)
+                }
+            }
+        } finally {
+            val editor = prefs.edit().clear()
+            for ((key, value) in saved) when (value) {
+                is String -> editor.putString(key, value)
+                is Boolean -> editor.putBoolean(key, value)
+                is Int -> editor.putInt(key, value)
+                is Long -> editor.putLong(key, value)
+                is Float -> editor.putFloat(key, value)
+                is Set<*> -> editor.putStringSet(key, value.filterIsInstance<String>().toSet())
+            }
+            editor.commit()
         }
     }
 

@@ -190,4 +190,5 @@
     <string name="season_spring">봄</string>
     <string name="season_summer">여름</string>
     <string name="season_winter">겨울</string>
+    <string name="season_random_desc">이번 여행은 %1$s이에요. 새 여행마다 계절을 무작위로 골라요.</string>
 </resources>

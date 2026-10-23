@@ -16,6 +16,23 @@ enum class Season(val id: String, @param:StringRes val label: Int) {
     }
 }
 
+/** 설정의 선택과 실제 그리는 계절을 구분한다. 무작위는 여행 시드로 정해 복원 시에도 유지한다. */
+enum class SeasonChoice(val season: Season?) {
+    RANDOM(null), SPRING(Season.SPRING), SUMMER(Season.SUMMER), AUTUMN(Season.AUTUMN), WINTER(Season.WINTER);
+
+    val id: String get() = season?.id ?: "random"
+    val label: Int get() = season?.label ?: R.string.random
+
+    fun resolve(seed: Int): Season = season ?: Season.entries[
+        (seed xor (seed ushr 16)).ushr(1) % Season.entries.size
+    ]
+
+    companion object {
+        fun fromId(id: String?): SeasonChoice = entries.firstOrNull { it.id == id } ?: SUMMER
+        fun fromSeason(season: Season): SeasonChoice = entries.first { it.season == season }
+    }
+}
+
 /** 원래 명도와 밤의 청색을 유지하면서 색상만 바꾼다. 매번 원본 팔레트로 계산한다. */
 internal fun seasonColor(base: Int, tint: Int, night: Float): Int {
     fun luminance(c: Int) = .3f * ((c shr 16) and 255) + .59f * ((c shr 8) and 255) + .11f * (c and 255)

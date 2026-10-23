@@ -81,4 +81,24 @@ class SeasonTest {
         assertNull(TimeOfDay.fromSetting(null))
         assertNull(TimeOfDay.fromSetting("unknown"))
     }
+    @Test fun randomChoiceIsStableForAJourneyAndCanPickEverySeason() {
+        val choices = (-100..100).map { SeasonChoice.RANDOM.resolve(it) }.toSet()
+        assertEquals(Season.entries.toSet(), choices)
+        for (seed in intArrayOf(Int.MIN_VALUE, -77, 0, 1234, Int.MAX_VALUE)) {
+            assertEquals(SeasonChoice.RANDOM.resolve(seed), SeasonChoice.fromId("random").resolve(seed))
+            for (season in Season.entries) {
+                assertEquals(season, SeasonChoice.fromSeason(season).resolve(seed))
+            }
+        }
+    }
+
+    @Test fun randomPreferenceKeepsLegacySeasonIdsCompatible() {
+        assertEquals(SeasonChoice.RANDOM, SeasonChoice.fromId("random"))
+        assertEquals(SeasonChoice.SUMMER, SeasonChoice.fromId("default"))
+        assertEquals(SeasonChoice.SUMMER, SeasonChoice.fromId(null))
+        assertEquals(SeasonChoice.SUMMER, SeasonChoice.fromId("unknown"))
+        assertEquals(5, SeasonChoice.entries.size)
+        for (season in Season.entries) assertEquals(season, SeasonChoice.fromId(season.id).season)
+    }
+
 }

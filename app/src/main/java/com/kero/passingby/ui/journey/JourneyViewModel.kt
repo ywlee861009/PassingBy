@@ -37,6 +37,7 @@ import com.kero.passingby.scene.SceneKind
 import com.kero.passingby.scene.SceneRenderer
 import com.kero.passingby.scene.SceneState
 import com.kero.passingby.scene.Season
+import com.kero.passingby.scene.SeasonChoice
 import com.kero.passingby.scene.TimeOfDay
 import com.kero.passingby.scene.UrbanField
 import com.kero.passingby.scene.Weather
@@ -136,7 +137,7 @@ class JourneyViewModel(app: Application) : AndroidViewModel(app) {
     private var baseDistance = 0.0
     private val planField = UrbanField { x -> plan.at(x - baseDistance) }
     private var weatherSeed = Random.nextInt()
-    private var weather = WeatherDirector(weatherSeed, course.snowy, store.season)
+    private var weather = WeatherDirector(weatherSeed, course.snowy, store.seasonChoice.resolve(weatherSeed))
     private var restEndReal = 0L
 
     // ── 코스 잠금·결제 ──
@@ -179,7 +180,9 @@ class JourneyViewModel(app: Application) : AndroidViewModel(app) {
     /** 직접 고른 시간대. null이면 여행에 맞춰 자동 순환한다. */
     var fixedTime by mutableStateOf(store.timeOfDay)
         private set
-    var season by mutableStateOf(store.season)
+    var seasonChoice by mutableStateOf(store.seasonChoice)
+        private set
+    var season by mutableStateOf(seasonChoice.resolve(weatherSeed))
         private set
     var soundOn by mutableStateOf(store.soundOn)
         private set
@@ -399,6 +402,8 @@ class JourneyViewModel(app: Application) : AndroidViewModel(app) {
         if (phase == TripPhase.ARRIVED || phase == TripPhase.RESTING) dockAtTerminus()
         tripMinutes = minutes
         weatherSeed = Random.nextInt()
+        season = seasonChoice.resolve(weatherSeed)
+        scene.season = season
         rebuildPlan()
         clock.seek(0.0, 1.0)
         restDone = false
@@ -513,7 +518,7 @@ class JourneyViewModel(app: Application) : AndroidViewModel(app) {
         // 역 수가 다른 코스로 바뀌면 다음 틱 전까지 이전 코스의 역 번호가 남는다(개발용 코스 강제 전환 등).
         nextStop = nextStop.coerceIn(1, plan.segments)
         if (stoppedAt >= plan.segments) stoppedAt = -1
-        weather = WeatherDirector(weatherSeed, course.snowy, store.season)
+        weather = WeatherDirector(weatherSeed, course.snowy, season)
         applyStations()
     }
 
@@ -653,8 +658,9 @@ class JourneyViewModel(app: Application) : AndroidViewModel(app) {
         restEndReal = a.restEnd
         restDone = a.restDone
         weatherSeed = a.weatherSeed
+        season = seasonChoice.resolve(weatherSeed)
         plan = CoursePlan(tripMinutes * 60.0, course.stations.size, course.cruise)
-        weather = WeatherDirector(weatherSeed, course.snowy, store.season)
+        weather = WeatherDirector(weatherSeed, course.snowy, season)
     }
 
     /** 코스를 바꾼다. 정차 중에만 되고, 새 코스의 출발역으로 순간 이동한다. */
@@ -696,12 +702,15 @@ class JourneyViewModel(app: Application) : AndroidViewModel(app) {
         applyLand()
     }
 
-    fun selectSeason(value: Season) {
-        season = value
-        store.season = value
+    fun selectSeason(value: Season) = selectSeasonChoice(SeasonChoice.fromSeason(value))
+
+    fun selectSeasonChoice(value: SeasonChoice) {
+        seasonChoice = value
+        store.seasonChoice = value
+        season = value.resolve(weatherSeed)
         applyWeather(null)
-        scene.season = value
-        weather = WeatherDirector(weatherSeed, course.snowy, value)
+        scene.season = season
+        weather = WeatherDirector(weatherSeed, course.snowy, season)
     }
 
     fun selectTime(t: TimeOfDay?) {
