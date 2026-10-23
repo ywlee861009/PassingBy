@@ -17,66 +17,108 @@ import com.android.billingclient.api.QueryProductDetailsParams
 import com.android.billingclient.api.QueryPurchasesParams
 import com.kero.passingby.telemetry.Telemetry
 
-/**
- * 코스 결제(Play Billing, 일회성 상품). 상품이 Play Console에 등록되기 전에는 상품 정보를 못 받아 오므로
- * [purchase]가 false를 돌려주고, 화면은 "아직 구매할 수 없어요"를 보여 준다.
- *
- * 결제 라이브러리 콜백은 다른 스레드에서 올 수 있어 결과는 모두 메인 스레드로 넘긴다.
- *
- * @param onPrices 상품 ID → 표시 가격.
- * @param onOwned 구매 완료된 상품 ID 묶음. 구매 복원·새 구매 모두 이걸로 알린다.
- */
+/** 일회성 코스 구매. 모든 상태와 화면 콜백은 메인 스레드에서 처리한다. */
 class Billing(
     context: Context,
     private val productIds: List<String>,
     private val onPrices: (Map<String, String>) -> Unit,
-    private val onOwned: (Set<String>) -> Unit,
+    private val onOwned: (Set<String>, PurchaseSource) -> Unit,
+    private val onRestore: (RestoreStatus) -> Unit,
+    private val onPending: () -> Unit,
+    private val onPurchaseFailed: () -> Unit,
 ) : PurchasesUpdatedListener {
     private val main = Handler(Looper.getMainLooper())
+    private val appContext = context.applicationContext
+    private val known = productIds.toSet()
+    private val refresh = PurchaseRefresh()
     private val details = mutableMapOf<String, ProductDetails>()
-    /** 마지막으로 결제 창을 띄운 상품. 결제 결과에는 실패 시 상품 정보가 없어 이걸로 남긴다. */
-    @Volatile private var lastProduct = ""
-    private val client = BillingClient.newBuilder(context)
+    private val acknowledging = mutableSetOf<String>()
+    private val pendingProducts = mutableSetOf<String>()
+    private var lastProduct = ""
+    private var closed = false
+    private var connectedOnce = false
+    private var deadline: Runnable? = null
+    private var client = newClient()
+
+    private fun newClient(): BillingClient = BillingClient.newBuilder(appContext)
         .setListener(this)
         .enablePendingPurchases(PendingPurchasesParams.newBuilder().enableOneTimeProducts().build())
         .enableAutoServiceReconnection()
         .build()
 
-    fun connect() {
+    fun connect() = refreshPurchases(manual = false)
+    val ready: Boolean get() = client.isReady
+    fun restore() = refreshPurchases(manual = true)
+    fun onResume() = refreshPurchases(manual = false)
+
+    private fun refreshPurchases(manual: Boolean) {
+        if (closed) return
+        val wasRestoring = refresh.restoring
+        // 연결을 한 번 마친 뒤의 끊김은 query API의 자동 재연결에 맡긴다.
+        val request = refresh.begin(manual, client.isReady || connectedOnce)
+        if (manual && !wasRestoring) onRestore(RestoreStatus.CHECKING)
+        if (request == null) return
+        Telemetry.event("billing_query", "stage" to if (request.connect) "connect" else "query", "manual" to manual)
+        val id = request.id
+        deadline = Runnable {
+            val connecting = refresh.connecting
+            Telemetry.event("billing_query", "stage" to "timeout", "manual" to refresh.restoring)
+            if (connecting) {
+                client.endConnection()
+                client = newClient()
+                connectedOnce = false
+            }
+            finish(id, false)
+        }.also { main.postDelayed(it, 15_000L) }
+        if (request.connect) startConnection(id) else queryPurchases(id)
+    }
+
+    private fun startConnection(id: Long) {
         client.startConnection(object : BillingClientStateListener {
             override fun onBillingSetupFinished(result: BillingResult) {
-                if (result.responseCode != BillingClient.BillingResponseCode.OK) {
-                    report("setup", result)
-                    return
+                main.post {
+                    if (closed || !refresh.connected(id)) return@post
+                    if (result.responseCode != BillingClient.BillingResponseCode.OK) {
+                        report("setup", result)
+                        finish(id, false)
+                    } else {
+                        connectedOnce = true
+                        queryProducts()
+                        queryPurchases(id)
+                    }
                 }
-                queryProducts()
-                restore()
             }
-
             override fun onBillingServiceDisconnected() = Unit
         })
     }
 
-    /** Play 결제에 연결돼 있는지. 연결 전이면 구매 복원이 아무 일도 하지 않는다. */
-    val ready: Boolean
-        get() = client.isReady
-
-    /** 이미 산 상품을 다시 확인한다(구매 복원). */
-    fun restore() {
-        if (!client.isReady) return
+    private fun queryPurchases(id: Long) {
         val params = QueryPurchasesParams.newBuilder().setProductType(BillingClient.ProductType.INAPP).build()
         client.queryPurchasesAsync(params) { result, purchases ->
-            if (result.responseCode == BillingClient.BillingResponseCode.OK) handle(purchases) else report("purchases", result)
+            main.post {
+                if (closed || !refresh.querying(id)) return@post
+                Telemetry.event("billing_query", "stage" to "result", "code" to result.responseCode, "manual" to refresh.restoring)
+                if (result.responseCode == BillingClient.BillingResponseCode.OK) {
+                    val batch = handle(purchases, PurchaseSource.QUERY)
+                    finish(id, true, batch.owned.isNotEmpty(), batch.pending.isNotEmpty())
+                } else {
+                    report("purchases", result)
+                    finish(id, false)
+                }
+            }
         }
+        if (details.isEmpty()) queryProducts()
     }
 
-    /**
-     * 결제 화면을 띄운다. 상품 정보가 아직 없으면(미등록·오프라인) false.
-     * 일회성 상품은 구매 옵션의 오퍼 토큰을 함께 넘겨야 한다. 가격과 같은 "이전 버전과의 호환성" 구매 옵션을 쓰고,
-     * 토큰이 없으면 예전처럼 토큰 없이 띄운다.
-     */
+    private fun finish(id: Long, success: Boolean, hasPurchases: Boolean = false, hasPending: Boolean = false) {
+        deadline?.let(main::removeCallbacks)
+        deadline = null
+        refresh.finish(id, success, hasPurchases, hasPending)?.let(onRestore)
+    }
+
     fun purchase(activity: Activity, productId: String): Boolean {
-        val d = details[productId] ?: return false
+        if (closed) return false
+        val d = details[productId] ?: run { refreshPurchases(false); return false }
         val product = BillingFlowParams.ProductDetailsParams.newBuilder()
             .setProductDetails(d)
             .apply { d.oneTimePurchaseOfferDetails?.offerToken?.let { setOfferToken(it) } }
@@ -89,69 +131,109 @@ class Billing(
     }
 
     fun end() {
+        closed = true
+        refresh.cancel()
+        main.removeCallbacksAndMessages(null)
         client.endConnection()
+        acknowledging.clear()
     }
 
     override fun onPurchasesUpdated(result: BillingResult, purchases: MutableList<Purchase>?) {
-        Telemetry.event("purchase_result", "product" to lastProduct, "code" to result.responseCode)
-        when (result.responseCode) {
-            BillingClient.BillingResponseCode.OK -> if (purchases != null) handle(purchases)
-            BillingClient.BillingResponseCode.USER_CANCELED -> Unit
-            else -> report("purchase", result)
+        main.post {
+            if (closed) return@post
+            Telemetry.event("purchase_result", "product" to lastProduct, "code" to result.responseCode)
+            when (result.responseCode) {
+                BillingClient.BillingResponseCode.OK -> if (purchases != null) handle(purchases, PurchaseSource.UPDATE)
+                BillingClient.BillingResponseCode.USER_CANCELED -> Unit
+                BillingClient.BillingResponseCode.ITEM_ALREADY_OWNED -> restore()
+                else -> { report("purchase", result); onPurchaseFailed() }
+            }
         }
     }
 
+    private var productsInFlight = false
+    private var productsRequest = 0L
     private fun queryProducts() {
+        if (productsInFlight || closed) return
+        productsInFlight = true
+        val request = ++productsRequest
+        val timeout = Runnable { if (request == productsRequest) { productsInFlight = false; productsRequest++ } }
+        main.postDelayed(timeout, 15_000L)
         val products = productIds.map {
             QueryProductDetailsParams.Product.newBuilder()
-                .setProductId(it)
-                .setProductType(BillingClient.ProductType.INAPP)
-                .build()
+                .setProductId(it).setProductType(BillingClient.ProductType.INAPP).build()
         }
         val params = QueryProductDetailsParams.newBuilder().setProductList(products).build()
-        client.queryProductDetailsAsync(params) { result, r ->
-            if (result.responseCode != BillingClient.BillingResponseCode.OK) {
-                report("products", result)
-                return@queryProductDetailsAsync
+        client.queryProductDetailsAsync(params) { result, response ->
+            main.post {
+                if (closed || request != productsRequest) return@post
+                main.removeCallbacks(timeout)
+                productsInFlight = false
+                if (result.responseCode != BillingClient.BillingResponseCode.OK) {
+                    report("products", result)
+                    return@post
+                }
+                val missing = productIds - response.productDetailsList.map { it.productId }.toSet()
+                if (missing.isNotEmpty()) Telemetry.event("billing_products_missing", "count" to missing.size, "ids" to missing.joinToString(",").take(100))
+                details.clear()
+                val prices = mutableMapOf<String, String>()
+                for (d in response.productDetailsList) {
+                    details[d.productId] = d
+                    d.oneTimePurchaseOfferDetails?.formattedPrice?.let { prices[d.productId] = it }
+                }
+                onPrices(prices)
             }
-            // Play Console에서 비활성화했거나 ID가 다른 상품은 목록에서 빠진다. 그 코스는 살 수 없게 된다.
-            val missing = productIds - r.productDetailsList.map { it.productId }.toSet()
-            if (missing.isNotEmpty()) {
-                Telemetry.event("billing_products_missing", "count" to missing.size, "ids" to missing.joinToString(",").take(100))
-            }
-            val prices = mutableMapOf<String, String>()
-            for (d in r.productDetailsList) {
-                details[d.productId] = d
-                d.oneTimePurchaseOfferDetails?.formattedPrice?.let { prices[d.productId] = it }
-            }
-            main.post { onPrices(prices) }
         }
     }
 
-    /** 결제 완료된 상품을 확인(acknowledge)하고 알린다. 확인하지 않으면 3일 뒤 자동 환불된다. */
-    private fun handle(purchases: List<Purchase>) {
-        val owned = mutableSetOf<String>()
-        for (p in purchases) {
-            if (p.purchaseState != Purchase.PurchaseState.PURCHASED) continue
-            owned += p.products
-            if (!p.isAcknowledged) {
-                val ack = AcknowledgePurchaseParams.newBuilder().setPurchaseToken(p.purchaseToken).build()
-                client.acknowledgePurchase(ack) { r ->
-                    if (r.responseCode != BillingClient.BillingResponseCode.OK) report("ack", r)
+    private fun handle(purchases: List<Purchase>, source: PurchaseSource): PurchaseBatch {
+        val batch = classifyPurchases(purchases.map { p ->
+            PurchaseRecord(p.products, when (p.purchaseState) {
+                Purchase.PurchaseState.PURCHASED -> PaymentState.PURCHASED
+                Purchase.PurchaseState.PENDING -> PaymentState.PENDING
+                else -> PaymentState.OTHER
+            }, p.isAcknowledged)
+        }, known)
+        // QUERY는 전체 스냅샷, UPDATE는 거래 일부. 대기 중인 다른 상품을 부분 이벤트로 지우지 않는다.
+        val newPending = batch.pending - pendingProducts
+        if (source == PurchaseSource.QUERY) pendingProducts.clear()
+        pendingProducts.removeAll(batch.owned)
+        pendingProducts.addAll(batch.pending)
+        onOwned(batch.owned, source)
+        if (newPending.isNotEmpty()) {
+            Telemetry.event("purchase_pending", "source" to source.name.lowercase(), "count" to newPending.size)
+            if (!refresh.restoring || source == PurchaseSource.UPDATE) onPending()
+        }
+        for (index in batch.acknowledgeAt) acknowledge(purchases[index].purchaseToken)
+        return batch
+    }
+
+    /** 토큰은 내부에서만 보관한다. 실패하면 최대 3회 재시도하고 다음 조회에서도 다시 확인한다. */
+    private fun acknowledge(token: String, attempt: Int = 0) {
+        if (closed || (attempt == 0 && !acknowledging.add(token))) return
+        val ack = AcknowledgePurchaseParams.newBuilder().setPurchaseToken(token).build()
+        client.acknowledgePurchase(ack) { result ->
+            main.post {
+                if (closed) return@post
+                if (result.responseCode == BillingClient.BillingResponseCode.OK) {
+                    acknowledging.remove(token)
+                } else {
+                    report("ack", result)
+                    if (attempt < 3) main.postDelayed({ acknowledge(token, attempt + 1) }, 1_000L shl attempt)
+                    else acknowledging.remove(token)
                 }
             }
         }
-        main.post { onOwned(owned) }
     }
 
-    /** 결제 단계의 실패를 남긴다. 개발 실수(DEVELOPER_ERROR)나 알 수 없는 오류(ERROR)는 오류 보고로도 올린다. */
     private fun report(stage: String, result: BillingResult) {
         val code = result.responseCode
         Telemetry.event("billing_error", "stage" to stage, "code" to code)
         if (code == BillingClient.BillingResponseCode.DEVELOPER_ERROR || code == BillingClient.BillingResponseCode.ERROR) {
-            Telemetry.error(BillingFailure(stage, code, result.debugMessage), "billing_$stage")
+            // Store debugMessage는 거래 식별자를 포함할 수 있으므로 보고에 넣지 않는다.
+            Telemetry.error(BillingFailure(stage, code), "billing_$stage")
         }
     }
 
-    private class BillingFailure(stage: String, code: Int, message: String) : Exception("$stage: code=$code $message")
+    private class BillingFailure(stage: String, code: Int) : Exception("$stage: code=$code")
 }

@@ -260,12 +260,12 @@ fun PrimaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifi
 }
 
 @Composable
-fun QuietButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, color: Color = Pb.InkSoft) {
+fun QuietButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, color: Color = Pb.InkSoft, enabled: Boolean = true) {
     Box(
         modifier
             .heightIn(min = 48.dp)
             .clip(CircleShape)
-            .clickable(role = Role.Button, onClick = onClick),
+            .clickable(enabled = enabled, role = Role.Button, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         BasicText(text, style = PbType.label.copy(color = color))

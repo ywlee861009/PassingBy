@@ -15,6 +15,8 @@ import androidx.lifecycle.ViewModelProvider
 import com.kero.passingby.content.Course
 import com.kero.passingby.locale.AppLanguage
 import com.kero.passingby.scene.SceneKind
+import com.kero.passingby.scene.Season
+import com.kero.passingby.scene.RenderMode
 import com.kero.passingby.session.AppVisibility
 import com.kero.passingby.scene.TimeOfDay
 import com.kero.passingby.scene.Weather
@@ -56,6 +58,7 @@ class MainActivity : ComponentActivity() {
      * - course: 코스 id (korea, korea-jeolla, korea-gangneung, japan, china-north, china-south, portugal, france)
      * - scene: COUNTRY | CITY (생략하면 여정을 따름)
      * - time: DAWN | DAY | DUSK | NIGHT (생략하면 실제 시각)
+     * - season: default | autumn, mode: DIRECT | BAKED | TILES
      * - weather: CLEAR | DRIZZLE | SHOWER | LIGHT_SNOW | HEAVY_SNOW
      * - minutes: 구간 길이(분), at: 구간의 몇 % 지점에서 시작할지(0~1), speedup: 빨리 감기 배율
      * - pos: 정방향 기준 노선 위치(구간 단위, 예 2.97). 랜드마크 위치를 확인할 때 쓴다.
@@ -69,6 +72,9 @@ class MainActivity : ComponentActivity() {
         i.getStringExtra("scene")?.let { n -> SceneKind.entries.firstOrNull { it.name == n }?.let(vm::selectLand) }
         i.getStringExtra("time")?.let { n -> TimeOfDay.entries.firstOrNull { it.name == n }?.let(vm::selectTime) }
         i.getStringExtra("weather")?.let { n -> Weather.entries.firstOrNull { it.name == n }?.let(vm::selectWeather) }
+        i.getStringExtra("season")?.let { vm.selectSeason(Season.fromId(it)) }
+        i.getStringExtra("mode")?.let { n -> RenderMode.entries.firstOrNull { it.name == n }?.let(vm::selectMode) }
+        if (i.getBooleanExtra("unlock", false) && !vm.devUnlockAll) vm.toggleDevUnlock()
         if (i.hasExtra("minutes")) vm.selectMinutes(i.getIntExtra("minutes", 25))
         if (i.hasExtra("at")) vm.seekFraction(i.getFloatExtra("at", 0f))
         if (i.hasExtra("pos")) vm.seekPosition(i.getFloatExtra("pos", 0f).toDouble())
@@ -84,6 +90,11 @@ class MainActivity : ComponentActivity() {
         super.onStart()
         AppVisibility.foreground = true
         ViewModelProvider(this)[JourneyViewModel::class.java].setVisible(true)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        ViewModelProvider(this)[JourneyViewModel::class.java].onResume()
     }
 
     override fun onStop() {

@@ -4,12 +4,12 @@ import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
 import kotlin.math.PI
-import kotlin.math.abs
 import kotlin.math.exp
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sin
 import kotlin.random.Random
+import com.kero.passingby.telemetry.Telemetry
 
 /**
  * 객차 안 환경음을 코드로 합성한다(음원 파일 없음).
@@ -46,6 +46,7 @@ class AmbientSound {
     private var thread: Thread? = null
 
     /** 재생을 시작한다. 막 꺼지며 소리가 줄어드는 중이면 그 스레드가 다시 커진다. */
+    @Synchronized
     fun start() {
         playing = true
         if (thread?.isAlive == true) return
@@ -67,9 +68,11 @@ class AmbientSound {
     }
 
     private fun run() {
-        val bufSize = max(AudioTrack.getMinBufferSize(RATE, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT), BLOCK * 4)
-        val track = runCatching {
-            AudioTrack.Builder()
+        var track: AudioTrack? = null
+        var fadedOut = false
+        try {
+            val bufSize = max(AudioTrack.getMinBufferSize(RATE, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT), BLOCK * 4)
+            val output = AudioTrack.Builder()
                 .setAudioAttributes(
                     AudioAttributes.Builder()
                         .setUsage(AudioAttributes.USAGE_MEDIA)
@@ -86,109 +89,117 @@ class AmbientSound {
                 .setBufferSizeInBytes(bufSize)
                 .setTransferMode(AudioTrack.MODE_STREAM)
                 .build()
-        }.getOrNull() ?: return
-        val out = ShortArray(BLOCK)
-        val rnd = Random(11)
-        // 매개변수를 따라가는 값(지퍼 잡음을 막는다).
-        var sp = 0f
-        var rn = 0f
-        var tn = 0f
-        var vol = 0f
-        // 필터 상태
-        var brown = 0f
-        var lowWind = 0f
-        var lowRumble = 0f
-        // 레일: 이동 거리 누적과 소리 꼬리
-        var travel = 0.0
-        var thump = 0f
-        var secondIn = -1
-        var lowThump = 0f
-        var midThump = 0f
-        // 빗방울
-        var drop = 0f
-        var dropTone = 0f
-        // 웅웅거림·차임
-        var humPhase = 0.0
-        var chimeT = -1.0
-        var fade = 0f
-        // 리미터: 내보내기 전 소리와 지금 배율
-        val ahead = FloatArray(LOOK)
-        var aheadAt = 0
-        var gain = 1f
-        track.play()
-        while (playing || fade > .001f) {
-            val target = if (playing) 1f else 0f
-            for (i in 0 until BLOCK) {
-                val k = 1f / (RATE * .35f)
-                sp += (speed - sp) * k
-                rn += (rain - rn) * k
-                tn += (tunnel - tn) * (1f / (RATE * .25f))
-                vol += (volume - vol) * k
-                fade += (target - fade) * (1f / (RATE * .8f))
+            track = output
+            val out = ShortArray(BLOCK)
+            val rnd = Random(11)
+            // 매개변수를 따라가는 값(지퍼 잡음을 막는다).
+            var sp = 0f
+            var rn = 0f
+            var tn = 0f
+            var vol = 0f
+            // 필터 상태
+            var brown = 0f
+            var lowWind = 0f
+            var lowRumble = 0f
+            // 레일: 이동 거리 누적과 소리 꼬리
+            var travel = 0.0
+            var thump = 0f
+            var secondIn = -1
+            var lowThump = 0f
+            var midThump = 0f
+            // 빗방울
+            var drop = 0f
+            var dropTone = 0f
+            // 웅웅거림·차임
+            var humPhase = 0.0
+            var chimeT = -1.0
+            var fade = 0f
+            // 리미터: 내보내기 전 소리와 지금 배율
+            val limiter = LookaheadLimiter(LOOK, RATE)
+            output.play()
+            while (true) {
+                if (!playing && fade <= .001f) {
+                    fadedOut = true
+                    break
+                }
+                val target = if (playing) 1f else 0f
+                for (i in 0 until BLOCK) {
+                    val k = 1f / (RATE * .35f)
+                    sp += (speed - sp) * k
+                    rn += (rain - rn) * k
+                    tn += (tunnel - tn) * (1f / (RATE * .25f))
+                    vol += (volume - vol) * k
+                    fade += (target - fade) * (1f / (RATE * .8f))
 
-                val white = rnd.nextFloat() * 2 - 1
-                // 실내 울림: 갈색 잡음을 한 번 더 낮게 거른다.
-                brown = (brown + .02f * white) / 1.02f
-                lowRumble += (brown - lowRumble) * .05f
-                val rumble = lowRumble * (.9f + 2.6f * sp) * (1 + 1.8f * tn)
-                // 바람: 흰 잡음에서 낮은 성분을 빼 높은 소리만 남긴다. 터널에서는 먹먹하게.
-                lowWind += (white - lowWind) * (.08f + .25f * (1 - tn))
-                val wind = (white - lowWind) * .023f * sp * sp * (1 - .6f * tn) + lowWind * .016f * sp * sp * tn
-                // 레일 이음매: 일정 거리마다 둔한 소리 두 번(앞뒤 바퀴).
-                travel += sp / RATE
-                if (travel >= JOINT) {
-                    travel -= JOINT
-                    thump = 1f
-                    secondIn = (RATE * (.11f / max(.25f, sp))).toInt()
-                }
-                if (secondIn > 0 && --secondIn == 0) thump = .8f
-                thump *= .9992f
-                val hit = white * thump
-                // 150Hz 아래는 이어폰에서 들리는 둔한 울림, 150~800Hz는 폰 스피커에서도 들리는 몸통 소리.
-                lowThump += (hit - lowThump) * .04f
-                midThump += (hit - midThump) * .2f
-                val rail = (lowThump * 1.6f + (midThump - lowThump) * 1.8f) * clack * min(1f, sp * 2.5f)
-                // 빗방울: 드물게 짧고 높은 톡.
-                if (rn > .01f && rnd.nextFloat() < rn * 45f / RATE) {
-                    drop = .4f + rnd.nextFloat() * .6f
-                    dropTone = rnd.nextFloat()
-                }
-                drop *= .985f - .01f * dropTone
-                val rainTick = drop * white * .225f * rn + white * .0112f * rn
-                // 공조기 같은 낮은 웅웅거림.
-                humPhase += 2 * PI * 58 / RATE
-                if (humPhase > 2 * PI) humPhase -= 2 * PI
-                val hum = (sin(humPhase) * .012 + sin(humPhase * 2) * .006).toFloat()
-                // 차임: 두 음, 짧게 사라짐.
-                var chime = 0f
-                if (chimeRequest) {
-                    chimeRequest = false
-                    chimeT = 0.0
-                }
-                if (chimeT >= 0) {
-                    val t = chimeT
-                    val f = if (t < .45) 784.0 else 622.0
-                    val local = if (t < .45) t else t - .45
-                    chime = (sin(2 * PI * f * t) * exp(-local * 3.2) * .08).toFloat()
-                    chimeT += 1.0 / RATE
-                    if (chimeT > 2.2) chimeT = -1.0
-                }
+                    val white = rnd.nextFloat() * 2 - 1
+                    // 실내 울림: 갈색 잡음을 한 번 더 낮게 거른다.
+                    brown = (brown + .02f * white) / 1.02f
+                    lowRumble += (brown - lowRumble) * .05f
+                    val rumble = lowRumble * (.9f + 2.6f * sp) * (1 + 1.8f * tn)
+                    // 바람: 흰 잡음에서 낮은 성분을 빼 높은 소리만 남긴다. 터널에서는 먹먹하게.
+                    lowWind += (white - lowWind) * (.08f + .25f * (1 - tn))
+                    val wind = (white - lowWind) * .023f * sp * sp * (1 - .6f * tn) + lowWind * .016f * sp * sp * tn
+                    // 레일 이음매: 일정 거리마다 둔한 소리 두 번(앞뒤 바퀴).
+                    travel += sp / RATE
+                    if (travel >= JOINT) {
+                        travel -= JOINT
+                        thump = 1f
+                        secondIn = (RATE * (.11f / max(.25f, sp))).toInt()
+                    }
+                    if (secondIn > 0 && --secondIn == 0) thump = .8f
+                    thump *= .9992f
+                    val hit = white * thump
+                    // 150Hz 아래는 이어폰에서 들리는 둔한 울림, 150~800Hz는 폰 스피커에서도 들리는 몸통 소리.
+                    lowThump += (hit - lowThump) * .04f
+                    midThump += (hit - midThump) * .2f
+                    val rail = (lowThump * 1.6f + (midThump - lowThump) * 1.8f) * clack * min(1f, sp * 2.5f)
+                    // 빗방울: 드물게 짧고 높은 톡.
+                    if (rn > .01f && rnd.nextFloat() < rn * 45f / RATE) {
+                        drop = .4f + rnd.nextFloat() * .6f
+                        dropTone = rnd.nextFloat()
+                    }
+                    drop *= .985f - .01f * dropTone
+                    val rainTick = drop * white * .225f * rn + white * .0112f * rn
+                    // 공조기 같은 낮은 웅웅거림.
+                    humPhase += 2 * PI * 58 / RATE
+                    if (humPhase > 2 * PI) humPhase -= 2 * PI
+                    val hum = (sin(humPhase) * .012 + sin(humPhase * 2) * .006).toFloat()
+                    // 차임: 두 음, 짧게 사라짐.
+                    var chime = 0f
+                    if (chimeRequest) {
+                        chimeRequest = false
+                        chimeT = 0.0
+                    }
+                    if (chimeT >= 0) {
+                        val t = chimeT
+                        val f = if (t < .45) 784.0 else 622.0
+                        val local = if (t < .45) t else t - .45
+                        chime = (sin(2 * PI * f * t) * exp(-local * 3.2) * .08).toFloat()
+                        chimeT += 1.0 / RATE
+                        if (chimeT > 2.2) chimeT = -1.0
+                    }
 
-                val s = (rumble * .9f + wind + rail + rainTick + hum + chime) * vol * fade
-                // 리미터: 앞으로 LOOK 샘플 안의 가장 큰 봉우리가 CEIL을 넘지 않게 배율을 미리 낮추고 0.5초에 걸쳐 되돌린다.
-                ahead[aheadAt] = s
-                aheadAt = (aheadAt + 1) % LOOK
-                var top = 0f
-                for (v in ahead) top = max(top, abs(v))
-                val want = if (top > CEIL) CEIL / top else 1f
-                gain += (want - gain) * if (want < gain) .04f else 1f / (RATE * .5f)
-                out[i] = ((ahead[aheadAt] * gain).coerceIn(-1f, 1f) * 32000).toInt().toShort()
+                    val s = (rumble * .9f + wind + rail + rainTick + hum + chime) * vol * fade
+                    // 리미터: 앞으로 LOOK 샘플 안의 가장 큰 봉우리가 CEIL을 넘지 않게 배율을 미리 낮추고 0.5초에 걸쳐 되돌린다.
+                    out[i] = limiter.process(s)
+                }
+                var written = 0
+                while (written < BLOCK) {
+                    val count = output.write(out, written, BLOCK - written)
+                    if (count <= 0) return
+                    written += count
+                }
             }
-            if (track.write(out, 0, BLOCK) < 0) break
-        }
-        runCatching {
-            track.stop()
-            track.release()
+        } catch (e: RuntimeException) {
+            Telemetry.error(e, "ambient_sound")
+        } finally {
+            // stop 실패도 release를 건너뛰지 않는다. 종료 직전 다시 켰다면 정리 후 새 스레드로 이어 간다.
+            runCatching { track?.stop() }
+            runCatching { track?.release() }
+            synchronized(this) {
+                thread = null
+                if (fadedOut && playing) start()
+            }
         }
     }
 
@@ -197,8 +208,6 @@ class AmbientSound {
         const val BLOCK = 1024
         /** 리미터가 미리 보는 샘플 수. 배율이 .04씩 따라가므로 이만큼이면 봉우리 전에 거의 다 줄어든다. */
         const val LOOK = 128
-        /** 리미터 상한. 1보다 조금 낮춰 남은 오차가 잘리지 않게 한다. */
-        const val CEIL = .9f
         /** 레일 이음매 간격(순항 1초 = 1). 순항에서 약 1.1초마다 덜컹. */
         const val JOINT = 1.1
     }

@@ -484,7 +484,8 @@ fun JourneyScreen(vm: JourneyViewModel = viewModel()) {
                     else -> SettingsSheetContent(
                         vm.fixedTime, vm.fixedWeather, vm.soundOn, vm.soundLevel, vm.ledgeInfo, vm.overlayAlways, vm.powerSave, language,
                         vm.telemetryOn,
-                        vm.devUnlockAll,
+                        vm.devUnlockAll, vm.restoringPurchases,
+                        season = vm.season, onSeason = vm::selectSeason,
                         onTime = vm::selectTime,
                         onWeather = vm::selectWeather, onSound = { vm.toggleSound() }, onSoundLevel = vm::selectSoundLevel,
                         onLedge = vm::setLedge, onOverlay = vm::setOverlay, onPower = vm::setPower,

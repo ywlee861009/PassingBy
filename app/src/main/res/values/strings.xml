@@ -116,8 +116,8 @@
     <!-- 짧은 안내 -->
     <string name="back_again_to_end">Press back again to end the trip</string>
     <string name="tap_for_menu">Tap the screen to show the menu</string>
-    <string name="purchase_unavailable">Can\'t buy this yet. It opens once the course is in the store.</string>
-    <string name="purchases_restored">Checked your purchases again</string>
+    <string name="purchase_unavailable">Can\'t make a purchase right now. Please try again shortly.</string>
+    <string name="purchases_restored">Your purchases have been checked</string>
 
     <!-- 코스 시트 -->
     <string name="courses">Courses</string>
@@ -188,4 +188,12 @@
     <string name="notif_next_trip">Next trip %1$s</string>
     <string name="rest_over">Break\'s over</string>
     <string name="notif_ticket_ready">Your ticket for %1$s is ready.</string>
+    <string name="purchases_checking">Checking your purchases…</string>
+    <string name="purchases_empty">No purchases were found</string>
+    <string name="purchases_restore_failed">Couldn\'t check your purchases. Please try again shortly.</string>
+    <string name="purchase_pending">Your payment is pending. The course will unlock when it completes.</string>
+    <string name="season">Season</string>
+    <string name="season_desc">Choose the original scenery or autumn foliage for all courses.</string>
+    <string name="season_default">Default</string>
+    <string name="season_autumn">Autumn</string>
 </resources>

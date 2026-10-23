@@ -159,6 +159,7 @@ internal class Placed {
     var key = 0
     /** 마을 집이면 true. 렌더러가 테마 양식으로 직접 그린다([sprite]는 비교용 타일 방식만 쓴다). */
     var house = false
+    var kind: SpriteKind? = null
     lateinit var sprite: Sprite
 }
 
@@ -181,11 +182,13 @@ internal object Placement {
         out.key = key
         val town = if (r.town) valueNoise(k * .05 + .7, s + 90) else 0.0
         out.house = town > .58 && r5 < .7
+        out.kind = null
         if (out.house) {
             out.sprite = sprites.houses[(r4 * sprites.houses.size).toInt()]
             out.heightU = 15 + r3 * 9
         } else {
             val kind = r.kinds[(r4 * r.kinds.size).toInt()]
+            out.kind = kind
             val arr = sprites.of(kind)
             out.sprite = arr[(r5 * arr.size).toInt()]
             out.heightU = when (kind) {

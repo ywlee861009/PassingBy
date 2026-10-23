@@ -28,6 +28,8 @@ class SceneState {
     /** 전환이 끝났을 때의 목표 팔레트(비 효과 제외). */
     val target = Palette()
     private val current = Palette()
+    private val seasonal = Palette()
+    var season = Season.DEFAULT
     /** 이번 프레임에 실제로 그릴 팔레트. */
     val effective = Palette()
     private var transition = 1f
@@ -164,7 +166,8 @@ class SceneState {
         val wetTarget = min(1f, rainAmount * 1.3f)
         glassWet = approach(glassWet, wetTarget, dt * if (wetTarget > glassWet) .25f else .04f)
         glassSnow = approach(glassSnow, snowAmount, dt * if (snowAmount > glassSnow) .04f else .03f)
-        wetInto(effective, current, rainAmount)
+        seasonInto(seasonal, current, season)
+        wetInto(effective, seasonal, rainAmount)
         snowInto(effective, snowAmount, snowCover)
     }
 

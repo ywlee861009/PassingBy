@@ -18,7 +18,8 @@ import kotlin.math.min
  * 디자이너가 그린 PNG를 디코딩해 들고 있는 것과 같은 메모리를 쓴다.
  */
 internal class TileSet(
-    val key: TimeOfDay,
+    val key: TileStyle,
+    val generation: Long,
     val w: Int,
     val h: Int,
     val tileW: Int,
@@ -26,6 +27,7 @@ internal class TileSet(
     val tiles: Array<Array<Bitmap>>,
 ) {
     val bytes: Long = tiles.sumOf { row -> row.sumOf { it.allocationByteCount.toLong() } }
+    fun recycle() { for (row in tiles) for (bitmap in row) bitmap.recycle() }
 }
 
 internal object TileBaker {
@@ -37,7 +39,7 @@ internal object TileBaker {
     /** Placement에서 집 높이의 최댓값(15 + 9). */
     private const val HOUSE_MAX_H = 24f
 
-    fun bake(layout: SceneLayout, pal: Palette, key: TimeOfDay, sprites: SpriteSet, layers: Array<TerrainLayer>): TileSet {
+    fun bake(layout: SceneLayout, pal: Palette, key: TileStyle, generation: Long, sprites: SpriteSet, layers: Array<TerrainLayer>): TileSet {
         val tileW = ceil(2f * max(layout.w, layout.h)).toInt()
         val periodU = tileW / layout.u.toDouble()
         val canvas = Canvas()
@@ -82,8 +84,8 @@ internal object TileBaker {
                 canvas.drawPath(path, fill)
 
                 l.objects?.let { rule ->
-                    val tones = IntArray(4)
-                    computeTones(spriteColor(l, pal), if (l.spriteHaze > 0f) .6f else 1f, pal, tones)
+                    val tones = FoliageTones()
+                    tones.update(spriteColor(l, pal), l.spriteHaze, if (l.spriteHaze > 0f) .6f else 1f, pal, key.season)
                     val lit = pal.f[Palette.LIT]
                     val base = v * VARIANT_OFFSET_U
                     val k0 = floor(base / rule.chunkUnits).toInt()
@@ -100,7 +102,7 @@ internal object TileBaker {
                             if (local - halfU < 0 || local + halfU > periodU) continue
                             val cx = (local * layout.u).toFloat()
                             val yb = periodicY(l, layout, v, local, periodU) + rule.sink * layout.u - top
-                            drawSprite(canvas, placed.sprite, cx, yb, hPx, placed.flip, tones, 255, spritePaint, dst)
+                            drawSprite(canvas, placed.sprite, cx, yb, hPx, placed.flip, tones.forObject(placed.kind, placed.key), 255, spritePaint, dst)
                             if (lit > .02f && placed.sprite.windows != null) {
                                 drawWindows(canvas, placed.sprite, placed.key, cx, yb, hPx, placed.flip, lit, windowPaint)
                             }
@@ -111,7 +113,7 @@ internal object TileBaker {
                 bmp
             }
         }
-        return TileSet(key, layout.w, layout.h, tileW, tops, tiles)
+        return TileSet(key, generation, layout.w, layout.h, tileW, tops, tiles)
     }
 
     /** 좌우 끝 높이가 EDGE로 맞춰진 주기 함수. 어떤 변형끼리 이어 붙여도 이음새가 없다. */

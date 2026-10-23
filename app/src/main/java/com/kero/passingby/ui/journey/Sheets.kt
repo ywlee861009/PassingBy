@@ -69,6 +69,7 @@ import com.kero.passingby.R
 import com.kero.passingby.content.Course
 import com.kero.passingby.locale.AppLanguage
 import com.kero.passingby.scene.TimeOfDay
+import com.kero.passingby.scene.Season
 import com.kero.passingby.scene.Weather
 import com.kero.passingby.ui.theme.Pb
 import com.kero.passingby.ui.theme.PbType
@@ -278,6 +279,9 @@ fun SettingsSheetContent(
     language: AppLanguage,
     telemetry: Boolean,
     devUnlock: Boolean,
+    restoringPurchases: Boolean,
+    season: Season,
+    onSeason: (Season) -> Unit,
     onTime: (TimeOfDay?) -> Unit,
     onWeather: (Weather?) -> Unit,
     onSound: (Boolean) -> Unit,
@@ -305,6 +309,12 @@ fun SettingsSheetContent(
                 Choice(stringResource(t?.label ?: R.string.automatic), t == time) { onTime(t) }
             }
         }
+    }
+
+    SectionTitle(stringResource(R.string.season))
+    BasicText(stringResource(R.string.season_desc), style = PbType.kicker.copy(color = Pb.InkSoft))
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        for (option in Season.entries) Choice(stringResource(option.label), option == season) { onSeason(option) }
     }
 
     SectionTitle(stringResource(R.string.weather_outside))
@@ -349,7 +359,11 @@ fun SettingsSheetContent(
     Toggle(stringResource(R.string.telemetry), stringResource(R.string.telemetry_desc), telemetry, onTelemetry)
 
     SectionTitle(stringResource(R.string.purchases))
-    QuietButton(stringResource(R.string.restore_purchases), onRestore, Modifier.fillMaxWidth(), color = Pb.Ink)
+    QuietButton(
+        stringResource(if (restoringPurchases) R.string.purchases_checking else R.string.restore_purchases),
+        onRestore, Modifier.fillMaxWidth(), color = if (restoringPurchases) Pb.InkSoft else Pb.Ink,
+        enabled = !restoringPurchases,
+    )
     QuietButton(stringResource(R.string.share_app), onShare, Modifier.fillMaxWidth())
     QuietButton(stringResource(R.string.play_store), onPlayStore, Modifier.fillMaxWidth())
     QuietButton(stringResource(R.string.licenses), onLicenses, Modifier.fillMaxWidth())

@@ -49,6 +49,10 @@ class SceneRenderer(private val state: SceneState) {
     @Volatile private var appliedMode: RenderMode? = null
     @Volatile private var tileSet: TileSet? = null
     @Volatile private var tileBakePending = false
+    private val tileLock = Any()
+    private var tileResult: TileSet? = null
+    @Volatile private var released = false
+    private var tileGeneration = 0L
 
     private val windowFrame = TrainWindowFrame()
 
@@ -95,8 +99,8 @@ class SceneRenderer(private val state: SceneState) {
     }
 
     private val cloudTones = IntArray(4)
-    private val midTones = IntArray(4)
-    private val nearTones = IntArray(4)
+    private val midTones = FoliageTones()
+    private val nearTones = FoliageTones()
     private val fringeTones = IntArray(4)
     private val bedTones = IntArray(4)
     private val warmPts = FloatArray(MAX_WINDOWS * 2)
@@ -228,9 +232,15 @@ class SceneRenderer(private val state: SceneState) {
     }
 
     fun release() {
+        released = true
+        tileGeneration++
         executor.shutdownNow()
         for (b in bakers) b.release()
         tileSet = null
+        synchronized(tileLock) {
+            tileResult?.recycle()
+            tileResult = null
+        }
     }
 
     private fun onResize() {
@@ -283,6 +293,7 @@ class SceneRenderer(private val state: SceneState) {
 
     /** 방식별로 필요한 메모리만 들고 있는다. 바꾸면 다른 방식의 비트맵은 놓아준다. */
     private fun applyMode() {
+        tileGeneration++
         val mode = state.mode
         appliedMode = mode
         if (mode == RenderMode.BAKED) {
@@ -290,29 +301,50 @@ class SceneRenderer(private val state: SceneState) {
         } else {
             for (b in bakers) b.release()
         }
-        if (mode != RenderMode.TILES) tileSet = null
+        if (mode != RenderMode.TILES) {
+            tileSet = null
+            synchronized(tileLock) {
+                tileResult?.recycle()
+                tileResult = null
+            }
+        }
     }
 
     private fun ensureTiles(): Boolean {
+        synchronized(tileLock) { tileResult.also { tileResult = null } }?.let { result ->
+            if (result.generation == tileGeneration && result.w == layout.w && result.h == layout.h && result.key.matches(state)) {
+                tileSet = result
+            } else result.recycle()
+        }
         val ts = tileSet
-        val sizeOk = ts != null && ts.w == layout.w && ts.h == layout.h
-        if (sizeOk && ts!!.key == state.timeOfDay) return true
-        if (!tileBakePending) {
+        val styleOk = ts != null && ts.w == layout.w && ts.h == layout.h &&
+            ts.generation == tileGeneration && ts.key.matches(state)
+        if (styleOk) return true
+        if (!tileBakePending && !released) {
             tileBakePending = true
             val snap = layout.copy()
-            val pal = Palette().apply { copyFrom(state.target) }
-            val key = state.timeOfDay
+            val key = TileStyle.of(state)
+            // 전환 중의 중간색을 영구 캐시하지 않도록 목표 시간대와 키의 날씨로 굽는다.
+            val seasonal = Palette().also { seasonInto(it, state.target, key.season) }
+            val pal = Palette().also {
+                wetInto(it, seasonal, key.rain / 4f)
+                snowInto(it, key.snow / 4f, key.cover / 4f)
+            }
+            val generation = tileGeneration
+            val bakeLayers = layers
             executor.execute {
                 try {
-                    val baked = TileBaker.bake(snap, pal, key, sprites, layers)
-                    if (appliedMode == RenderMode.TILES) tileSet = baked
+                    val baked = TileBaker.bake(snap, pal, key, generation, sprites, bakeLayers)
+                    synchronized(tileLock) {
+                        if (released || appliedMode != RenderMode.TILES) baked.recycle() else tileResult = baked
+                    }
                 } finally {
                     tileBakePending = false
                 }
             }
         }
-        // 크기가 맞으면 새 타일이 준비될 때까지 이전 시간대 타일을 그린다.
-        return sizeOk
+        // 새 계절·날씨가 준비될 때까지 현재 팔레트로 직접 그린다. 오래된 타일은 표시하지 않는다.
+        return false
     }
 
     private fun drawSky(canvas: Canvas, p: Palette) {
@@ -394,7 +426,7 @@ class SceneRenderer(private val state: SceneState) {
         drawTerrain(canvas, Scenery.MID, midOff, desaturate(layerColor(mid, p), .25f * uc), mid.mist, p)
         drawTerraces(canvas, p, mid, midOff)
         drawLandmarks(canvas, p, Scenery.MID)
-        computeTones(spriteColor(mid, p), .6f, p, midTones)
+        midTones.update(spriteColor(mid, p), mid.spriteHaze, .6f, p, state.season)
         // 도시 안 언덕에도 나무가 조금 남는다.
         mid.objects?.let { drawObjects(canvas, mid, it, midOff, midTones, p, GATE_RURAL, .8f) }
         drawWater(canvas, p, mid.speed, midOff)
@@ -412,7 +444,7 @@ class SceneRenderer(private val state: SceneState) {
         computeTones(mix(nearCol, p.c[Palette.TREE], .45f), .8f, p, fringeTones)
         drawFringe(canvas, near, near.speed, nearOff, 34.0, 8f, 15f, 303, 0f, fringeTones, GATE_RURAL)
         drawFringe(canvas, near, near.speed, nearOff, 40.0, 7f, 13f, 303, 0f, fringeTones, GATE_URBAN)
-        computeTones(spriteColor(near, p), 1f, p, nearTones)
+        nearTones.update(spriteColor(near, p), near.spriteHaze, 1f, p, state.season)
         near.objects?.let { drawObjects(canvas, near, it, nearOff, nearTones, p, GATE_RURAL, 1f) }
         drawObjects(canvas, near, th.streetTrees, nearOff, nearTones, p, GATE_URBAN, 1f)
         drawBed(canvas, p)
@@ -437,7 +469,7 @@ class SceneRenderer(private val state: SceneState) {
             }
             val rule = l.objects ?: continue
             val tones = if (i == Scenery.MID) midTones else nearTones
-            computeTones(spriteColor(l, p), if (l.spriteHaze > 0f) .6f else 1f, p, tones)
+            tones.update(spriteColor(l, p), l.spriteHaze, if (l.spriteHaze > 0f) .6f else 1f, p, state.season)
             drawObjects(canvas, l, rule, offU, tones, p, GATE_NONE, 1f)
         }
         drawBed(canvas, p)
@@ -529,7 +561,7 @@ class SceneRenderer(private val state: SceneState) {
     }
 
     private fun drawObjects(
-        canvas: Canvas, l: TerrainLayer, rule: ObjectRule, offU: Double, tones: IntArray, p: Palette,
+        canvas: Canvas, l: TerrainLayer, rule: ObjectRule, offU: Double, tones: FoliageTones, p: Palette,
         gate: Int, strength: Float,
     ) {
         val u = layout.u
@@ -556,7 +588,7 @@ class SceneRenderer(private val state: SceneState) {
                     drawHouse(canvas, cx, yb, hPx, placed.key, l.spriteHaze, p)
                     continue
                 }
-                drawSprite(canvas, s, cx, yb, hPx, placed.flip, tones, 255, spritePaint, dst)
+                drawSprite(canvas, s, cx, yb, hPx, placed.flip, tones.forObject(placed.kind, placed.key), 255, spritePaint, dst)
                 if (state.showBoxes) canvas.drawRect(dst, boxPaint)
                 if (lit > .02f && s.windows != null) {
                     drawWindows(canvas, s, placed.key, cx, yb, hPx, placed.flip, lit, windowPaint)
@@ -1172,6 +1204,13 @@ class SceneRenderer(private val state: SceneState) {
         }
     }
 
+    private fun fieldColor(original: Int, autumn: Int, p: Palette, haze: Float): Int {
+        val color = themed(if (state.season == Season.AUTUMN) autumn else original, p, haze)
+        // 밭도 계절색 위에 비의 채도 저하와 눈 덮임을 적용한다.
+        val wet = mix(color, desaturate(color, .6f), state.rainAmount * .55f)
+        return mix(wet, p.c[Palette.SNOW_WHITE], p.f[Palette.SNOW] * .85f)
+    }
+
     private fun drawPlot(canvas: Canvas, p: Palette, style: FieldStyle, k: Int, x0: Float, x1: Float, top: Float, bot: Float, u: Float) {
         val hgt = bot - top
         val paint = fieldPaint
@@ -1179,7 +1218,7 @@ class SceneRenderer(private val state: SceneState) {
         when (style) {
             FieldStyle.PADDY -> {
                 // 논: 자라는 벼의 초록 면, 하늘을 비추는 물빛 줄, 논둑 세 줄.
-                paint.color = themed(Color.rgb(118, 158, 84), p, .05f)
+                paint.color = fieldColor(Color.rgb(118, 158, 84), Color.rgb(191, 159, 71), p, .05f)
                 canvas.drawRect(x0, top, x1, bot, paint)
                 paint.color = mix(paint.color, p.c[Palette.BOT], .45f)
                 for (r in 0..2) {
@@ -1215,7 +1254,7 @@ class SceneRenderer(private val state: SceneState) {
                 // 포도밭: 선로와 직각으로 난 줄이 끝에서 보여 세로 줄무늬가 된다.
                 paint.color = themed(Color.rgb(128, 100, 70), p, 0f)
                 canvas.drawRect(x0, top, x1, bot, paint)
-                paint.color = themed(Color.rgb(64, 104, 48), p, 0f)
+                paint.color = fieldColor(Color.rgb(64, 104, 48), Color.rgb(153, 105, 47), p, 0f)
                 var n = 0
                 var x = x0 + 2 * u
                 while (x < x1 && n < FIELD_PTS - 4) {
@@ -1232,7 +1271,7 @@ class SceneRenderer(private val state: SceneState) {
                 // 라벤더: 보라 줄과 마른 땅 줄을 번갈아.
                 paint.color = themed(Color.rgb(150, 150, 120), p, 0f)
                 canvas.drawRect(x0, top, x1, bot, paint)
-                paint.color = themed(Color.rgb(132, 108, 186), p, 0f)
+                paint.color = fieldColor(Color.rgb(132, 108, 186), Color.rgb(145, 127, 98), p, 0f)
                 for (r in 0..3) {
                     val y = top + hgt * (.05f + r * .25f)
                     dst.set(x0 + 1 * u, y, x1 - 1 * u, y + hgt * .15f)

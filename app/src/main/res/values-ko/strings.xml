@@ -110,8 +110,8 @@
     <!-- 짧은 안내 -->
     <string name="back_again_to_end">한 번 더 누르면 여행이 끝나요</string>
     <string name="tap_for_menu">화면을 누르면 메뉴가 보여요</string>
-    <string name="purchase_unavailable">아직 구매할 수 없어요. 스토어에 코스가 등록되면 열려요.</string>
-    <string name="purchases_restored">구매 내역을 다시 확인했어요</string>
+    <string name="purchase_unavailable">지금은 구매할 수 없어요. 잠시 뒤 다시 시도해 주세요.</string>
+    <string name="purchases_restored">구매 내역을 확인했어요</string>
 
     <!-- 코스 시트 -->
     <string name="courses">코스</string>
@@ -180,4 +180,12 @@
     <string name="notif_next_trip">다음 여행 %1$s</string>
     <string name="rest_over">쉬는 시간이 끝났어요</string>
     <string name="notif_ticket_ready">%1$s 승차권이 준비됐어요.</string>
+    <string name="purchases_checking">구매 내역을 확인하고 있어요</string>
+    <string name="purchases_empty">확인된 구매 내역이 없어요</string>
+    <string name="purchases_restore_failed">구매 내역을 확인하지 못했어요. 잠시 뒤 다시 시도해 주세요.</string>
+    <string name="purchase_pending">결제가 처리 중이에요. 완료되면 코스가 열려요.</string>
+    <string name="season">계절</string>
+    <string name="season_desc">기본 풍경이나 가을 단풍을 골라 보세요. 모든 코스에 적용돼요.</string>
+    <string name="season_default">기본</string>
+    <string name="season_autumn">가을</string>
 </resources>

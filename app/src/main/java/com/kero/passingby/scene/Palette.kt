@@ -40,7 +40,10 @@ class Palette {
         const val PANEL_SHADE = 12
         /** 눈 덮인 땅·잎 색. 프리셋에는 없고 [snowInto]가 매 프레임 계산한다. */
         const val SNOW_WHITE = 13
-        const val C_COUNT = 14
+        const val AUTUMN_RED = 14
+        const val AUTUMN_AMBER = 15
+        const val AUTUMN_GOLD = 16
+        const val C_COUNT = 17
 
         const val SUN_X = 0
         const val SUN_Y = 1
@@ -104,7 +107,8 @@ internal fun lerpInto(out: Palette, a: Palette, b: Palette, t: Float) {
 internal fun wetInto(out: Palette, src: Palette, amount: Float) {
     out.copyFrom(src)
     if (amount <= 0.001f) return
-    for (i in 0 until Palette.EXTERIOR_COUNT) {
+    for (i in 0 until Palette.C_COUNT) {
+        if (i in Palette.PANEL..Palette.SNOW_WHITE) continue
         val c = src.c[i]
         val l =0.3f * ((c shr 16) and 0xff) + 0.59f * ((c shr 8) and 0xff) + 0.11f * (c and 0xff)
         val r = (l * .78f + 18).toInt().coerceIn(0, 255)
@@ -132,6 +136,7 @@ internal fun snowInto(p: Palette, amount: Float, cover: Float) {
         p.c[Palette.NEAR] = mix(p.c[Palette.NEAR], fog, amount * .15f)
         p.c[Palette.TREE] = mix(p.c[Palette.TREE], fog, amount * .1f)
         p.c[Palette.CLOUD] = mix(p.c[Palette.CLOUD], fog, amount * .5f)
+        for (i in Palette.AUTUMN_RED..Palette.AUTUMN_GOLD) p.c[i] = mix(p.c[i], fog, amount * .1f)
         p.f[Palette.SUN_A] *= 1 - amount
         p.f[Palette.STARS] *= 1 - amount
     }

@@ -22,6 +22,7 @@ import androidx.lifecycle.AndroidViewModel
 import com.kero.passingby.R
 import com.kero.passingby.audio.AmbientSound
 import com.kero.passingby.billing.Billing
+import com.kero.passingby.billing.RestoreStatus
 import com.kero.passingby.content.Course
 import com.kero.passingby.content.Station
 import com.kero.passingby.journey.CoursePlan
@@ -35,6 +36,7 @@ import com.kero.passingby.scene.RenderMode
 import com.kero.passingby.scene.SceneKind
 import com.kero.passingby.scene.SceneRenderer
 import com.kero.passingby.scene.SceneState
+import com.kero.passingby.scene.Season
 import com.kero.passingby.scene.TimeOfDay
 import com.kero.passingby.scene.UrbanField
 import com.kero.passingby.scene.Weather
@@ -145,11 +147,13 @@ class JourneyViewModel(app: Application) : AndroidViewModel(app) {
     /** 상품 ID → 표시 가격. 스토어에서 받아 오기 전에는 비어 있다. */
     var prices by mutableStateOf<Map<String, String>>(emptyMap())
         private set
+    var restoringPurchases by mutableStateOf(false)
+        private set
     private val billing = Billing(
         app,
         Course.ALL.mapNotNull { it.productId },
         onPrices = { prices = it },
-        onOwned = { ids ->
+        onOwned = { ids, _ ->
             val courses = Course.ALL.filter { it.productId in ids }.map { it.id }.toSet()
             if (!unlocked.containsAll(courses)) {
                 for (id in courses - unlocked) Telemetry.event("course_unlock", "course" to id)
@@ -157,11 +161,25 @@ class JourneyViewModel(app: Application) : AndroidViewModel(app) {
                 store.unlocked = unlocked
             }
         },
+        onRestore = { status ->
+            restoringPurchases = status == RestoreStatus.CHECKING
+            when (status) {
+                RestoreStatus.RESTORED -> notify(R.string.purchases_restored)
+                RestoreStatus.EMPTY -> notify(R.string.purchases_empty)
+                RestoreStatus.FAILED -> notify(R.string.purchases_restore_failed)
+                RestoreStatus.PENDING -> notify(R.string.purchase_pending)
+                else -> Unit
+            }
+        },
+        onPending = { notify(R.string.purchase_pending) },
+        onPurchaseFailed = { notify(R.string.purchase_unavailable) },
     )
 
     // ── 설정 ──
     /** 직접 고른 시간대. null이면 여행에 맞춰 자동 순환한다. */
     var fixedTime by mutableStateOf(store.timeOfDay?.let { name -> TimeOfDay.entries.firstOrNull { it.name == name } })
+        private set
+    var season by mutableStateOf(store.season)
         private set
     var soundOn by mutableStateOf(store.soundOn)
         private set
@@ -208,6 +226,7 @@ class JourneyViewModel(app: Application) : AndroidViewModel(app) {
 
     init {
         restore()
+        scene.season = season
         scene.setTimeOfDay(fixedTime)
         scene.snapTimeOfDay()
         store.weather?.let { name -> runCatching { Weather.valueOf(name) }.getOrNull() }?.let { applyWeather(it) }
@@ -279,7 +298,7 @@ class JourneyViewModel(app: Application) : AndroidViewModel(app) {
 
     fun priceOf(c: Course): String? = c.productId?.let { prices[it] }
 
-    /** 지금 고른(미리 보는) 코스를 산다. 스토어에 상품이 아직 없으면 안내만 띄운다. */
+    /** 지금 고른(미리 보는) 코스를 산다. 연결·상품 조회가 안 됐으면 재시도 안내를 띄운다. */
     fun buy(activity: Activity, c: Course = course) {
         val id = c.productId ?: return
         val launched = billing.purchase(activity, id)
@@ -288,10 +307,13 @@ class JourneyViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun restorePurchases() {
+        if (restoringPurchases) return
         Telemetry.event("restore_tap", "ready" to billing.ready)
         billing.restore()
-        notify(R.string.purchases_restored)
     }
+
+    /** 앱 밖에서 완료된 대기 구매도 복귀할 때 확인한다. 초기 연결 조회와 겹치면 합쳐진다. */
+    fun onResume() = billing.onResume()
 
     /** 앱 화면이 보이거나 가려질 때 MainActivity가 알린다. */
     fun setVisible(v: Boolean) {
@@ -670,6 +692,12 @@ class JourneyViewModel(app: Application) : AndroidViewModel(app) {
     fun selectLand(k: SceneKind?) {
         land = k
         applyLand()
+    }
+
+    fun selectSeason(value: Season) {
+        season = value
+        store.season = value
+        scene.season = value
     }
 
     fun selectTime(t: TimeOfDay?) {
