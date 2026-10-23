@@ -75,9 +75,15 @@ object TripNotifications {
     }
 
     /** 도착·쉬는 시간 끝 알림. 소리·진동은 채널 설정을 따른다. */
-    fun alert(ctx: Context, title: String, text: String) {
+    fun alert(ctx: Context, title: String, text: String, deliveryId: String? = null): Boolean {
+        val manager = ctx.getSystemService(NotificationManager::class.java) ?: return false
+        val retry = deliveryId != null && manager.activeNotifications.any {
+            it.id == ALERT_ID && it.notification.extras.getString("passingby.delivery") == deliveryId
+        }
         ensureChannels(ctx)
         val n = NotificationCompat.Builder(ctx, CH_ALERT)
+            .setOnlyAlertOnce(retry)
+            .addExtras(android.os.Bundle().apply { putString("passingby.delivery", deliveryId) })
             .setSmallIcon(R.drawable.ic_stat_window)
             .setContentTitle(title)
             .setContentText(text)
@@ -86,8 +92,8 @@ object TripNotifications {
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setContentIntent(openApp(ctx))
             .build()
-        runCatching { ctx.getSystemService(NotificationManager::class.java)?.notify(ALERT_ID, n) }
-            .onFailure { Telemetry.error(it, "notify_alert") }
+        return runCatching { manager.notify(ALERT_ID, n); true }
+            .onFailure { Telemetry.error(it, "notify_alert") }.getOrDefault(false)
     }
 
     private fun openApp(ctx: Context): PendingIntent = createOpenApp(ctx)

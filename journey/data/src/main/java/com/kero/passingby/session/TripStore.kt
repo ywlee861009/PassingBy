@@ -119,7 +119,7 @@ class TripStore(private val context: Context) : JourneyStore {
         putInt(KEY_A_BOOT, bootCount())
     }
 
-    override fun saveSession(active: Active, courseId: String, direction: Int, stations: Set<Int>, arrived: Boolean) {
+    override fun saveSession(active: Active, courseId: String, direction: Int, stations: Set<Int>, arrived: Boolean, effect: CompletionEffect?) {
         require(active.sessionId.isNotBlank())
         synchronized(prefs) {
             val editor = prefs.edit().active(active)
@@ -134,8 +134,35 @@ class TripStore(private val context: Context) : JourneyStore {
                     .putInt(KEY_ALL_TRIPS, allTrips + 1).putInt(KEY_ALL_MINUTES, allMinutes + active.tripMinutes)
                     .putString(KEY_RECORDED_SESSION, active.sessionId)
             }
+            if (effect != null && prefs.getString(KEY_ACKNOWLEDGED_EFFECT, null) != effect.id) {
+                val pending = pendingEffects()
+                if (pending.none { it.id == effect.id }) editor.putString(KEY_PENDING_EFFECTS, encodeEffects(pending + effect))
+            }
             // SharedPreferences publishes one map and writes it with its atomic-file backup protocol.
             editor.apply()
+        }
+    }
+
+    override fun pendingEffects(): List<CompletionEffect> = runCatching {
+        val array = org.json.JSONArray(prefs.getString(KEY_PENDING_EFFECTS, "[]"))
+        (0 until array.length()).map { index ->
+            val item = array.getJSONObject(index)
+            CompletionEffect(item.getString("id"), CompletionEffect.Kind.valueOf(item.getString("kind")),
+                item.getString("course"), item.getInt("direction"), item.getInt("minutes"))
+        }
+    }.getOrDefault(emptyList())
+
+    private fun encodeEffects(effects: List<CompletionEffect>): String = org.json.JSONArray().apply {
+        effects.forEach { effect -> put(org.json.JSONObject().put("id", effect.id).put("kind", effect.kind.name)
+            .put("course", effect.courseId).put("direction", effect.direction).put("minutes", effect.minutes)) }
+    }.toString()
+
+    override fun acknowledgeEffect(id: String) {
+        synchronized(prefs) {
+            val pending = pendingEffects()
+            if (pending.none { it.id == id }) return
+            prefs.edit().putString(KEY_PENDING_EFFECTS, encodeEffects(pending.filterNot { it.id == id }))
+                .putString(KEY_ACKNOWLEDGED_EFFECT, id).apply()
         }
     }
 
@@ -183,6 +210,8 @@ class TripStore(private val context: Context) : JourneyStore {
         const val KEY_SOUND = "sound"
         const val KEY_SOUND_LEVEL = "sound_level"
         const val KEY_TELEMETRY = "telemetry"
+        const val KEY_PENDING_EFFECTS = "pending_completion_effects"
+        const val KEY_ACKNOWLEDGED_EFFECT = "acknowledged_completion_effect"
         const val KEY_A_ID = "a_session_id"
         const val KEY_RECORDED_SESSION = "recorded_session_id"
         const val KEY_A_PHASE = "a_phase"

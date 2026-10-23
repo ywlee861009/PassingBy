@@ -1,6 +1,7 @@
 package com.kero.passingby.journey
 
 import com.kero.passingby.session.JourneyStore
+import com.kero.passingby.session.CompletionEffect
 import com.kero.passingby.session.SessionPersistence
 import java.util.UUID
 
@@ -22,6 +23,9 @@ class SessionRuntime(
     private var closed = false
     var checkpointVersion = 0L
         private set
+
+    val pendingEffects get() = store.pendingEffects()
+    fun acknowledgeEffect(id: String) = store.acknowledgeEffect(id)
 
     val state get() = coordinator.state
     val elapsedSeconds get() = coordinator.elapsedSeconds
@@ -89,7 +93,13 @@ class SessionRuntime(
             stamped.clear()
         }
         program.onSessionEvent(event, state)
-        checkpoint(event is SessionEvent.Arrived)
+        val kind = when (event) {
+            is SessionEvent.Arrived -> CompletionEffect.Kind.ARRIVED
+            is SessionEvent.RestFinished -> CompletionEffect.Kind.REST_FINISHED
+            else -> null
+        }
+        val effect = kind?.let { CompletionEffect("$sessionId:${it.name}", it, program.courseId, program.direction, state.tripMinutes) }
+        checkpoint(event is SessionEvent.Arrived, effect)
         notifyChanged(event)
     }
 
@@ -125,10 +135,10 @@ class SessionRuntime(
     /** Persists program settings changed by its owner without advancing any rendering state. */
     fun checkpoint() { checkpoint(arrived = false); notifyChanged(null) }
 
-    private fun checkpoint(arrived: Boolean) {
+    private fun checkpoint(arrived: Boolean, effect: CompletionEffect? = null) {
         val stations = if (moving || state.phase == SessionPhase.ARRIVED) program.reachedStations(elapsedSeconds) else emptySet()
         store.saveSession(program.checkpoint(coordinator.snapshot(), sessionId), program.courseId, program.direction,
-            stations, arrived)
+            stations, arrived, effect)
         stamped += stations
         checkpointVersion++
     }

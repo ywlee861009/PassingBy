@@ -39,6 +39,7 @@ class ExperienceRegistryTest {
     @Test fun ambiguousOrEmptyRegistriesAreRejected() {
         assertThrows(IllegalArgumentException::class.java) { ExperienceRegistry(emptyList()) }
         assertThrows(IllegalArgumentException::class.java) { ExperienceRegistry(listOf(provider("empty"))) }
+        assertThrows(IllegalArgumentException::class.java) { ExperienceRegistry(listOf(provider("empty"), provider("valid", "a"))) }
         assertThrows(IllegalArgumentException::class.java) { ExperienceRegistry(listOf(provider("same", "a"), provider("same", "b"))) }
         assertThrows(IllegalArgumentException::class.java) { ExperienceRegistry(listOf(provider("first", "a"), provider("second", "a"))) }
     }

@@ -1,10 +1,16 @@
 package com.kero.passingby.session
 
 /** Storage boundary. Experience-specific setting IDs are interpreted by their owner. */
+data class CompletionEffect(val id: String, val kind: Kind, val courseId: String, val direction: Int, val minutes: Int) {
+    enum class Kind { ARRIVED, REST_FINISHED }
+}
+
 interface SessionPersistence {
     var minutes: Int
+    fun pendingEffects(): List<CompletionEffect>
+    fun acknowledgeEffect(id: String)
     fun loadActive(): JourneyStore.Active?
-    fun saveSession(active: JourneyStore.Active, courseId: String, direction: Int, stations: Set<Int> = emptySet(), arrived: Boolean = false)
+    fun saveSession(active: JourneyStore.Active, courseId: String, direction: Int, stations: Set<Int> = emptySet(), arrived: Boolean = false, effect: CompletionEffect? = null)
 }
 
 interface JourneyStore : SessionPersistence {
@@ -31,7 +37,7 @@ interface JourneyStore : SessionPersistence {
     override fun loadActive(): Active?
 
     /** One atomic storage edit: session, route, stamps and optional completion share a checkpoint. */
-    override fun saveSession(active: Active, courseId: String, direction: Int, stations: Set<Int>, arrived: Boolean)
+    override fun saveSession(active: Active, courseId: String, direction: Int, stations: Set<Int>, arrived: Boolean, effect: CompletionEffect?)
 
     class Active(
         val phase: String,

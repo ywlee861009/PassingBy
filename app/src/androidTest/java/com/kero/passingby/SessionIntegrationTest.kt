@@ -164,6 +164,23 @@ class SessionIntegrationTest {
         assertEquals(1 to 25, store.lifetime())
     }
 
+    @Test fun pendingCompletionAndAcknowledgementSurviveNewStoresWithoutDuplicatingRecords() = withSession { models ->
+        val vm = models.vm
+        val store = TripStore(context)
+        vm.depart(); vm.seekFraction(1f)
+        val active = store.loadActive()!!
+        val effect = com.kero.passingby.session.CompletionEffect("delivery-test",
+            com.kero.passingby.session.CompletionEffect.Kind.ARRIVED, vm.course.id, vm.direction, vm.tripMinutes)
+        store.saveSession(active, vm.course.id, vm.direction, arrived = true, effect = effect)
+        assertTrue(TripStore(context).pendingEffects().any { it.id == effect.id })
+        assertEquals(1 to 25, TripStore(context).lifetime())
+        TripStore(context).acknowledgeEffect(effect.id)
+        assertFalse(TripStore(context).pendingEffects().any { it.id == effect.id })
+        store.saveSession(active, vm.course.id, vm.direction, arrived = true, effect = effect)
+        assertFalse(TripStore(context).pendingEffects().any { it.id == effect.id })
+        assertEquals(1 to 25, store.lifetime())
+    }
+
     private class Models(private val app: PassingByApp) : AutoCloseable {
         private var graph = AppGraph(app)
         private var store = ViewModelStore()

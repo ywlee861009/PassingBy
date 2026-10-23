@@ -9,6 +9,8 @@ import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
 import com.kero.passingby.experience.ExperienceProgram
+import com.kero.passingby.experience.ExperienceRegistry
+import com.kero.passingby.session.CompletionEffect
 import com.kero.passingby.feature.journey.R
 import com.kero.passingby.journey.SessionEvent
 import com.kero.passingby.journey.SessionPhase
@@ -20,7 +22,7 @@ import com.kero.passingby.session.TripTimer
 import com.kero.passingby.telemetry.Telemetry
 
 /** App-lifetime effects consume committed transitions, including alarm-only process starts. */
-internal class JourneySessionEffects(private val app: Application, private val runtime: SessionRuntime) {
+internal class JourneySessionEffects(private val app: Application, private val runtime: SessionRuntime, private val registry: ExperienceRegistry) {
     private var syncedVersion = -1L
     init {
         runtime.observe { event ->
@@ -30,18 +32,11 @@ internal class JourneySessionEffects(private val app: Application, private val r
                 when (event) {
                     is SessionEvent.Arrived -> {
                         Telemetry.event("trip_arrive", "course" to runtime.program.courseId, "minutes" to runtime.state.tripMinutes, "late" to event.late)
-                        val res = AppLanguage.localized(app).resources
-                        val program = runtime.program as ExperienceProgram
-                        val terminus = res.getString(program.course.ordered(program.direction).last().name)
-                        deliver(event.late, longArrayOf(0, 180, 140, 180, 140, 320),
-                            res.getString(R.string.arrived_at, terminus), res.getString(R.string.notif_arrived, runtime.state.tripMinutes))
+                        flushPending(event.late)
                     }
                     is SessionEvent.RestFinished -> {
                         Telemetry.event("rest_end", "course" to runtime.program.courseId, "late" to event.late)
-                        val res = AppLanguage.localized(app).resources
-                        val program = runtime.program as ExperienceProgram
-                        deliver(event.late, longArrayOf(0, 120, 120, 120), res.getString(R.string.rest_over),
-                            res.getString(R.string.notif_ticket_ready, program.course.title(res, program.direction)))
+                        flushPending(event.late)
                     }
                     is SessionEvent.Departed -> Telemetry.event("trip_start", "course" to runtime.program.courseId,
                         "minutes" to runtime.state.tripMinutes, "direction" to runtime.program.direction, "from" to event.from.name.lowercase())
@@ -87,9 +82,23 @@ internal class JourneySessionEffects(private val app: Application, private val r
         }
     }
 
-    private fun deliver(late: Boolean, pattern: LongArray, title: String, text: String) {
-        if (!AppVisibility.foreground) { TripNotifications.alert(app, title, text); return }
-        if (late) return
+    fun flushPending(late: Boolean = true) {
+        val res = AppLanguage.localized(app).resources
+        for (effect in runtime.pendingEffects) {
+            val course = registry.courseById(effect.courseId)
+            val arrived = effect.kind == CompletionEffect.Kind.ARRIVED
+            val title = if (arrived) res.getString(R.string.arrived_at, res.getString(course.ordered(effect.direction).last().name))
+                else res.getString(R.string.rest_over)
+            val text = if (arrived) res.getString(R.string.notif_arrived, effect.minutes)
+                else res.getString(R.string.notif_ticket_ready, course.title(res, effect.direction))
+            val pattern = if (arrived) longArrayOf(0, 180, 140, 180, 140, 320) else longArrayOf(0, 120, 120, 120)
+            if (deliver(late, pattern, title, text, effect.id)) runtime.acknowledgeEffect(effect.id)
+        }
+    }
+
+    private fun deliver(late: Boolean, pattern: LongArray, title: String, text: String, id: String): Boolean {
+        if (!AppVisibility.foreground) return TripNotifications.alert(app, title, text, id)
+        if (late) return true
         val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             (app.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager)?.defaultVibrator
         } else {
@@ -102,5 +111,6 @@ internal class JourneySessionEffects(private val app: Application, private val r
                 .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build()
             play()
         }
+        return true
     }
 }

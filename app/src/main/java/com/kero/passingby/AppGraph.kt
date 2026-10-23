@@ -33,16 +33,17 @@ class AppGraph(app: Application) {
                 handler.postDelayed(runnable, delay)
                 cancellation
             }).also { runtime ->
-                effects = JourneySessionEffects(app, runtime)
+                effects = JourneySessionEffects(app, runtime, experiences)
                 runtime.start()
                 effects?.syncTimer()
+                effects?.flushPending()
             }
     }
     val journeyViewModelFactory = JourneyViewModel.Factory(
         app, JourneyOptions(developerTools = BuildConfig.DEV_TOOLS), store, { session }, experiences,
     )
 
-    fun refreshAlarm() { session.refresh(); effects?.syncTimer() }
+    fun refreshAlarm() { session.refresh(); effects?.syncTimer(); effects?.flushPending() }
     fun closeSession() { session.close(); session.program.let { (it as? AutoCloseable)?.close() } }
 
     init {

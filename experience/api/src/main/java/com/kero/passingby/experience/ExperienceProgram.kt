@@ -82,6 +82,7 @@ class ExperienceRegistry(providers: List<ExperienceProvider>) {
     val courses = this.providers.flatMap { it.courses }
     init {
         require(this.providers.isNotEmpty())
+        require(this.providers.all { it.courses.isNotEmpty() })
         require(this.providers.map { it.id }.distinct().size == this.providers.size)
         require(courses.isNotEmpty() && courses.map { it.id }.distinct().size == courses.size)
     }

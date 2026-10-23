@@ -1,6 +1,7 @@
 package com.kero.passingby.journey
 
 import com.kero.passingby.session.JourneyStore
+import com.kero.passingby.session.CompletionEffect
 import com.kero.passingby.session.SessionPersistence
 import org.junit.Assert.*
 import org.junit.Test
@@ -25,11 +26,15 @@ class SessionRuntimeTest {
         var completed: String? = null
         val stamps = mutableSetOf<Int>()
         var writes = 0
+        val effects = mutableListOf<CompletionEffect>()
+        override fun pendingEffects() = effects.toList()
+        override fun acknowledgeEffect(id: String) { effects.removeAll { it.id == id } }
         override fun loadActive() = active
-        override fun saveSession(active: JourneyStore.Active, courseId: String, direction: Int, stations: Set<Int>, arrived: Boolean) {
+        override fun saveSession(active: JourneyStore.Active, courseId: String, direction: Int, stations: Set<Int>, arrived: Boolean, effect: CompletionEffect?) {
             this.active = active
             stamps += stations
             if (arrived && completed != active.sessionId) { arrivals++; completed = active.sessionId }
+            if (effect != null && effects.none { it.id == effect.id }) effects += effect
             writes++
         }
     }
@@ -63,6 +68,19 @@ class SessionRuntimeTest {
         assertEquals(setOf(0, 1, 2, 3), h.store.stamps)
         assertEquals(SessionEvent.Arrived(false), h.events.last())
         assertNull(h.pending)
+    }
+
+    @Test fun completionDeliverySurvivesRestartUntilAcknowledgedWithoutRepeatingTheTransition() {
+        val h = Harness()
+        h.runtime.depart(); h.advance(1_500.0); h.runtime.close()
+        val restored = Harness(h.store)
+        assertEquals(1, restored.runtime.pendingEffects.size)
+        assertEquals(CompletionEffect.Kind.ARRIVED, restored.runtime.pendingEffects.single().kind)
+        assertEquals(1, restored.store.arrivals)
+        assertTrue(restored.events.isEmpty())
+        restored.runtime.acknowledgeEffect(restored.runtime.pendingEffects.single().id)
+        restored.runtime.close()
+        assertTrue(Harness(h.store).runtime.pendingEffects.isEmpty())
     }
 
     @Test fun completedCheckpointDoesNotReplayAfterProcessRecreation() {
