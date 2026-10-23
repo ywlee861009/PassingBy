@@ -78,6 +78,9 @@ class JourneyViewModel(
     /** 세션 진행(0~1, 시간 기준). [remainingSec]와 함께 갱신한다. */
     var progress by mutableFloatStateOf(0f)
         private set
+    /** 세션과 같은 시계로 계산한 현재 지역 안내. 렌더링 프레임과 독립적으로 갱신한다. */
+    var routeCaption by mutableStateOf<RouteCaption?>(null)
+        private set
     /** 지금 서 있는 중간 역 번호(정차 중이 아니면 −1). */
     var stoppedAt by mutableIntStateOf(-1)
         private set
@@ -238,7 +241,10 @@ class JourneyViewModel(
         today = store.today()
         lifetime = store.lifetime()
         visited = store.visited
-        updateTicks(session.elapsedSeconds)
+        val t = session.elapsedSeconds
+        routeCaption = if (phase == SessionPhase.RUNNING || phase == SessionPhase.PAUSED)
+            experience.routeCaptionAt(t) else null
+        updateTicks(t)
     }
 
     private fun moving() = session.moving

@@ -59,6 +59,7 @@ object PortugalCourses {
             Station(R.string.station_regua, "Régua", "Peso da Régua", REGUA),
         ),
         Course.REGIONAL, "course_portugal", snowy = false, Themes.PORTUGAL,
+        guide = RouteGuides.PORTUGAL,
         features = listOf(
             // 리스본을 떠나며 테주강 하구.
             Feature(Feature.Kind.RIVER, 0, .05f, .22f),

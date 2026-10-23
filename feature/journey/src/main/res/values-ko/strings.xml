@@ -107,4 +107,7 @@
     <string name="season">계절</string>
     <string name="season_desc">계절에 맞춰 풍경과 날씨가 자연스럽게 바뀌어요.</string>
     <string name="season_random_desc">이번 여행은 %1$s이에요. 새 여행마다 계절을 무작위로 골라요.</string>
+    <string name="route_passing">%1$s 지나는 중…</string>
+    <string name="route_departing">%1$s 출발…</string>
+    <string name="route_approaching">잠시 후 %1$s에 도착해요…</string>
 </resources>

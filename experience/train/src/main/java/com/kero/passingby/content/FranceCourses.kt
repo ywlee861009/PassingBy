@@ -36,6 +36,7 @@ object FranceCourses {
             Station(R.string.station_marseille, "Marseille", "Saint-Charles", MARSEILLE),
         ),
         Course.FAST, "course_france", snowy = false, Themes.FRANCE,
+        guide = RouteGuides.FRANCE,
         features = listOf(
             Feature(Feature.Kind.FIELD, 0, .18f, .5f, FieldStyle.WHEAT),
             // 부르고뉴 포도밭.

@@ -111,4 +111,7 @@
     <string name="season">Season</string>
     <string name="season_desc">Scenery and weather change naturally with your chosen season.</string>
     <string name="season_random_desc">This journey: %1$s. A season is picked for each new journey.</string>
+    <string name="route_passing">Passing through %1$s…</string>
+    <string name="route_departing">Leaving %1$s…</string>
+    <string name="route_approaching">Approaching %1$s…</string>
 </resources>

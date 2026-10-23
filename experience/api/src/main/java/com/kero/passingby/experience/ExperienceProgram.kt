@@ -52,6 +52,8 @@ interface ExperienceProgram : JourneyProgram, AutoCloseable {
     val renderer: ExperienceRenderer
     val stationMarks: FloatArray
     fun frame(seconds: Double, rate: Double, phase: SessionPhase, dt: Float)
+    /** Optional route location, calculated by the experience using the session clock. */
+    fun routeCaptionAt(seconds: Double): RouteCaption? = null
     fun stoppedAt(seconds: Double): Int
     fun nextStop(seconds: Double): Int
     fun arrivalAt(station: Int): Double

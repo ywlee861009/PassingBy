@@ -285,6 +285,7 @@ class RideInfo(
     val nextStopSec: Int,
     val paused: Boolean,
     val soundOn: Boolean,
+    val locationText: String? = null,
 ) {
     val last: Boolean get() = nextStop == stations.size - 1
 }
@@ -433,7 +434,15 @@ fun NextStopLine(info: RideInfo, color: Color = Pb.OnScrimSoft) {
         info.last -> stringResource(R.string.final_stop_clock, next, clock(info.nextStopSec))
         else -> stringResource(R.string.next_stop_clock, next, clock(info.nextStopSec))
     }
-    BasicText(line, style = PbType.label.copy(color = color, fontFeatureSettings = "tnum"))
+    Column {
+        BasicText(line, style = PbType.label.copy(color = color, fontFeatureSettings = "tnum"))
+        // 한 줄을 예약해 지역 안내가 나타날 때 타이머·진행 바가 밀리지 않게 한다.
+        BasicText(
+            info.locationText.orEmpty(),
+            style = PbType.kicker.copy(color = color),
+            maxLines = 1, overflow = TextOverflow.Ellipsis,
+        )
+    }
 }
 
 /** 종착까지 남은 시간(큰 숫자). */

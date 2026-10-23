@@ -39,6 +39,36 @@ class SessionIntegrationTest {
         assertEquals(cut + 1, vm.cutTick)
     }
 
+    @Test fun passingLocationStaysWithTheSceneAcrossPauseRestoreAndReturn() = withSession { models ->
+        var vm = models.vm
+        vm.depart()
+        vm.seekPosition(22.0 / 166.0) // 서울 → 대전 사이 광명.
+        vm.onFrame(0L, 60f)
+        vm.pause()
+        vm.onFrame(0L, 60f)
+        val caption = vm.routeCaption
+        assertEquals(com.kero.passingby.experience.RouteCaption.Kind.PASSING, caption?.kind)
+        assertEquals(context.getString(com.kero.passingby.experience.train.R.string.place_gwangmyeong),
+            context.getString(caption!!.name))
+        repeat(3) { vm.onFrame(0L, 60f) }
+        assertEquals(caption, vm.routeCaption)
+        models.recreate()
+        vm = models.vm
+        vm.onFrame(0L, 60f)
+        assertEquals(SessionPhase.PAUSED, vm.phase)
+        assertEquals(caption, vm.routeCaption)
+        vm.resume()
+        vm.seekFraction(1f)
+        vm.onFrame(0L, 60f)
+        assertNull(vm.routeCaption)
+        vm.getOff()
+        vm.depart()
+        vm.seekPosition(22.0 / 166.0)
+        vm.onFrame(0L, 60f)
+        assertEquals(-1, vm.direction)
+        assertEquals(caption, vm.routeCaption)
+    }
+
     @Test fun arrivalIsRecordedOnceAcrossFramesAndViewModelRecreation() = withSession { models ->
         var vm = models.vm
         val store = TripStore(context)

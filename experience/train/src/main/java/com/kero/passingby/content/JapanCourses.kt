@@ -27,6 +27,7 @@ object JapanCourses {
             Station(R.string.station_osaka, "大阪", "Ōsaka", TOWERS),
         ),
         Course.FAST, null, snowy = true, Themes.JAPAN,
+        guide = RouteGuides.TOKAIDO,
         features = listOf(
             Feature(Feature.Kind.TUNNEL, 0, .3f, .318f),
             // 사가미 만 해안, 후지산을 지나 시즈오카 차밭.

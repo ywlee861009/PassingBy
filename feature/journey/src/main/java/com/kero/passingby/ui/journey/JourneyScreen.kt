@@ -98,7 +98,7 @@ enum class FormFactor { PORTRAIT, LANDSCAPE, EXPANDED, TABLETOP }
  * 여행 화면. 앱의 유일한 화면이다. 출발·여행·도착·휴식을 화면 전환 없이 열차 상태로 보여 준다(명세 5.0).
  *
  * - 정차 중(DOCKED·ARRIVED·RESTING): 벽 패널이 올라와 창 일부를 가리고, 그 위에 카드를 놓는다.
- * - 주행 중(RUNNING·PAUSED): UI 0개. 화면을 누르면 오버레이가 나타났다가 4초 뒤 사라진다. 멈춘 동안에는 남는다.
+ * - 주행 중(RUNNING·PAUSED): 지역을 지날 때 작은 안내가 잠깐 뜬다. 화면을 누르면 조작 오버레이가 나타났다가 4초 뒤 사라진다.
  * - 반접기(테이블탑): 위쪽 반은 창, 아래쪽 반은 늘 보이는 정보판.
  */
 @Composable
@@ -346,6 +346,7 @@ fun JourneyScreen(vm: JourneyViewModel) {
         val ride = RideInfo(
             vm.stations.map { stringResource(it.name) }, vm.stationMarks, vm.progress, vm.remainingSec,
             vm.stoppedAt, vm.nextStop, vm.nextStopSec, paused, vm.soundOn,
+            locationText = if (paused) null else routeCaptionText(vm.routeCaption),
         )
         val toggleSound = {
             interactions++
@@ -407,6 +408,19 @@ fun JourneyScreen(vm: JourneyViewModel) {
                 }
             }
         }
+
+        // ── 실제 노선 위 현재 지역. 조작 UI·창턱 안내와 겹치지 않는 작은 안내. ──
+        RoutePassingNotice(
+            caption = vm.routeCaption,
+            enabled = phase == SessionPhase.RUNNING && form != FormFactor.TABLETOP &&
+                !(overlay || vm.overlayAlways || screenReader || devPanel || hint || backArmed) &&
+                sheet == SheetKind.NONE && notice == null,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .windowInsetsPadding(insets)
+                .padding(horizontal = 24.dp)
+                .padding(bottom = if (vm.ledgeInfo) 36.dp else 12.dp),
+        )
 
         // ── 창턱 안내: 창 아래 벽에 다음 역까지 남은 분(명세 6장) ──
         if (vm.ledgeInfo && moving && form != FormFactor.TABLETOP && !(overlay || vm.overlayAlways || screenReader)) {

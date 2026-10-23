@@ -125,6 +125,10 @@ internal class TrainProgram(private val store: JourneyStore) : ExperienceProgram
         return false
     }
 
+    override fun routeCaptionAt(seconds: Double): RouteCaption? = course.guide.captionAt(
+        plan.distanceAt(seconds) / plan.segDist, direction, plan.stoppedAt(seconds),
+    )
+
     override fun stoppedAt(seconds: Double) = plan.stoppedAt(seconds)
     override fun nextStop(seconds: Double): Int {
         val stopped = plan.stoppedAt(seconds)

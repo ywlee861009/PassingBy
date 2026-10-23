@@ -43,6 +43,7 @@ class Course(
     /** 이 코스 날씨에 눈이 올 수 있는지. 남쪽 코스는 눈이 오지 않는다. */
     val snowy: Boolean,
     val theme: Theme,
+    val guide: RouteGuide,
     val features: List<Feature> = emptyList(),
     val landmarks: List<LandmarkSpot> = emptyList(),
 ) : JourneyCourse {
@@ -91,6 +92,7 @@ class Course(
             check(products.distinct().size == products.size) { "결제 상품 id가 겹친다" }
             for (c in list) {
                 val segs = c.stations.size - 1
+                check(c.guide.stops.map { it.name } == c.stations.map { it.name }) { "${c.id}: 위치 안내와 코스 정차역이 다름" }
                 check(c.landmarks.all { it.pos in 0.0..segs.toDouble() }) { "${c.id}: 랜드마크 위치가 노선 밖" }
                 check(c.features.all { it.seg in 0 until segs }) { "${c.id}: 구역 구간 번호가 범위 밖" }
             }

@@ -46,6 +46,7 @@ object KoreaCourses {
             Station(R.string.station_busan, "부산", "Busan", BUSAN),
         ),
         Course.FAST, null, snowy = true, Themes.KOREA,
+        guide = RouteGuides.GYEONGBU,
         features = listOf(
             // 서울을 떠나 바로 한강 철교.
             Feature(Feature.Kind.BRIDGE, 0, .125f, .15f),
@@ -74,6 +75,7 @@ object KoreaCourses {
             Station(R.string.station_yeosu, "여수", "Yeosu", YEOSU),
         ),
         Course.FAST, "course_korea_jeolla", snowy = true, Themes.KOREA_JEOLLA,
+        guide = RouteGuides.JEOLLA,
         features = listOf(
             // 서울(용산역)을 떠나 바로 한강 철교.
             Feature(Feature.Kind.BRIDGE, 0, .1f, .125f),
@@ -105,6 +107,7 @@ object KoreaCourses {
             Station(R.string.station_gangneung, "강릉", "Gangneung", GANGNEUNG_CITY),
         ),
         Course.FAST, "course_korea_gangneung", snowy = true, Themes.KOREA_GANGNEUNG,
+        guide = RouteGuides.GANGNEUNG,
         features = listOf(
             Feature(Feature.Kind.FIELD, 0, .22f, .42f, FieldStyle.PADDY),
             // 팔당부터 양평까지 한강을 따라가고, 북한강 철교를 건넌다.

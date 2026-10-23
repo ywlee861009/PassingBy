@@ -27,6 +27,7 @@ object ChinaCourses {
             Station(R.string.station_shanghai, "上海", "Shànghǎi", SKYLINE),
         ),
         Course.FAST, "course_china_north", snowy = true, Themes.CHINA_NORTH,
+        guide = RouteGuides.CHINA_NORTH,
         features = listOf(
             Feature(Feature.Kind.FIELD, 0, .2f, .8f, FieldStyle.WHEAT),
             Feature(Feature.Kind.FIELD, 1, .2f, .55f, FieldStyle.WHEAT),
@@ -56,6 +57,7 @@ object ChinaCourses {
             Station(R.string.station_guiyang, "贵阳", "Guìyáng", GUIYANG),
         ),
         Course.FAST, "course_china_south", snowy = false, Themes.CHINA_SOUTH,
+        guide = RouteGuides.CHINA_SOUTH,
         features = listOf(
             Feature(Feature.Kind.FIELD, 0, .25f, .45f, FieldStyle.PADDY),
             Feature(Feature.Kind.TUNNEL, 0, .58f, .6f),
