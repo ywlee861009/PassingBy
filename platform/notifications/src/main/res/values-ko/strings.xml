@@ -1,0 +1,6 @@
+<resources>
+    <string name="channel_trip">여행 중</string>
+    <string name="channel_trip_desc">달리는 동안 남은 시간을 보여 줘요.</string>
+    <string name="channel_alert">도착 알림</string>
+    <string name="channel_alert_desc">종착역에 도착하거나 쉬는 시간이 끝나면 알려 줘요.</string>
+</resources>

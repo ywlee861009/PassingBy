@@ -129,6 +129,14 @@ kotlin {
 }
 
 dependencies {
+    implementation(project(":journey:domain"))
+    implementation(project(":journey:data"))
+    implementation(project(":feature:journey"))
+    implementation(project(":experience:api"))
+    implementation(project(":experience:train"))
+    implementation(project(":platform:notifications"))
+    implementation(project(":platform:billing"))
+    implementation(project(":platform:telemetry"))
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.junit)
@@ -138,8 +146,4 @@ dependencies {
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.foundation)
     implementation(libs.androidx.window)
-    implementation(libs.billing)
-    implementation(platform(libs.firebase.bom))
-    implementation(libs.firebase.analytics)
-    implementation(libs.firebase.crashlytics)
 }

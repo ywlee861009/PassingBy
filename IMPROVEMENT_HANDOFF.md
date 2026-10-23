@@ -31,9 +31,9 @@
 
 ### 현재 확인한 내용
 
-- [audio/AmbientSound.kt](app/src/main/java/com/kero/passingby/audio/AmbientSound.kt)의 `run()`이 모노 PCM을 실시간으로 합성한다. `RATE = 22050`, `BLOCK = 1024`, `LOOK = 128`이다.
+- [audio/AmbientSound.kt](experience/train/src/main/java/com/kero/passingby/audio/AmbientSound.kt)의 `run()`이 모노 PCM을 실시간으로 합성한다. `RATE = 22050`, `BLOCK = 1024`, `LOOK = 128`이다.
 - 리미터에서 매 샘플마다 `for (v in ahead)`로 128개 값을 모두 검사한다. 재생 중 최대 진폭을 찾기 위한 샘플 검사는 초당 `22050 × 128 = 2,822,400`회다. 이 수치는 코드상 반복 횟수이며, CPU 점유율이나 배터리 개선율을 측정한 값이 아니다.
-- 소리에는 실내 울림, 바람, 레일 이음매, 비, 터널 울림, 역 차임과 시작·종료 페이드가 있다. [JourneyViewModel.kt](app/src/main/java/com/kero/passingby/ui/journey/JourneyViewModel.kt)의 `onFrame()`, `applySound()`, `setVisible()`에서 입력과 재생 여부를 정한다.
+- 소리에는 실내 울림, 바람, 레일 이음매, 비, 터널 울림, 역 차임과 시작·종료 페이드가 있다. [JourneyViewModel.kt](feature/journey/src/main/java/com/kero/passingby/ui/journey/JourneyViewModel.kt)의 `onFrame()`, `applySound()`, `setVisible()`에서 입력과 재생 여부를 정한다.
 - 환경음은 기본으로 켜져 있고, 화면이 보이는 동안에만 재생한다. 다른 앱 음악과 함께 듣기 위해 오디오 포커스를 요청하지 않는 것이 현재 기획이다.
 
 ### 구현 방향
@@ -61,7 +61,7 @@
 | 위치 | 현재 동작 | 개선이 필요한 이유 |
 | --- | --- | --- |
 | `JourneyViewModel.restorePurchases()` | `billing.restore()` 직후 무조건 `purchases_restored`를 표시 | 연결되지 않았거나 조회가 실패해도 확인 완료처럼 보임 |
-| [billing/Billing.kt](app/src/main/java/com/kero/passingby/billing/Billing.kt)의 `restore()` | 연결 전에는 바로 반환하고, 비동기 조회 실패는 통계에만 기록 | 화면이 시작·성공·실패를 알 수 없음 |
+| [billing/Billing.kt](platform/billing/src/main/java/com/kero/passingby/billing/Billing.kt)의 `restore()` | 연결 전에는 바로 반환하고, 비동기 조회 실패는 통계에만 기록 | 화면이 시작·성공·실패를 알 수 없음 |
 | `Billing.handle()` | `PURCHASED` 외 상태를 건너뜀 | `PENDING` 사용자를 위한 대기 안내가 없음 |
 | [MainActivity.kt](app/src/main/java/com/kero/passingby/MainActivity.kt), `JourneyViewModel.setVisible()` | 화면 복귀 시 구매 재조회 경로가 없음 | 앱 밖에서 완료된 구매를 다시 확인할 경로가 필요 |
 | `purchase_unavailable` 문자열 | 스토어에 코스가 등록되면 열린다고 안내 | 출시 후 오프라인·연결 실패 상황과 맞지 않음 |
@@ -78,7 +78,7 @@
 6. **전체 조회와 구매 이벤트를 구분한다.** `queryPurchasesAsync()`의 응답은 조회 결과이고 `onPurchasesUpdated()`는 특정 거래의 변경일 수 있다. 기존 `onOwned`를 확장할 때 두 출처를 구분한다. 이 작업에서는 기존 구매를 합치는 정책을 유지하며, 실패·대기·부분 결과로 기존 코스를 잠그지 않는다. 환불에 따른 권한 회수는 별도 정책 작업으로 남긴다.
 7. **안내와 통계를 보완한다.** 기존 `Telemetry`를 통해 조회 단계·결과 코드·대기 상태를 남긴다. 구매 토큰이나 영수증 원문을 로그와 분석 이벤트에 넣지 않는다. 사용자의 구매 취소는 일반적인 취소로 처리한다.
 
-문구는 [한국어 strings.xml](app/src/main/res/values-ko/strings.xml)과 [영어 strings.xml](app/src/main/res/values/strings.xml)을 함께 수정한다. 아래는 구현 기본안이다.
+문구는 [한국어 strings.xml](feature/journey/src/main/res/values-ko/strings.xml)과 [영어 strings.xml](feature/journey/src/main/res/values/strings.xml)을 함께 수정한다. 아래는 구현 기본안이다.
 
 | 상태 | 한국어 | 영어 |
 | --- | --- | --- |
@@ -114,9 +114,9 @@
 
 ### 현재 확인한 내용
 
-- 8개 코스에 나라별 지형·식생·도시·랜드마크와 바다·강·밭·다리·터널 구간이 있다. 코스 정의는 `content/*Courses.kt`, 공통 형식은 [content/Course.kt](app/src/main/java/com/kero/passingby/content/Course.kt)다.
-- [scene/Themes.kt](app/src/main/java/com/kero/passingby/scene/Themes.kt)와 [scene/Theme.kt](app/src/main/java/com/kero/passingby/scene/Theme.kt)가 코스별 지형·식생 규칙을 제공한다. [SpriteSet.kt](app/src/main/java/com/kero/passingby/scene/SpriteSet.kt)의 식생 종류는 `PINE`, `ROUND`, `POPLAR`, `BUSH`, `REED`, `BAMBOO`, `CYPRESS`다.
-- 시간대·날씨·눈 쌓임은 이미 있다. [SceneState.kt](app/src/main/java/com/kero/passingby/scene/SceneState.kt)의 `update()`가 시간대 팔레트에 비·눈 효과를 적용하지만 계절 선택은 없다.
+- 8개 코스에 나라별 지형·식생·도시·랜드마크와 바다·강·밭·다리·터널 구간이 있다. 코스 정의는 `content/*Courses.kt`, 공통 형식은 [content/Course.kt](experience/train/src/main/java/com/kero/passingby/content/Course.kt)다.
+- [scene/Themes.kt](experience/train/src/main/java/com/kero/passingby/scene/Themes.kt)와 [scene/Theme.kt](experience/train/src/main/java/com/kero/passingby/scene/Theme.kt)가 코스별 지형·식생 규칙을 제공한다. [SpriteSet.kt](experience/train/src/main/java/com/kero/passingby/scene/SpriteSet.kt)의 식생 종류는 `PINE`, `ROUND`, `POPLAR`, `BUSH`, `REED`, `BAMBOO`, `CYPRESS`다.
+- 시간대·날씨·눈 쌓임은 이미 있다. [SceneState.kt](experience/train/src/main/java/com/kero/passingby/scene/SceneState.kt)의 `update()`가 시간대 팔레트에 비·눈 효과를 적용하지만 계절 선택은 없다.
 - 풍경은 Canvas와 재사용 스프라이트로 그린다. 기본 `BAKED` 모드는 지형의 알파 마스크를 캐시하고 그릴 때 색을 입힌다. 개발 비교용 `DIRECT`, `TILES` 모드도 있다.
 
 ### 첫 구현의 제품 기본안
@@ -132,10 +132,10 @@
 | 위치 | 후속 작업 |
 | --- | --- |
 | 새 `scene/Season.kt` 등 | 안정적인 저장 ID와 계절별 색 규칙 정의. enum 순번을 저장값으로 사용하지 않음 |
-| [session/TripStore.kt](app/src/main/java/com/kero/passingby/session/TripStore.kt) | 계절 저장·복원, 누락·알 수 없는 값의 기본값 처리 |
+| [session/TripStore.kt](journey/data/src/main/java/com/kero/passingby/session/TripStore.kt) | 계절 저장·복원, 누락·알 수 없는 값의 기본값 처리 |
 | `JourneyViewModel`, `SceneState` | 선택값 전달과 초기 복원, 시간대·날씨와 독립적으로 관리 |
-| [ui/journey/Sheets.kt](app/src/main/java/com/kero/passingby/ui/journey/Sheets.kt)의 `SettingsSheetContent()` | 계절 선택 UI와 콜백 |
-| [ui/journey/JourneyScreen.kt](app/src/main/java/com/kero/passingby/ui/journey/JourneyScreen.kt) | 설정 UI 연결 |
+| [ui/journey/Sheets.kt](feature/journey/src/main/java/com/kero/passingby/ui/journey/Sheets.kt)의 `SettingsSheetContent()` | 계절 선택 UI와 콜백 |
+| [ui/journey/JourneyScreen.kt](feature/journey/src/main/java/com/kero/passingby/ui/journey/JourneyScreen.kt) | 설정 UI 연결 |
 | `SceneRenderer`, `SpriteSet`, 필요 시 `Palette` | 식생 종류·기본색에 계절 변주를 적용하고 기존 명암·안개·비·눈과 합성 |
 | `TileBaker`, `TileSet` | 색을 구워 두는 타일의 계절 의존성 반영과 변경 시 갱신 |
 | 한국어·영어 문자열 | 계절 제목, 설명, 기본·가을 선택지 추가 |

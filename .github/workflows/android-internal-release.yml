@@ -90,7 +90,8 @@ jobs:
         run: |
           prev="$(git tag --list 'android-internal-*' --sort=-v:refname | head -n1)"
           notes_dir=release-notes
-          if [ -n "$prev" ] && ! git diff --quiet "$prev" HEAD -- app; then
+          code_paths=(app journey experience feature platform build.gradle.kts settings.gradle.kts gradle)
+          if [ -n "$prev" ] && ! git diff --quiet "$prev" HEAD -- "${code_paths[@]}"; then
             for locale in ko-KR en-US; do
               if git diff --quiet "$prev" HEAD -- "$notes_dir/whatsnew-$locale"; then
                 echo "::error::앱 변경사항에 맞춰 $notes_dir/whatsnew-$locale 를 갱신해야 한다"
@@ -132,6 +133,9 @@ jobs:
             cat "$f"
             echo
           done
+
+      - name: Verify module boundaries, unit tests, and lint
+        run: ./gradlew checkModuleBoundaries testDebugUnitTest :journey:domain:test lintDebug --no-daemon --stacktrace
 
       - name: Build release AAB
         env:

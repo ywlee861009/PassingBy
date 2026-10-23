@@ -25,6 +25,10 @@ import com.kero.passingby.ui.journey.JourneyScreen
 import com.kero.passingby.ui.startup.LaunchScreen
 
 class MainActivity : ComponentActivity() {
+    private val journeyViewModel: JourneyViewModel by lazy {
+        ViewModelProvider(this, (application as PassingByApp).graph.journeyViewModelFactory)[JourneyViewModel::class.java]
+    }
+
     /** Android 13 미만에서 설정에서 고른 언어를 화면에 입힌다([AppLanguage]). */
     override fun attachBaseContext(newBase: Context) {
         super.attachBaseContext(AppLanguage.wrap(newBase))
@@ -49,7 +53,7 @@ class MainActivity : ComponentActivity() {
         }
         val showLaunchArtwork = (application as PassingByApp).claimLaunchArtwork()
         setContent {
-            LaunchScreen(showOnLaunch = showLaunchArtwork) { JourneyScreen() }
+            LaunchScreen(showOnLaunch = showLaunchArtwork) { JourneyScreen(journeyViewModel) }
         }
     }
 
@@ -67,7 +71,7 @@ class MainActivity : ComponentActivity() {
      * 예: adb shell am start -n com.kero.passingby/.MainActivity --es course korea --ef pos 0.99 --es time DAY --ez instant true
      */
     private fun applyDebugExtras(i: Intent) {
-        val vm = ViewModelProvider(this)[JourneyViewModel::class.java]
+        val vm = journeyViewModel
         i.getStringExtra("course")?.let { id -> vm.forceCourse(Course.byId(id)) }
         i.getStringExtra("scene")?.let { n -> SceneKind.entries.firstOrNull { it.name == n }?.let(vm::selectLand) }
         i.getStringExtra("time")?.let { n -> TimeOfDay.entries.firstOrNull { it.name == n }?.let(vm::selectTime) }
@@ -89,17 +93,17 @@ class MainActivity : ComponentActivity() {
     override fun onStart() {
         super.onStart()
         AppVisibility.foreground = true
-        ViewModelProvider(this)[JourneyViewModel::class.java].setVisible(true)
+        journeyViewModel.setVisible(true)
     }
 
     override fun onResume() {
         super.onResume()
-        ViewModelProvider(this)[JourneyViewModel::class.java].onResume()
+        journeyViewModel.onResume()
     }
 
     override fun onStop() {
         AppVisibility.foreground = false
-        ViewModelProvider(this)[JourneyViewModel::class.java].setVisible(false)
+        journeyViewModel.setVisible(false)
         super.onStop()
     }
 

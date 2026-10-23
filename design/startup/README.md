@@ -4,7 +4,7 @@
 내장 ImageGen 도구로 만들었고, 최종 프롬프트는 `generation-prompts.txt`에 있다.
 
 - `journey-square.png`: 모든 화면에 쓰는 1:1 원본 한 장. 크림색 하늘, 초록 산, 아치 다리를 지나는 열차와 흰 들꽃.
-- `app/src/main/res/drawable-nodpi/launch_journey.webp`: 앱에 포함하는 공통 WebP 리소스 한 장.
+- `feature/journey/src/main/res/drawable-nodpi/launch_journey.webp`: 앱에 포함하는 공통 WebP 리소스 한 장.
 - `app/src/main/res/drawable/ic_splash_train.xml`: 시스템 시작 화면에 쓰는 배경 없는 열차·다리 그림.
 
 Android 12 이상에서 앱의 첫 프레임 전에는 시스템 시작 화면이 나온다. 전체 이미지는 허용되지 않아

@@ -20,4 +20,14 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "PassingBy"
-include(":app")
+include(
+    ":app",
+    ":journey:domain",
+    ":journey:data",
+    ":experience:api",
+    ":experience:train",
+    ":feature:journey",
+    ":platform:notifications",
+    ":platform:billing",
+    ":platform:telemetry",
+)

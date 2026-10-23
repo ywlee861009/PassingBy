@@ -11,7 +11,7 @@ from PIL import Image
 
 def main():
     artwork = Path(__file__).resolve().parent
-    resources = artwork.parents[1] / "app/src/main/res"
+    resources = artwork.parents[1] / "feature/journey/src/main/res"
     destination = resources / "drawable-nodpi/launch_journey.webp"
     destination.parent.mkdir(parents=True, exist_ok=True)
     with Image.open(artwork / "journey-square.png") as source:
