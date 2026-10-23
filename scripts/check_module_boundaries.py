@@ -52,7 +52,8 @@ def main():
             failures.append('Dependency cycle: ' + ' -> '.join([*path, module]))
             return
         for child in graph[module]:
-            visit(child, [*path, module])
+            if child in graph:
+                visit(child, [*path, module])
     for module in graph:
         visit(module, [])
     if failures:

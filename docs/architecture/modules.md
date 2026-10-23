@@ -1,61 +1,62 @@
 # 앱 하나의 여행 경험 모듈화
 
-1단계에서 물리적인 모듈 분리를 마쳤고, 2단계의 첫 작업으로 세션 상태 머신을 JVM 도메인에 추출했다.
-항공·항해 기능, 저장 스키마 변경, 신규 마이그레이션 코드는 포함하지 않는다.
+9개 Gradle 모듈 분리와 공통 세션 런타임·경험 제공자 연결을 완료했다.
+항공·항해 콘텐츠는 실제 기능 구현 시 제공자를 등록하며, 빈 모듈은 만들지 않는다.
 
-## 실제 모듈과 의존성
+## 모듈과 의존성
 
 | 모듈 | 소유하는 코드 | 직접 프로젝트 의존성 |
 | --- | --- | --- |
-| `:app` | Application, MainActivity, Receiver, AppGraph, 앱 테마·런처·서명·Firebase 빌드 설정 | 아래 구현 모듈을 조립 |
-| `:journey:domain` | Android 없는 SessionCoordinator·상태/이벤트·JourneyClock, JourneyStore 저장 계약 | 없음 |
-| `:journey:data` | SharedPreferences TripStore 구현 | domain |
-| `:experience:api` | Canvas ExperienceRenderer 계약, 프레임 통계 | 없음 |
-| `:experience:train` | 코스·운행 계획·계절/날씨·SceneState·렌더러·기차 환경음, 해당 리소스 | api, telemetry |
-| `:feature:journey` | 여행 화면·ViewModel·설정·수첩·시작 그림·폰트·언어 선택 | domain, api, train, billing, notifications, telemetry |
-| `:platform:notifications` | 알림·AlarmManager 어댑터, 채널 리소스 | telemetry |
-| `:platform:billing` | Billing SDK와 구매 조회/승인/복원 | telemetry |
+| `:app` | Android 진입점, AppGraph, 앱 수명 세션·스케줄러·알림/통계 연결, 앱 빌드 설정 | 구현 모듈을 조립 |
+| `:journey:domain` | Android 없는 시계·상태 머신·SessionRuntime·JourneyProgram·저장 계약 | 없음 |
+| `:journey:data` | SharedPreferences 설정과 원자적 세션 체크포인트 | domain |
+| `:experience:api` | 경험 제공자·레지스트리·코스/역 메타데이터·읽기 전용 장면·렌더링/환경 설정 계약 | domain |
+| `:experience:train` | TrainExperienceProvider, 코스·운행 계획·풍경·날씨·렌더러·환경음과 기차 리소스 | api, domain, telemetry |
+| `:feature:journey` | Compose 화면·표시 상태 ViewModel·설정·수첩·폰트·언어·구매 UI | domain, api, billing, telemetry |
+| `:platform:notifications` | 알림·AlarmManager·채널 리소스 | telemetry |
+| `:platform:billing` | Play Billing SDK와 구매 조회/승인/복원 | telemetry |
 | `:platform:telemetry` | Firebase SDK와 통계/오류 보고 | 없음 |
 
-JVM 도메인은 Android 클래스, Compose, 앱 R/BuildConfig를 참조하지 않는다.
-저장 구현은 계절·시간대의 문자열 ID만 저장하고, 경험 타입으로 변환하는 것은 소비자가 담당한다.
-코스의 문자열과 그래픽 데이터는 train 모듈에, 공통 UI 문자열·폰트는 feature 모듈에 있다.
-기존 Kotlin 패키지는 이동에 따른 변경량을 줄이기 위해 유지하며 Gradle namespace/R은 모듈별로 분리했다.
+feature → train 의존성은 제거했다. 화면은 JourneyCourse·ExperienceScene·ExperienceProgram을 사용하며,
+기차의 CoursePlan·SceneState·SceneRenderer·AmbientSound를 생성하거나 가져오지 않는다.
+공통 시간대·계절·날씨 선택과 문구는 api가, 지형과 계절색 합성은 train이 소유한다.
 
-## 조립과 수명
+## 세션 실행과 수명
 
-AppGraph가 저장소와 JourneyViewModel.Factory를 조립하고, 라이브러리에 개발 정책을 전달한다.
-알림 어댑터에는 앱 열기 PendingIntent와 Receiver Intent의 factory를 전달한다.
-따라서 라이브러리가 MainActivity나 앱 BuildConfig를 역참조하지 않는다.
-Telemetry의 빌드별 수집 허용 여부도 Application에서 전달한다.
+AppGraph가 ExperienceRegistry에 구현을 등록하고 저장된 코스의 제공자로 JourneyProgram을 만든다.
+SessionRuntime은 앱 프로세스 수명으로 유지되며, ViewModel은 관찰을 해제해도 런타임을 종료하지 않는다.
+UI 리소스는 releasePresentation으로 정리하고 알람 처리에는 렌더러·환경음을 생성하지 않는다.
+다른 제공자의 코스를 고르면 새 프로그램으로 교체하고 이전 표현 자원을 해제한다.
 
-기존 ViewModel 수명, 감속/가속 시계, 알람 종류, 저장 형식은 유지한다.
-상태 전이 규칙은 SessionCoordinator가 소유하고, ViewModel은 이벤트를 Android/기차 어댑터에 연결한다.
-현재 기한 확인은 기존 프레임 루프의 advance 호출을 유지한다.
-Billing의 Play SDK listener는 facade 내부로 숨겨 feature의 컴파일 API로 노출하지 않는다.
-내부 렌더링 구현을 검증하는 기기 테스트는 train으로 옮기고, 실제 앱 그래프를 사용하는
-저장·세션 복원 기기 테스트는 app에 유지했다.
+상태 머신은 단조 시계로 출발·감속 정지·재개·중단·도착·휴식 전이를 판정한다.
+주입된 단일 실행 흐름 스케줄러가 기한과 역 통과를 확인한다. 프레임 누적은 사용하지 않는다.
+`onFrame`은 현재 시각으로 풍경·소리·표면색을 갱신하며 세션 전이·저장·알림을 실행하지 않는다.
+도착·휴식 종료·역 도장·통계·알림 소비는 ViewModel 밖에서 처리한다.
+진행 중인 세션 시간과 다음 승차권 선택 시간을 구분하고, 복원 시 완료 전이를 재발행하지 않는다.
 
-## 완료한 2단계 첫 작업: 세션 상태 머신
+기차의 누적 거리·방향 반전·코스 계획은 TrainProgram이 소유한다. 도착역에서 휴식 후 돌아갈 때도
+이전 계획의 종착 위치를 기준으로 새 계획을 연결한다. 개발용 탐색도 런타임의 같은 전이를 사용한다.
 
-`journey:domain`의 SessionCoordinator는 단조 증가 시각을 주입받아 출발·감속 정지·재개·중단·도착·휴식을 처리한다.
-SessionState는 불변 상태이며, SessionEvent는 실제 전이가 일어났을 때만 반환되는 일회성 결과다.
-SessionSnapshot에는 상태와 기존 시계 배열을 담고, ViewModel이 JourneyStore.Active의 기존 필드로 변환한다.
-현재 선택 시간과 진행 중인 세션 시간을 구분하므로, 주행 중 다음 승차권 시간을 바꿔도 현재 여정은 변하지 않는다.
+## 저장과 백그라운드 복원
 
-도메인은 Android·Compose·코스·렌더러·저장소를 참조하지 않는다. 기차의 누적 거리와 방향 반전은
-ViewModel의 경험 어댑터에 남아 있다. 전이 후 시각으로 장면을 계산해 휴식 종료 프레임에도 종착역 위치가 이어진다.
-도착 후 상태를 저장한 스냅샷을 복원하면 완료 이벤트를 다시 반환하지 않는다.
+진행 상태·코스·방향·역 도장·일일/누적 완료 기록은 SharedPreferences의 한 편집으로 저장한다.
+세션 식별자로 같은 완료 체크포인트의 재시도가 기록을 늘리지 않게 한다. 저장소 계약에는
+개별 완료 기록·활성 상태만 쓰는 우회 메서드를 두지 않는다.
+기존 저장 키와 숫자 배열을 유지하고, 식별자가 없는 기존 세션은 안정적인 식별자로 복원한다.
+단조 시계가 무효가 되는 재부팅은 기존 boot count 검사로 걸러낸다.
+완료 알림의 전달 의도도 체크포인트에 함께 기록하고 전달 후 확인한다. 저장 직후 종료되면
+재시작 시 대기 목록을 처리하며, 이미 표시된 같은 알림은 같은 ID로 갱신해 재알림을 줄인다.
 
-## 남아 있는 2단계 작업
+TripAlarmReceiver는 저장된 세션을 읽고 런타임을 진행시킨다. 화면이 없는 새 프로세스에서도
+도착 기록과 휴식 종료를 확정한다. 알림에는 감속·가속까지 반영한 실제 기한을 전달한다.
+정확한 알람 권한이나 포그라운드 서비스는 추가하지 않는다. 시스템의 기존 부정확 알람 정책을 따른다.
 
-기한 확인과 저장·알림·기록 이벤트 소비는 아직 ViewModel의 프레임 경로에 있다.
-다음 작업은 이를 프레임 루프 밖의 세션 런타임으로 옮기는 것이다. 이벤트 처리와 저장의 원자성,
-프로세스 종료 사이의 중복 처리 방지도 이 경계에서 다룬다.
+## 경계 검사와 CI
 
-이후 JourneyProgram과 ExperienceProvider registry로 기차를 연결해 feature → train 의존성을 제거한다.
-feature는 아직 train의 Course·SceneState·CoursePlan을 직접 사용하며 Billing/Telemetry facade도 유지한다.
-항공·항해 Gradle 모듈은 실제 구현 때 추가하며 빈 모듈을 미리 만들지 않는다.
+`checkModuleBoundaries`는 허용한 의존 그래프·순환·앱 R/BuildConfig 역참조·JVM/SDK 격리와
+화면의 기차 구현 참조 및 세션 직접 기록을 검사한다. 임시 feature → train 예외는 없다.
+main/PR에서도 경계 검사와 JVM 도메인 테스트를 실행한다. Firebase 설정 Secret을 사용할 수 있는
+실행에서는 Android 단위 테스트와 전체 Lint도 실행하고, 배포 CI는 전체 검증을 필수로 유지한다.
 
 ## 검증 명령
 
@@ -66,8 +67,8 @@ rtk proxy ./gradlew :app:connectedDebugAndroidTest :experience:train:connectedDe
 ```
 
 `checkModuleBoundaries`는 허용한 의존 그래프, 순환 참조, 앱 R/BuildConfig 역참조,
-JVM 도메인과 SDK 격리를 검사한다. 현재 단계의 임시 feature → train 의존성은 명시적으로 허용한다.
-테스트와 빌드에는 기존과 같이 app/google-services.json이 필요하다. 실 Play 구매와 실기기 음질·배터리는
+JVM 도메인과 SDK 격리를 검사한다. feature → train 의존성과 화면의 세션 직접 기록도 금지한다.
+앱을 포함한 Android 전체 테스트와 빌드에는 app/google-services.json이 필요하다. 실 Play 구매와 실기기 음질·배터리는
 기기 테스트 결과와 구분한다.
 
 CI도 같은 의존성 검사·단위 테스트·전체 Android 모듈 Lint를 실행한다.
@@ -100,4 +101,20 @@ CI도 같은 의존성 검사·단위 테스트·전체 Android 모듈 Lint를 �
 - 실제 MainActivity의 세로/가로 회전, 프로세스 종료 후 같은 세션 복원,
   프로세스가 없는 상태의 도착 알림을 재검증했으며 앱 크래시가 없었다.
 
-세션 스케줄러·이벤트 소비의 프레임 루프 분리, 저장 원자성, ExperienceProvider 추상화는 후속 작업이다.
+이전 첫 작업 이후 세션 스케줄러·이벤트 소비·저장 원자성·ExperienceProvider 연결을 완료했다.
+
+## 2단계 완료 검증 결과 (2026-10-23)
+
+- JVM/Android 단위 테스트 59개 통과. 가상 시간 런타임·완료 전달 복구·정확한 기한·제공자 선택을 포함한다.
+- Android 35 에뮬레이터 앱 통합 테스트 11개, 기차 렌더링·오디오 테스트 5개 통과.
+  화면 없는 도착·휴식 종료, 저장 재시도, 알림 대기 목록 확인, 기존 세션 복원과 왕복 풍경 연속성을 확인했다.
+- 8개 Android 모듈 Lint 오류 0개, 모듈 경계 검사 통과. 디버그와 R8/리소스 축소 릴리스 APK 빌드 성공.
+- 실제 MainActivity의 세로·가로 화면과 진행 제어 표시를 확인했다.
+- 진행 중 앱을 백그라운드로 보낸 뒤 프로세스를 SIGKILL로 종료했다. AlarmManager가 새 프로세스를
+  시작해 같은 세션을 ARRIVED로 저장하고 완료 기록을 한 번 늘렸으며, 도착 알림 게시와 대기 목록 확인을 완료했다.
+  완료 상태에서 다시 프로세스를 종료·재실행해도 기록이 늘지 않았고 앱 크래시 로그가 없었다.
+- 경계 검사 회귀 테스트 8개와 기존 배포 버전 테스트 6개 통과. 두 워크플로 YAML 구문을 확인했다.
+- local.properties와 google-services.json이 없는 임시 프로젝트에서도 JVM 도메인 테스트가 통과했다.
+- 한국어·영어 출시 노트를 함께 갱신했고 각 파일의 500자 제한을 확인했다.
+
+실제 Play 구매·기기 청취·장시간 배터리는 기존 별도 검증 범위로 유지한다.
