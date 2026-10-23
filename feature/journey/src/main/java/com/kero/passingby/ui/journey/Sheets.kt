@@ -65,11 +65,11 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
-import com.kero.passingby.content.Course
+import com.kero.passingby.experience.JourneyCourse as Course
 import com.kero.passingby.locale.AppLanguage
-import com.kero.passingby.scene.TimeOfDay
-import com.kero.passingby.scene.Season
-import com.kero.passingby.scene.SeasonChoice
+import com.kero.passingby.experience.TimeOfDay
+import com.kero.passingby.experience.Season
+import com.kero.passingby.experience.SeasonChoice
 import com.kero.passingby.ui.theme.Pb
 import com.kero.passingby.ui.theme.PbType
 import kotlinx.coroutines.CoroutineScope
@@ -229,6 +229,7 @@ private fun BoxScope.SheetBody(
 /** 코스 고르기. 잠긴 코스도 고를 수 있고, 고르면 정차 화면 창으로 미리 본다. */
 @Composable
 fun CourseSheetContent(
+    courses: List<Course>,
     current: Course,
     owns: (Course) -> Boolean,
     priceOf: (Course) -> String?,
@@ -237,7 +238,7 @@ fun CourseSheetContent(
     val res = LocalResources.current
     BasicText(stringResource(R.string.courses), style = PbType.title.copy(color = Pb.Ink))
     BasicText(stringResource(R.string.courses_hint), style = PbType.body.copy(color = Pb.InkSoft))
-    for (c in Course.ALL) {
+    for (c in courses) {
         val selected = c == current
         Row(
             Modifier
@@ -448,6 +449,7 @@ fun Toggle(label: String, description: String, value: Boolean, onChange: (Boolea
 /** 여행 수첩: 오늘·지금까지의 기록과 코스마다 들른 역 도장. */
 @Composable
 fun JournalSheetContent(
+    courses: List<Course>,
     today: Pair<Int, Int>,
     lifetime: Pair<Int, Int>,
     visited: Set<String>,
@@ -460,7 +462,7 @@ fun JournalSheetContent(
             pluralStringResource(R.plurals.lifetime_line, lifetime.first, lifetime.first, hours(lifetime.second)),
         style = PbType.body.copy(color = Pb.InkSoft),
     )
-    for (c in Course.ALL) {
+    for (c in courses) {
         val done = completions(c)
         Column(
             Modifier

@@ -1,21 +1,8 @@
 package com.kero.passingby.scene
 
-import com.kero.passingby.experience.train.R
+import com.kero.passingby.experience.TimeOfDay
+
 import android.graphics.Color
-import androidx.annotation.StringRes
-
-enum class TimeOfDay(@param:StringRes val label: Int) {
-    DAWN(R.string.time_dawn), DAY(R.string.time_day), DUSK(R.string.time_dusk), NIGHT(R.string.time_night);
-
-    companion object {
-        /** 이전 새벽/노을 설정을 현재 낮/밤 선택으로 옮긴다. */
-        fun fromSetting(name: String?): TimeOfDay? = when (name) {
-            "DAY", "DAWN" -> DAY
-            "NIGHT", "DUSK" -> NIGHT
-            else -> null
-        }
-    }
-}
 
 /**
  * 시간대 팔레트. 모든 레이어 색은 이 팔레트와 "멀수록 안개색(HAZE)에 가깝게" 규칙으로 정해진다.

@@ -26,12 +26,8 @@ interface JourneyStore : SessionPersistence {
     var seasonChoiceId: String
 
     fun today(): Pair<Int, Int>
-    fun recordArrival(minutes: Int)
-    fun visit(courseId: String, station: Int)
     fun completions(courseId: String): Int
     fun lifetime(): Pair<Int, Int>
-    fun recordCompletion(courseId: String, minutes: Int)
-    fun saveActive(active: Active)
     override fun loadActive(): Active?
 
     /** One atomic storage edit: session, route, stamps and optional completion share a checkpoint. */

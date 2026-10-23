@@ -7,10 +7,12 @@ import java.util.UUID
 /** Owns deadlines, experience transitions and atomic checkpoints independently of drawing. */
 class SessionRuntime(
     private val store: SessionPersistence,
-    val program: JourneyProgram,
+    program: JourneyProgram,
     now: () -> Long,
     private val scheduler: SessionScheduler,
 ) : AutoCloseable {
+    var program: JourneyProgram = program
+        private set
     private val coordinator = SessionCoordinator(store.minutes, now)
     private var sessionId = UUID.randomUUID().toString()
     private val stamped = mutableSetOf<Int>()
@@ -18,9 +20,12 @@ class SessionRuntime(
     private var cancel: (() -> Unit)? = null
     private var started = false
     private var closed = false
+    var checkpointVersion = 0L
+        private set
 
     val state get() = coordinator.state
     val elapsedSeconds get() = coordinator.elapsedSeconds
+    val deadlineElapsedMillis get() = coordinator.deadlineElapsedMillis
     val durationSeconds get() = coordinator.durationSeconds
     val rate get() = coordinator.rate
     val scale get() = coordinator.scale
@@ -92,16 +97,17 @@ class SessionRuntime(
         coordinator.selectMinutes(minutes)
         store.minutes = minutes
         if (state.phase == SessionPhase.DOCKED) program.configure(state.tripMinutes)
-        checkpoint()
+        checkpoint(arrived = false)
         notifyChanged(null)
     }
 
-    fun selectCourse(id: String, force: Boolean = false): Boolean {
+    fun selectCourse(id: String, force: Boolean = false, replacement: JourneyProgram? = null): Boolean {
         if (!force && state.phase != SessionPhase.DOCKED) return false
         coordinator.reset()
+        if (replacement != null) program = replacement
         program.selectCourse(id, state.tripMinutes)
         stamped.clear()
-        checkpoint()
+        checkpoint(arrived = false)
         notifyChanged(null)
         schedule()
         return true
@@ -114,16 +120,17 @@ class SessionRuntime(
     }
 
     fun skipRest() { coordinator.skipRest(); refresh() }
-    fun setScale(scale: Double) { coordinator.setScale(scale); checkpoint(); notifyChanged(null); schedule() }
+    fun setScale(scale: Double) { coordinator.setScale(scale); checkpoint(arrived = false); notifyChanged(null); schedule() }
 
     /** Persists program settings changed by its owner without advancing any rendering state. */
-    fun checkpoint() = checkpoint(arrived = false)
+    fun checkpoint() { checkpoint(arrived = false); notifyChanged(null) }
 
     private fun checkpoint(arrived: Boolean) {
         val stations = if (moving || state.phase == SessionPhase.ARRIVED) program.reachedStations(elapsedSeconds) else emptySet()
         store.saveSession(program.checkpoint(coordinator.snapshot(), sessionId), program.courseId, program.direction,
             stations, arrived)
         stamped += stations
+        checkpointVersion++
     }
 
     private fun checkpointStations() {

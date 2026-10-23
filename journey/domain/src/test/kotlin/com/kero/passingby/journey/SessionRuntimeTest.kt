@@ -152,6 +152,19 @@ class SessionRuntimeTest {
         assertNull(h.pending)
     }
 
+    @Test fun switchingProgramsUsesTheNewOwnerAndDiscardsThePreviousDeadline() {
+        val h = Harness()
+        h.runtime.depart()
+        val replacement = Program()
+        assertFalse(h.runtime.selectCourse("new", replacement = replacement))
+        assertSame(h.program, h.runtime.program)
+        assertTrue(h.runtime.selectCourse("new", force = true, replacement = replacement))
+        assertSame(replacement, h.runtime.program)
+        assertEquals("new", replacement.courseId)
+        assertNull(h.pending)
+        assertEquals("DOCKED", h.store.active!!.phase)
+    }
+
     @Test fun selectionWhileDockedIsSavedAndRestoresWithTheNewDuration() {
         val h = Harness()
         h.runtime.selectMinutes(50)

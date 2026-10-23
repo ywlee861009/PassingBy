@@ -1,4 +1,4 @@
-"""Check the stage-one module graph without resolving Gradle or Android SDKs."""
+"""Check module dependencies and session/experience ownership without resolving Gradle or Android SDKs."""
 from pathlib import Path
 import re
 import sys
@@ -8,10 +8,9 @@ ALLOWED = {
     'app': {'journey/domain', 'journey/data', 'feature/journey', 'experience/api', 'experience/train', 'platform/notifications', 'platform/billing', 'platform/telemetry'},
     'journey/domain': set(),
     'journey/data': {'journey/domain'},
-    'experience/api': set(),
-    'experience/train': {'experience/api', 'platform/telemetry'},
-    # Transitional dependency: the train-specific ViewModel is separated in stage two.
-    'feature/journey': {'journey/domain', 'experience/api', 'experience/train', 'platform/billing', 'platform/notifications', 'platform/telemetry'},
+    'experience/api': {'journey/domain'},
+    'experience/train': {'experience/api', 'journey/domain', 'platform/telemetry'},
+    'feature/journey': {'journey/domain', 'experience/api', 'platform/billing', 'platform/telemetry'},
     'platform/notifications': {'platform/telemetry'},
     'platform/billing': {'platform/telemetry'},
     'platform/telemetry': set(),
@@ -38,6 +37,10 @@ def main():
                 failures.append(f'{relative}: library references app R or BuildConfig')
             if module == 'journey/domain' and re.search(r'^import (?:android\.|androidx\.|com\.google\.)', text, re.M):
                 failures.append(f'{relative}: JVM domain references an Android/SDK dependency')
+            if module == 'feature/journey' and re.search(r'^import com\.kero\.passingby\.(?:scene|content|audio)\.', text, re.M):
+                failures.append(f'{relative}: feature references train implementation types')
+            if module == 'feature/journey' and re.search(r'\.(?:saveSession|saveActive|recordArrival|recordCompletion|visit)\(', text):
+                failures.append(f'{relative}: feature writes session effects outside the runtime')
             if module == 'journey/data' and re.search(r'^import com\.kero\.passingby\.(?:scene|content|ui)\.', text, re.M):
                 failures.append(f'{relative}: storage references experience/UI types')
             if module != 'platform/telemetry' and re.search(r'^import com\.google\.firebase\.', text, re.M):

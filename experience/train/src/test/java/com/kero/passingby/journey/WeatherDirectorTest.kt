@@ -1,6 +1,6 @@
 package com.kero.passingby.journey
 
-import com.kero.passingby.scene.Season
+import com.kero.passingby.experience.Season
 import org.junit.Assert.*
 import org.junit.Test
 

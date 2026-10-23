@@ -11,6 +11,7 @@ import com.kero.passingby.content.Course
 import com.kero.passingby.journey.CoursePlan
 import com.kero.passingby.journey.CourseZones
 import com.kero.passingby.scene.*
+import com.kero.passingby.experience.*
 import java.io.File
 import kotlin.math.abs
 import kotlin.math.max

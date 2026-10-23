@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="season_spring">Spring</string>
+    <string name="season_summer">Summer</string>
+    <string name="season_autumn">Autumn</string>
+    <string name="season_winter">Winter</string>
+    <string name="random">Random</string>
+    <string name="time_dawn">Dawn</string>
+    <string name="time_day">Day</string>
+    <string name="time_dusk">Sunset</string>
+    <string name="time_night">Night</string>
+    <string name="weather_clear">Clear</string>
+    <string name="weather_drizzle">Drizzle</string>
+    <string name="weather_shower">Shower</string>
+    <string name="weather_light_snow">Light snow</string>
+    <string name="weather_heavy_snow">Heavy snow</string>
+    <string name="nonstop">Nonstop</string>
+    <string name="stops_line">Stops at %1$s</string>
+</resources>

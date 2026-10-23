@@ -1,5 +1,8 @@
 package com.kero.passingby.scene
 
+import com.kero.passingby.experience.Season
+import com.kero.passingby.experience.RenderMode
+
 import com.kero.passingby.experience.ExperienceRenderer
 import android.graphics.Canvas
 import android.graphics.Color

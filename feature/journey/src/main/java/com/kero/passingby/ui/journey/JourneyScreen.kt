@@ -265,8 +265,7 @@ fun JourneyScreen(vm: JourneyViewModel) {
                 .drawBehind {
                     val tick = frameTick
                     if (tick >= 0L) {
-                        vm.scene.seatFromEnd = fromEnd
-                        vm.scene.seatEdgePx = seatEdge.value
+                        vm.scene.setViewport(fromEnd, seatEdge.value)
                         drawIntoCanvas { vm.renderer.render(it.nativeCanvas, size.width.toInt(), size.height.toInt()) }
                     }
                 },
@@ -474,11 +473,11 @@ fun JourneyScreen(vm: JourneyViewModel) {
             key(shown.value) {
             BottomSheet(Color(vm.paper), maxHeight * .88f, onDismiss = { sheet = SheetKind.NONE }) {
                 when (shown.value) {
-                    SheetKind.COURSES -> CourseSheetContent(vm.course, vm::owns, vm::priceOf) {
+                    SheetKind.COURSES -> CourseSheetContent(vm.courses, vm.course, vm::owns, vm::priceOf) {
                         vm.selectCourse(it)
                         sheet = SheetKind.NONE
                     }
-                    SheetKind.JOURNAL -> JournalSheetContent(vm.today, vm.lifetime, vm.visited, vm::completions, vm::owns)
+                    SheetKind.JOURNAL -> JournalSheetContent(vm.courses, vm.today, vm.lifetime, vm.visited, vm::completions, vm::owns)
                     SheetKind.LICENSES -> LicenseSheetContent(licenses)
                     else -> SettingsSheetContent(
                         vm.fixedTime, vm.soundOn, vm.soundLevel, vm.ledgeInfo, vm.overlayAlways, vm.powerSave, language,

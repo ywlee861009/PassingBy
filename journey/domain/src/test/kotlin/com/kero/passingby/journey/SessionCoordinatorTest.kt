@@ -279,6 +279,26 @@ class SessionCoordinatorTest {
         assertEquals(60.0, session.scale, 0.0)
     }
 
+    @Test fun alarmDeadlineIncludesSmoothResumeAndCoastingArrival() {
+        val time = Time()
+        val session = time.session()
+        session.depart()
+        time.advance(60.0)
+        session.pause()
+        time.advance(3.5)
+        assertNull(session.deadlineElapsedMillis)
+        session.resume()
+        assertEquals(time.millis + 1_440_000L, session.deadlineElapsedMillis)
+        session.seek(1_499.0)
+        session.pause()
+        val deadline = session.deadlineElapsedMillis!!
+        time.millis = deadline - 1
+        assertNull(session.advance())
+        time.millis = deadline
+        assertEquals(SessionEvent.Arrived(false), session.advance())
+        assertNull(session.deadlineElapsedMillis)
+    }
+
     @Test fun invalidParametersAndSnapshotsDoNotPartiallyChangeTheState() {
         val session = Time().session()
         val state = session.state

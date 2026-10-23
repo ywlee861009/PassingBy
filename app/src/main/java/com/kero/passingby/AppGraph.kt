@@ -1,6 +1,13 @@
 package com.kero.passingby
 
 import android.app.Application
+import com.kero.passingby.journey.SessionScheduler
+import com.kero.passingby.journey.SessionRuntime
+import com.kero.passingby.experience.TrainExperienceProvider
+import com.kero.passingby.experience.ExperienceRegistry
+import android.os.SystemClock
+import android.os.Looper
+import android.os.Handler
 import android.app.PendingIntent
 import android.content.Intent
 import com.kero.passingby.locale.AppLanguage
@@ -14,9 +21,29 @@ import com.kero.passingby.ui.journey.JourneyViewModel
 /** Application composition root. Android entry-point classes stay in :app. */
 class AppGraph(app: Application) {
     val store = TripStore(app)
+    val experiences = ExperienceRegistry(listOf(TrainExperienceProvider()))
+    private val handler = Handler(Looper.getMainLooper())
+    private var effects: JourneySessionEffects? = null
+    val session by lazy {
+        SessionRuntime(store, experiences.create(store.courseId, store),
+            SystemClock::elapsedRealtime,
+            SessionScheduler { delay, task ->
+                val runnable = Runnable { task() }
+                val cancellation: () -> Unit = { handler.removeCallbacks(runnable) }
+                handler.postDelayed(runnable, delay)
+                cancellation
+            }).also { runtime ->
+                effects = JourneySessionEffects(app, runtime)
+                runtime.start()
+                effects?.syncTimer()
+            }
+    }
     val journeyViewModelFactory = JourneyViewModel.Factory(
-        app, JourneyOptions(developerTools = BuildConfig.DEV_TOOLS), store,
+        app, JourneyOptions(developerTools = BuildConfig.DEV_TOOLS), store, { session }, experiences,
     )
+
+    fun refreshAlarm() { session.refresh(); effects?.syncTimer() }
+    fun closeSession() { session.close(); session.program.let { (it as? AutoCloseable)?.close() } }
 
     init {
         TripTimer.configure { context -> Intent(context, TripAlarmReceiver::class.java) }

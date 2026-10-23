@@ -45,6 +45,12 @@ class SessionCoordinator(initialMinutes: Int, private val now: () -> Long) {
 
     val moving: Boolean
         get() = state.phase == SessionPhase.RUNNING || state.phase == SessionPhase.PAUSED
+    val deadlineElapsedMillis: Long?
+        get() = when {
+            moving -> clock.deadlineMillis(durationSeconds)
+            state.phase == SessionPhase.RESTING -> state.restEndElapsedMillis
+            else -> null
+        }
     val durationSeconds: Double get() = state.tripMinutes * 60.0
     val elapsedSeconds: Double get() = clock.seconds()
     val rate: Double get() = clock.rate()

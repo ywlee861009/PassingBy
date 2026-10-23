@@ -1,5 +1,9 @@
 package com.kero.passingby.scene
 
+import com.kero.passingby.experience.Season
+import com.kero.passingby.experience.SeasonChoice
+import com.kero.passingby.experience.TimeOfDay
+
 import org.junit.Assert.*
 import org.junit.Test
 

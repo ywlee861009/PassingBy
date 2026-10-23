@@ -28,6 +28,23 @@ class JourneyClock(private val now: () -> Long) {
 
     fun seconds(): Double = anchorSec + scale * integral(elapsed())
 
+    /** Earliest monotonic millisecond at the requested time; null if a stopped clock cannot reach it. */
+    fun deadlineMillis(seconds: Double): Long? {
+        val current = now()
+        fun at(millis: Long) = anchorSec + scale * integral((millis - anchorReal) / 1000.0)
+        if (at(current) >= seconds) return current
+        val rampEnd = maxOf(current, anchorReal + kotlin.math.ceil(rampSec * 1000).toLong())
+        val rampValue = at(rampEnd)
+        if (rateTo <= 0 && rampValue < seconds) return null
+        var lo = current
+        var hi = rampEnd + if (rateTo > 0) kotlin.math.ceil(((seconds - rampValue).coerceAtLeast(0.0) / (scale * rateTo)) * 1000).toLong() + 1 else 0
+        while (lo < hi) {
+            val mid = lo + (hi - lo) / 2
+            if (at(mid) >= seconds) hi = mid else lo = mid + 1
+        }
+        return lo
+    }
+
     /** 지금 빠르기(0~1). 화면에 보이는 속도는 계획 속도 × 빠르기다. */
     fun rate(): Double {
         val tau = elapsed()

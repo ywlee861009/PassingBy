@@ -3,9 +3,9 @@ package com.kero.passingby
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelStore
 import androidx.test.platform.app.InstrumentationRegistry
-import com.kero.passingby.scene.Season
-import com.kero.passingby.scene.SeasonChoice
-import com.kero.passingby.scene.TimeOfDay
+import com.kero.passingby.experience.Season
+import com.kero.passingby.experience.SeasonChoice
+import com.kero.passingby.experience.TimeOfDay
 import com.kero.passingby.session.TripStore
 import com.kero.passingby.ui.journey.JourneyViewModel
 import org.junit.Assert.*
@@ -45,7 +45,8 @@ class HandoffValidationTest {
             prefs.edit().clear().commit()
             InstrumentationRegistry.getInstrumentation().runOnMainSync {
                 val app = context.applicationContext as PassingByApp
-                val factory = app.graph.journeyViewModelFactory
+                var graph = AppGraph(app)
+                var factory = graph.journeyViewModelFactory
                 var models = ViewModelStore()
                 try {
                     var vm = ViewModelProvider(models, factory)[JourneyViewModel::class.java]
@@ -56,6 +57,9 @@ class HandoffValidationTest {
                     val first = vm.season
                     assertEquals(SeasonChoice.RANDOM.resolve(active.weatherSeed), first)
                     models.clear()
+                    graph.closeSession()
+                    graph = AppGraph(app)
+                    factory = graph.journeyViewModelFactory
                     models = ViewModelStore()
                     vm = ViewModelProvider(models, factory)[JourneyViewModel::class.java]
                     assertEquals(SeasonChoice.RANDOM, vm.seasonChoice)
@@ -76,6 +80,7 @@ class HandoffValidationTest {
                     assertEquals(Season.WINTER, vm.season)
                 } finally {
                     models.clear()
+                    graph.closeSession()
                     com.kero.passingby.session.TripTimer.stop(context)
                 }
             }
@@ -101,9 +106,9 @@ class HandoffValidationTest {
             prefs.edit().putString("weather", "HEAVY_SNOW").putString("season", "summer").commit()
             InstrumentationRegistry.getInstrumentation().runOnMainSync {
                 val models = ViewModelStore()
+                val graph = AppGraph(context.applicationContext as PassingByApp)
                 try {
-                    val app = context.applicationContext as PassingByApp
-                    val factory = app.graph.journeyViewModelFactory
+                    val factory = graph.journeyViewModelFactory
                     val vm = ViewModelProvider(models, factory)[JourneyViewModel::class.java]
                     assertNull(vm.fixedWeather)
                     assertTrue(vm.scene.autoWeather)
@@ -111,7 +116,7 @@ class HandoffValidationTest {
                     vm.selectSeason(Season.WINTER)
                     assertEquals(Season.WINTER, vm.scene.season)
                     assertTrue(vm.scene.autoWeather)
-                } finally { models.clear() }
+                } finally { models.clear(); graph.closeSession() }
             }
         } finally {
             prefs.edit().putString("weather", savedWeather).putString("season", savedSeason).commit()

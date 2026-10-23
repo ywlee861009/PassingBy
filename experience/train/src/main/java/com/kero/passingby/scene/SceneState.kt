@@ -1,20 +1,17 @@
 package com.kero.passingby.scene
 
+import com.kero.passingby.experience.Season
+import com.kero.passingby.experience.TimeOfDay
+import com.kero.passingby.experience.Weather
+import com.kero.passingby.experience.RenderMode
+import com.kero.passingby.experience.SceneKind
+
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
 
-enum class RenderMode(val label: String) {
-    /** 매 프레임 지형 곡선을 다시 그린다. 메모리 최소, 프레임 비용 최대. */
-    DIRECT("직접"),
-    /** 지형을 조각 비트맵으로 한 번만 굽고 옮겨 그린다. 권장 방식. */
-    BAKED("조각"),
-    /** 원래 명세의 레이어 이미지 반복을 흉내 낸 비교용. 메모리 최대. */
-    TILES("타일"),
-}
-
 /** 렌더러가 읽는 장면 상태. UI 스레드에서만 바뀐다. */
-class SceneState {
+class SceneState : com.kero.passingby.experience.ExperienceScene {
     @Volatile var mode = RenderMode.BAKED
 
     /** 설정에서 고른 시간대. null이면 세션 진행에 따라 하늘이 돈다([SkyCycle]). */
@@ -22,14 +19,14 @@ class SceneState {
         private set
     private var cycleTime = TimeOfDay.NIGHT
     /** 지금 하늘에 가장 가까운 시간대. 타일 방식의 캐시 키로 쓴다. */
-    val timeOfDay: TimeOfDay
+    override val timeOfDay: TimeOfDay
         get() = fixedTime ?: cycleTime
     private val from = Palette()
     /** 전환이 끝났을 때의 목표 팔레트(비 효과 제외). */
     val target = Palette()
     private val current = Palette()
     private val seasonal = Palette()
-    var season = Season.SUMMER
+    override var season = Season.SUMMER
         set(value) {
             if (field == value) return
             field = value
@@ -53,7 +50,7 @@ class SceneState {
     val effective = Palette()
 
     /** Exposes the current indoor surface color without exporting palette interpolation internals. */
-    fun paperColor(baseColor: Int): Int =
+    override fun paperColor(baseColor: Int): Int =
         mix(baseColor, effective.c[Palette.PANEL], .3f * effective.f[Palette.LIT])
 
     private var transition = 1f
@@ -65,13 +62,13 @@ class SceneState {
     /** 날씨를 직접 고른 경우의 날씨. [autoWeather]면 무시한다. */
     var weather = Weather.CLEAR
     /** 무작위 날씨(기본). 세기는 여정이 [autoRain]·[autoSnow]로 정한다. */
-    var autoWeather = true
+    override var autoWeather = true
     var autoRain = 0f
     var autoSnow = 0f
     /** 실제 비·눈 세기(0~1). 날씨를 바꾸면 몇 초에 걸쳐 따라간다. */
-    var rainAmount = 0f
+    override var rainAmount = 0f
         private set
-    var snowAmount = 0f
+    override var snowAmount = 0f
         private set
     /** 땅에 쌓인 눈(0~1). 눈이 계속 와야 수십 초에 걸쳐 쌓이고, 그치면 천천히 녹는다. */
     var snowCover = 0f
@@ -83,14 +80,14 @@ class SceneState {
         private set
 
     /** 열차 속도(장면 단위/초). 여정이 정한다. */
-    var speed = 0.0
+    override var speed = 0.0
         private set
 
     /**
      * 누적 이동 거리(장면 단위). 여정이 경과 시간으로 계산해 넣는다.
      * Float로 1시간 이상 누적하면 정밀도가 떨어져 풍경이 떨리므로 Double로 둔다.
      */
-    var distanceU = 0.0
+    override var distanceU = 0.0
         private set
     /** 화면을 켠 뒤 흐른 시간. 별 반짝임·창틀 이동 같은 장식 애니메이션에만 쓴다. */
     var elapsedSec = 0.0
@@ -103,6 +100,10 @@ class SceneState {
      * [seatEdgePx]는 화면 아래(또는 끝) 가장자리에서 패널 가장자리까지의 거리(px)이며, UI가 매 프레임 정한다.
      * 창 크기를 바꾸면 풍경을 다시 구워야 하므로 창은 그대로 두고 패널로 가린다(명세 5.3).
      */
+    override val panelColor: Int get() = effective.c[Palette.PANEL]
+    override val urbanDensity: Float get() = urban.at(distanceU)
+    override fun setViewport(fromEnd: Boolean, edgePx: Float) { seatFromEnd = fromEnd; seatEdgePx = edgePx }
+
     var seatFromEnd = false
     var seatEdgePx = 0f
 
@@ -196,12 +197,12 @@ class SceneState {
     }
 
     /** 개발용: 시간대 전환 애니메이션을 건너뛴다. */
-    fun snapTimeOfDay() {
+    override fun snapTimeOfDay() {
         transition = 1f
     }
 
     /** 개발용: 서서히 쌓이는 효과를 기다리지 않고 현재 날씨의 최종 상태로 바로 맞춘다. */
-    fun snapWeather() {
+    override fun snapWeather() {
         val rain = if (autoWeather) autoRain else weather.rain
         val snow = if (autoWeather) autoSnow else weather.snow
         rainAmount = rain

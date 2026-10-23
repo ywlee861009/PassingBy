@@ -25,11 +25,11 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.kero.passingby.content.Course
-import com.kero.passingby.scene.RenderMode
-import com.kero.passingby.scene.SceneKind
-import com.kero.passingby.scene.TimeOfDay
-import com.kero.passingby.scene.Weather
+import com.kero.passingby.experience.JourneyCourse as Course
+import com.kero.passingby.experience.RenderMode
+import com.kero.passingby.experience.SceneKind
+import com.kero.passingby.experience.TimeOfDay
+import com.kero.passingby.experience.Weather
 import com.kero.passingby.ui.journey.JourneyViewModel
 
 /**
@@ -55,7 +55,7 @@ fun DevPanel(vm: JourneyViewModel, onInteract: () -> Unit, modifier: Modifier = 
             Chip("구조", vm.boxes) { vm.toggleBoxes(); onInteract() }
         }
         ChipRow {
-            for (c in Course.ALL) {
+            for (c in vm.courses) {
                 Chip("${c.number} ${stringResource(c.region)}", vm.course == c) { vm.forceCourse(c); onInteract() }
             }
         }

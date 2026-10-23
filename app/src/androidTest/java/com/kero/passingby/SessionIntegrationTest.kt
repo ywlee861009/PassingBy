@@ -146,11 +146,31 @@ class SessionIntegrationTest {
         assertEquals(first.sessionId, TripStore(context).loadActive()!!.sessionId)
     }
 
-    private class Models(private val factory: ViewModelProvider.Factory) : AutoCloseable {
+    @Test fun headlessSessionCommitsArrivalAndRestWithoutCreatingAViewModelOrDrawingFrames() = withSession { models ->
+        val runtime = models.runtime
+        val store = TripStore(context)
+        runtime.depart()
+        runtime.seek(runtime.durationSeconds)
+        assertEquals("ARRIVED", store.loadActive()!!.phase)
+        assertEquals(1 to 25, store.lifetime())
+        runtime.rest()
+        runtime.skipRest()
+        assertTrue(runtime.state.restDone)
+        assertEquals(-1, runtime.program.direction)
+        val savedBase = store.loadActive()!!.base
+        models.recreate()
+        assertEquals(-1, models.runtime.program.direction)
+        assertEquals(savedBase, store.loadActive()!!.base, 0.0)
+        assertEquals(1 to 25, store.lifetime())
+    }
+
+    private class Models(private val app: PassingByApp) : AutoCloseable {
+        private var graph = AppGraph(app)
         private var store = ViewModelStore()
-        val vm get() = ViewModelProvider(store, factory)[JourneyViewModel::class.java]
-        fun recreate() { store.clear(); store = ViewModelStore() }
-        override fun close() = store.clear()
+        val runtime get() = graph.session
+        val vm get() = ViewModelProvider(store, graph.journeyViewModelFactory)[JourneyViewModel::class.java]
+        fun recreate() { store.clear(); graph.closeSession(); store = ViewModelStore(); graph = AppGraph(app) }
+        override fun close() { store.clear(); graph.closeSession() }
     }
 
     private fun withSession(block: (Models) -> Unit) {
@@ -159,8 +179,7 @@ class SessionIntegrationTest {
         try {
             prefs.edit().clear().commit()
             InstrumentationRegistry.getInstrumentation().runOnMainSync {
-                val factory = (context.applicationContext as PassingByApp).graph.journeyViewModelFactory
-                val models = Models(factory)
+                val models = Models(context.applicationContext as PassingByApp)
                 try { block(models) } finally {
                     models.close()
                     TripTimer.stop(context)

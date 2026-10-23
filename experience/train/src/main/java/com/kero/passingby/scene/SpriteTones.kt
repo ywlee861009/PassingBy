@@ -1,5 +1,6 @@
 package com.kero.passingby.scene
 
+
 import kotlin.math.min
 
 /** 톤 배열 인덱스. */

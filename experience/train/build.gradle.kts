@@ -10,6 +10,7 @@ android {
 dependencies {
     testImplementation(libs.junit)
     implementation(project(":experience:api"))
+    implementation(project(":journey:domain"))
     implementation(project(":platform:telemetry"))
     implementation(libs.androidx.core.ktx)
     androidTestImplementation(libs.androidx.test.runner)

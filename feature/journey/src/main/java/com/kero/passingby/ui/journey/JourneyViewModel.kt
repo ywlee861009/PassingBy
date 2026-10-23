@@ -3,15 +3,7 @@ package com.kero.passingby.ui.journey
 import com.kero.passingby.feature.journey.R
 import android.app.Activity
 import android.app.Application
-import android.content.Context
-import android.media.AudioAttributes
-import android.media.RingtoneManager
-import android.os.Build
 import android.os.Debug
-import android.os.SystemClock
-import android.os.VibrationEffect
-import android.os.Vibrator
-import android.os.VibratorManager
 import androidx.annotation.StringRes
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -22,40 +14,21 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
-import com.kero.passingby.experience.ExperienceRenderer
-import com.kero.passingby.audio.AmbientSound
+import com.kero.passingby.experience.*
+import com.kero.passingby.experience.JourneyCourse as Course
+import com.kero.passingby.experience.JourneyStation as Station
 import com.kero.passingby.billing.Billing
 import com.kero.passingby.billing.RestoreStatus
-import com.kero.passingby.content.Course
-import com.kero.passingby.content.Station
-import com.kero.passingby.journey.CoursePlan
-import com.kero.passingby.journey.CourseZones
-import com.kero.passingby.journey.SessionCoordinator
+import com.kero.passingby.journey.SessionRuntime
 import com.kero.passingby.journey.SessionEvent
 import com.kero.passingby.journey.SessionPhase
-import com.kero.passingby.journey.SessionSnapshot
-import com.kero.passingby.journey.SessionState
-import com.kero.passingby.journey.WeatherDirector
 import com.kero.passingby.locale.AppLanguage
 import com.kero.passingby.perf.FrameStats
-import com.kero.passingby.scene.Palette
-import com.kero.passingby.scene.RenderMode
-import com.kero.passingby.scene.SceneKind
-import com.kero.passingby.scene.SceneRenderer
-import com.kero.passingby.scene.SceneState
-import com.kero.passingby.scene.Season
-import com.kero.passingby.scene.SeasonChoice
-import com.kero.passingby.scene.TimeOfDay
-import com.kero.passingby.scene.UrbanField
-import com.kero.passingby.scene.Weather
-import com.kero.passingby.session.TripTimer
 import com.kero.passingby.session.JourneyStore
 import com.kero.passingby.telemetry.Telemetry
 import com.kero.passingby.ui.theme.Pb
 import java.util.Locale
 import kotlin.math.ceil
-import kotlin.math.min
-import kotlin.random.Random
 
 /**
  * 도메인 세션의 결과를 화면·기차 장면과 Android 어댑터에 연결한다. 세션 하나가 코스 하나이고, 중간 역마다 20초 정차한다(명세 7.2).
@@ -75,17 +48,21 @@ class JourneyViewModel(
     app: Application,
     val options: JourneyOptions,
     private val store: JourneyStore,
+    private val session: SessionRuntime,
+    private val registry: ExperienceRegistry,
 ) : AndroidViewModel(app) {
-    val scene = SceneState()
-    val renderer: ExperienceRenderer = SceneRenderer(scene)
+    private val experience: ExperienceProgram get() = session.program as ExperienceProgram
+    val scene: ExperienceScene get() = experience.scene
+    val renderer: ExperienceRenderer get() = experience.renderer
+    val courses: List<Course> get() = registry.courses
     private val stats = FrameStats()
-    private val session = SessionCoordinator(store.minutes, SystemClock::elapsedRealtime)
     private var sessionState by mutableStateOf(session.state)
+    private val unsubscribe: () -> Unit
 
-    var course by mutableStateOf(Course.byId(store.courseId))
+    var course by mutableStateOf(experience.course)
         private set
     /** 1이면 정방향(서울 → 부산), −1이면 역방향. */
-    var direction by mutableIntStateOf(store.direction)
+    var direction by mutableIntStateOf(experience.direction)
         private set
     val phase: SessionPhase
         get() = sessionState.phase
@@ -139,16 +116,6 @@ class JourneyViewModel(
     val stations: List<Station>
         get() = course.ordered(direction)
 
-    private var plan = CoursePlan(tripMinutes * 60.0, course.stations.size, course.cruise)
-    /** 지난 세션들의 누적 거리. 세션이 바뀌어도 풍경이 이어지게 다음 계획을 이만큼 뒤로 민다. */
-    private var baseDistance = 0.0
-    private val planField = UrbanField { x -> plan.at(x - baseDistance) }
-    private var sessionId = java.util.UUID.randomUUID().toString()
-    private var pendingArrival = false
-    private val pendingStations = mutableSetOf<Int>()
-    private var weatherSeed = Random.nextInt()
-    private var weather = WeatherDirector(weatherSeed, course.snowy, SeasonChoice.fromId(store.seasonChoiceId).resolve(weatherSeed))
-
     // ── 코스 잠금·결제 ──
     var unlocked by mutableStateOf(store.unlocked)
         private set
@@ -161,10 +128,10 @@ class JourneyViewModel(
         private set
     private val billing = Billing(
         app,
-        Course.ALL.mapNotNull { it.productId },
+        courses.mapNotNull { it.productId },
         onPrices = { prices = it },
         onOwned = { ids, _ ->
-            val courses = Course.ALL.filter { it.productId in ids }.map { it.id }.toSet()
+            val courses = courses.filter { it.productId in ids }.map { it.id }.toSet()
             if (!unlocked.containsAll(courses)) {
                 for (id in courses - unlocked) Telemetry.event("course_unlock", "course" to id)
                 unlocked = unlocked + courses
@@ -191,13 +158,12 @@ class JourneyViewModel(
         private set
     var seasonChoice by mutableStateOf(SeasonChoice.fromId(store.seasonChoiceId))
         private set
-    var season by mutableStateOf(seasonChoice.resolve(weatherSeed))
+    var season by mutableStateOf(scene.season)
         private set
     var soundOn by mutableStateOf(store.soundOn)
         private set
     var soundLevel by mutableIntStateOf(store.soundLevel)
         private set
-    private val sound = AmbientSound().also { it.volume = SOUND_LEVELS[store.soundLevel.coerceIn(0, 2)] }
     /** 앱 화면이 보이는지. 소리는 보이는 동안에만 낸다. */
     private var visible = false
     var ledgeInfo by mutableStateOf(store.ledgeInfo)
@@ -222,14 +188,14 @@ class JourneyViewModel(
         private set
     var timeScale by mutableStateOf(1.0)
         private set
-    var mode by mutableStateOf(scene.mode)
+    var mode by mutableStateOf(RenderMode.BAKED)
         private set
     /** 직접 고른 날씨. null이면 무작위. */
     var fixedWeather by mutableStateOf<Weather?>(null)
         private set
     var boxes by mutableStateOf(false)
         private set
-    var windowFrame by mutableStateOf(scene.windowFrame)
+    var windowFrame by mutableStateOf(true)
         private set
     var cap60 by mutableStateOf(false)
         private set
@@ -237,63 +203,49 @@ class JourneyViewModel(
         private set
 
     init {
-        restore()
-        scene.season = season
-        scene.setTimeOfDay(fixedTime)
-        scene.snapTimeOfDay()
-        // 이전 수동 날씨 저장값은 읽지 않는다. 계절·코스에 맞춘 자동 날씨로 시작한다.
-        applyWeather(null)
+        unsubscribe = session.observe { event ->
+            syncPresentation()
+            if (event is SessionEvent.Ended) cutTick++
+        }
+        syncPresentation()
+        experience.selectSeasonChoice(seasonChoice)
+        experience.selectTime(fixedTime)
+        experience.selectLand(null)
+        experience.selectMode(mode)
+        experience.setBoxes(boxes)
+        experience.setWindowFrame(windowFrame)
         billing.connect()
-        applyLand()
-        applyStations()
-        updateTicks(session.elapsedSeconds)
-        // 앱을 다시 열었을 때 진행 중인 여행이 있으면 남은 시간 알림과 알람을 다시 맞춘다.
-        if (phase != SessionPhase.DOCKED) syncTimer()
-        Telemetry.state(phase.name, course.id, tripMinutes, direction)
+        experience.setSoundLevel(soundLevel)
         reportSettings()
     }
 
-    /** 프레임마다 호출된다. 여정 시각으로 위치·하늘·날씨를 정하고, 상태 전환(도착·쉬는 시간 끝)을 확인한다. */
+    /** Rendering samples the current clock; it never advances sessions, writes storage or sends alerts. */
     fun onFrame(intervalNanos: Long, refreshHz: Float) {
         val dt = (intervalNanos / 1e9).toFloat().coerceAtMost(.05f)
-        applySessionEvent(session.advance())
-        val t = session.elapsedSeconds
-        val tt = t.coerceIn(0.0, plan.durationSec)
-        scene.setTravel(baseDistance + plan.distanceAt(tt), plan.speedAt(tt) * session.rate)
-        scene.autoRain = weather.rainAt(tt)
-        scene.autoSnow = weather.snowAt(tt)
-        val sky = when (phase) {
-            SessionPhase.ARRIVED, SessionPhase.RESTING -> 1f
-            else -> (tt / plan.durationSec).toFloat()
-        }
-        scene.update(dt, sky)
-        sound.speed = (scene.speed / course.cruise).toFloat()
-        sound.rain = scene.rainAmount
-        sound.tunnel = if (inTunnel(scene.distanceU)) 1f else 0f
-        sound.clack = if (course.cruise < Course.FAST) .9f else .45f
-        updateTicks(t)
+        experience.frame(session.elapsedSeconds, session.rate, phase, dt)
         updateSurfaces()
-        if (!stats.record(intervalNanos, renderer.lastDrawNanos, refreshHz)) return
-        if (showHud) hud = hudText(refreshHz, t)
+        if (stats.record(intervalNanos, renderer.lastDrawNanos, refreshHz) && showHud) hud = hudText(refreshHz, session.elapsedSeconds)
+    }
+
+    private fun syncPresentation() {
+        sessionState = session.state
+        course = experience.course
+        direction = experience.direction
+        minutes = store.minutes
+        season = scene.season
+        timeScale = session.scale
+        stationMarks = experience.stationMarks
+        today = store.today()
+        lifetime = store.lifetime()
+        visited = store.visited
+        updateTicks(session.elapsedSeconds)
     }
 
     private fun moving() = session.moving
 
     // ── 사용자 동작 ──
 
-    fun selectMinutes(m: Int) {
-        session.selectMinutes(m)
-        sessionState = session.state
-        minutes = m
-        store.minutes = m
-        if (phase == SessionPhase.DOCKED) rebuildPlan()
-    }
-
-    /** 여행 수첩에 역 도장을 찍는다. [i]는 지금 방향 기준 역 번호. */
-    private fun stamp(i: Int) {
-        val forward = if (direction > 0) i else course.stations.size - 1 - i
-        pendingStations += forward
-    }
+    fun selectMinutes(m: Int) = session.selectMinutes(m)
 
     fun completions(c: Course): Int = store.completions(c.id)
 
@@ -335,23 +287,11 @@ class JourneyViewModel(
     fun selectSoundLevel(level: Int) {
         soundLevel = level
         store.soundLevel = level
-        sound.volume = SOUND_LEVELS[level]
+        experience.setSoundLevel(level)
         reportSettings()
     }
 
-    private fun applySound() {
-        if (visible && soundOn) sound.start() else sound.stop()
-    }
-
-    private fun inTunnel(x: Double): Boolean {
-        val r = scene.zones.tunnels
-        var i = 0
-        while (i < r.size) {
-            if (x >= r[i] && x <= r[i + 1]) return true
-            i += 2
-        }
-        return false
-    }
+    private fun applySound() = experience.setVisible(visible, soundOn)
 
     fun setLedge(v: Boolean) {
         ledgeInfo = v
@@ -397,18 +337,18 @@ class JourneyViewModel(
 
     /** 잠긴 코스는 출발하지 않는다. 세션 전이의 허용 여부는 도메인이 결정한다. */
     fun depart() {
-        if (owns(course)) applySessionEvent(session.depart())
+        if (owns(course)) session.depart()
     }
 
-    fun pause() = applySessionEvent(session.pause())
+    fun pause() = session.pause()
 
-    fun resume() = applySessionEvent(session.resume())
+    fun resume() = session.resume()
 
-    fun endTrip() = applySessionEvent(session.end())
+    fun endTrip() = session.end()
 
-    fun rest() = applySessionEvent(session.rest())
+    fun rest() = session.rest()
 
-    fun getOff() = applySessionEvent(session.getOff())
+    fun getOff() = session.getOff()
 
     /** 알림 권한을 이미 한 번 물었는지. 거절해도 매번 묻지 않는다. */
     val notificationAsked: Boolean
@@ -423,107 +363,20 @@ class JourneyViewModel(
         store.hintShown = true
     }
 
-    // ── 상태 전환 ──
-
-    /** 반환된 전이만 한 번 소비한다. 경험별 이동과 저장·알림은 아직 이 어댑터가 처리한다. */
-    private fun applySessionEvent(event: SessionEvent?) {
-        if (event == null) return
-        sessionState = session.state
-        when (event) {
-            is SessionEvent.Departed -> {
-                sessionId = java.util.UUID.randomUUID().toString()
-                if (event.from == SessionPhase.ARRIVED || event.from == SessionPhase.RESTING) prepareReturn()
-                weatherSeed = Random.nextInt()
-                season = seasonChoice.resolve(weatherSeed)
-                scene.season = season
-                rebuildPlan()
-                stamp(0)
-                Telemetry.event(
-                    "trip_start", "course" to course.id, "minutes" to tripMinutes, "direction" to direction,
-                    "from" to event.from.name.lowercase(),
-                )
-            }
-            is SessionEvent.Paused -> Telemetry.event("trip_pause", "course" to course.id, "progress" to event.progressPercent)
-            SessionEvent.Resumed -> Telemetry.event("trip_resume", "course" to course.id)
-            is SessionEvent.Ended -> {
-                Telemetry.event("trip_end_early", "course" to course.id, "minutes" to event.tripMinutes, "progress" to event.progressPercent)
-                rebuildPlan()
-                cutTick++
-            }
-            SessionEvent.RestStarted -> Telemetry.event("rest_start", "course" to course.id)
-            is SessionEvent.GotOff -> {
-                Telemetry.event("trip_get_off", "course" to course.id, "from" to event.from.name.lowercase())
-                prepareReturn()
-                rebuildPlan()
-            }
-            is SessionEvent.Arrived -> {
-                pendingArrival = true
-                stamp(stations.size - 1)
-                Telemetry.event("trip_arrive", "course" to course.id, "minutes" to tripMinutes, "late" to event.late)
-                if (!event.late) signal(ARRIVAL_PATTERN)
-            }
-            is SessionEvent.RestFinished -> {
-                Telemetry.event("rest_end", "course" to course.id, "late" to event.late)
-                prepareReturn()
-                rebuildPlan()
-                if (!event.late) signal(REST_PATTERN)
-            }
-        }
-        save()
-    }
-
-    /** 종착역의 풍경을 이어 붙이고 방향을 뒤집는 처리는 기차 경험에만 해당한다. */
-    private fun prepareReturn() {
-        baseDistance += plan.totalDistance
-        direction = -direction
-    }
-
-    private fun rebuildPlan() {
-        plan = CoursePlan(tripMinutes * 60.0, course.stations.size, course.cruise)
-        // 역 수가 다른 코스로 바뀌면 다음 틱 전까지 이전 코스의 역 번호가 남는다(개발용 코스 강제 전환 등).
-        nextStop = nextStop.coerceIn(1, plan.segments)
-        if (stoppedAt >= plan.segments) stoppedAt = -1
-        weather = WeatherDirector(weatherSeed, course.snowy, season)
-        applyStations()
-    }
-
-    /** 역 위치·이름판·진행 바 표시·코스 구역을 지금 계획에 맞춘다. */
-    private fun applyStations() {
-        scene.theme = course.theme
-        scene.snowy = course.snowy
-        scene.zones = CourseZones(plan, course, direction, baseDistance)
-        val list = stations
-        scene.setStations(
-            DoubleArray(list.size) { baseDistance + plan.stationDistance(it) },
-            Array(list.size) { list[it].local },
-            Array(list.size) { list[it].roman },
-        )
-        stationMarks = FloatArray(list.size) {
-            when (it) {
-                0 -> 0f
-                list.size - 1 -> 1f
-                else -> (plan.arrivalAt(it) / plan.durationSec).toFloat()
-            }
-        }
-    }
-
     private fun updateTicks(t: Double) {
         when (phase) {
             SessionPhase.RUNNING, SessionPhase.PAUSED -> {
-                val left = ceil(plan.durationSec - t).toInt().coerceAtLeast(0)
+                val left = ceil(session.durationSeconds - t).toInt().coerceAtLeast(0)
                 if (left != remainingSec) {
                     remainingSec = left
-                    progress = (t / plan.durationSec).toFloat().coerceIn(0f, 1f)
-                    val stop = plan.stoppedAt(t)
+                    progress = (t / session.durationSeconds).toFloat().coerceIn(0f, 1f)
+                    val stop = experience.stoppedAt(t)
                     if (stop >= 0 && stoppedAt < 0) {
-                        sound.chime()
-                        stamp(stop)
-                        save()
+                        experience.chime()
                     }
                     stoppedAt = stop
-                    val next = if (stop >= 0) stop + 1 else plan.segmentAt(t) + 1
-                    nextStop = min(next, plan.segments)
-                    nextStopSec = ceil(plan.arrivalAt(nextStop) - t).toInt().coerceAtLeast(0)
+                    nextStop = experience.nextStop(t)
+                    nextStopSec = ceil(experience.arrivalAt(nextStop) - t).toInt().coerceAtLeast(0)
                 }
             }
             SessionPhase.RESTING -> {
@@ -541,143 +394,45 @@ class JourneyViewModel(
 
     /** 카드는 실내와 같은 재질로 보이게, 밤이면 종이색을 벽색 쪽으로 조금 어둡게 한다(명세 4.4). */
     private fun updateSurfaces() {
-        val p = scene.effective
-        val wall = p.c[Palette.PANEL]
+        val wall = scene.panelColor
         val sheet = scene.paperColor(PAPER)
         if (wall != panel) panel = wall
         if (sheet != paper) paper = sheet
     }
 
-    /** 도착·쉬는 시간 끝 신호. 화면 밖에서도 알 수 있게 진동과 알림음을 쓴다. */
-    private fun signal(pattern: LongArray) {
-        val ctx = getApplication<Application>()
-        val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            (ctx.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager)?.defaultVibrator
-        } else {
-            @Suppress("DEPRECATION")
-            ctx.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
-        }
-        vibrator?.vibrate(VibrationEffect.createWaveform(pattern, -1))
-        RingtoneManager.getRingtone(ctx, RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION))?.apply {
-            audioAttributes = AudioAttributes.Builder()
-                .setUsage(AudioAttributes.USAGE_NOTIFICATION_EVENT)
-                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                .build()
-            play()
-        }
-    }
+    fun courseById(id: String?): Course = registry.courseById(id)
 
-    /**
-     * 남은 시간 알림과 알람을 지금 상태에 맞춘다. 달리는 중·멈춘 동안·쉬는 중에만 알림을 띄운다.
-     * 개발용 빨리 감기 중에는 실제 시간과 어긋나므로 알림 시계를 빼고 문구만 띄운다.
-     * 알림 문구는 앱 언어로 여기서 미리 만들어 넘긴다.
-     */
-    private fun syncTimer() {
-        val ctx = getApplication<Application>()
-        val res = AppLanguage.localized(ctx).resources
-        val title = course.title(res, direction)
-        val terminus = res.getString(stations.last().name)
-        val now = SystemClock.elapsedRealtime()
-        val realtime = session.scale == 1.0
-        when (phase) {
-            SessionPhase.RUNNING -> {
-                val left = (plan.durationSec - session.elapsedSeconds).coerceAtLeast(0.0)
-                TripTimer.update(
-                    ctx, title, res.getString(R.string.notif_running, course.stopsLine(res, direction), terminus),
-                    if (realtime) now + (left * 1000).toLong() else 0L,
-                    res.getString(R.string.arrived_at, terminus), res.getString(R.string.notif_arrived, tripMinutes),
-                )
-            }
-            SessionPhase.PAUSED -> {
-                val left = (plan.durationSec - session.elapsedSeconds).coerceAtLeast(0.0).toInt()
-                TripTimer.update(ctx, title, res.getString(R.string.notif_paused, formatClock(left)), 0L, "", "")
-            }
-            SessionPhase.RESTING -> {
-                val next = course.title(res, -direction)
-                TripTimer.update(
-                    ctx, res.getString(R.string.resting_at, terminus), res.getString(R.string.notif_next_trip, next),
-                    sessionState.restEndElapsedMillis, res.getString(R.string.rest_over), res.getString(R.string.notif_ticket_ready, next),
-                )
-            }
-            else -> TripTimer.stop(ctx)
-        }
-    }
-
-    // ── 저장·복원 ──
-
-    private fun save() {
-        Telemetry.state(phase.name, course.id, tripMinutes, direction)
-        syncTimer()
-        val snapshot = session.snapshot()
-        store.saveSession(
-            JourneyStore.Active(
-                snapshot.state.phase.name, snapshot.state.tripMinutes, baseDistance, snapshot.clock,
-                snapshot.state.restEndElapsedMillis, snapshot.state.restDone, weatherSeed, sessionId,
-            ), course.id, direction, pendingStations.toSet(), pendingArrival,
-        )
-        pendingArrival = false
-        pendingStations.clear()
-        today = store.today()
-        lifetime = store.lifetime()
-        visited = store.visited
-    }
-
-    private fun restore() {
-        val a = store.loadActive() ?: return
-        val restored = runCatching {
-            session.restore(
-                SessionSnapshot(
-                    SessionState(
-                        runCatching { SessionPhase.valueOf(a.phase) }.getOrDefault(SessionPhase.DOCKED),
-                        a.tripMinutes, a.restEnd, a.restDone,
-                    ),
-                    a.clock,
-                ),
-            )
-        }
-        if (restored.isFailure) return
-        sessionState = session.state
-        timeScale = session.scale
-        sessionId = a.sessionId
-        baseDistance = a.base
-        weatherSeed = a.weatherSeed
-        season = seasonChoice.resolve(weatherSeed)
-        plan = CoursePlan(tripMinutes * 60.0, course.stations.size, course.cruise)
-        weather = WeatherDirector(weatherSeed, course.snowy, season)
-    }
-
-    /** 코스를 바꾼다. 정차 중에만 되고, 새 코스의 출발역으로 순간 이동한다. */
     fun selectCourse(c: Course) {
-        if (phase != SessionPhase.DOCKED || c == course) return
+        if (phase != SessionPhase.DOCKED || c.id == course.id) return
         Telemetry.event("course_select", "course" to c.id, "owned" to owns(c))
-        course = c
-        direction = 1
-        baseDistance = 0.0
-        session.reset()
-        sessionState = session.state
-        rebuildPlan()
-        cutTick++
-        save()
+        changeCourse(c, force = false)
+    }
+
+    private fun changeCourse(c: Course, force: Boolean) {
+        val old = experience
+        val replacement = if (registry.providerFor(c.id).id != registry.providerFor(course.id).id)
+            registry.create(c.id, store) else null
+        if (session.selectCourse(c.id, force, replacement)) {
+            if (replacement != null) {
+                old.releasePresentation()
+                experience.selectTime(fixedTime)
+                experience.selectSeasonChoice(seasonChoice)
+                experience.setSoundLevel(soundLevel)
+                applySound()
+                syncPresentation()
+            }
+            cutTick++
+        } else replacement?.close()
     }
 
     // ── 개발용 ──
 
     /** 개발용: 여행 중이어도 끊고 코스를 바꾼다. */
-    fun forceCourse(c: Course) {
-        session.reset()
-        sessionState = session.state
-        if (c != course) {
-            selectCourse(c)
-        } else {
-            rebuildPlan()
-            cutTick++
-            save()
-        }
-    }
+    fun forceCourse(c: Course) = changeCourse(c, force = true)
 
     fun selectLand(k: SceneKind?) {
         land = k
-        applyLand()
+        experience.selectLand(k)
     }
 
     fun selectSeason(value: Season) = selectSeasonChoice(SeasonChoice.fromSeason(value))
@@ -685,16 +440,16 @@ class JourneyViewModel(
     fun selectSeasonChoice(value: SeasonChoice) {
         seasonChoice = value
         store.seasonChoiceId = value.id
-        season = value.resolve(weatherSeed)
-        applyWeather(null)
-        scene.season = season
-        weather = WeatherDirector(weatherSeed, course.snowy, season)
+        experience.selectSeasonChoice(value)
+        fixedWeather = null
+        season = scene.season
+        session.checkpoint()
     }
 
     fun selectTime(t: TimeOfDay?) {
         fixedTime = t
         store.timeOfDayId = TimeOfDay.fromSetting(t?.name)?.name
-        scene.setTimeOfDay(t)
+        experience.selectTime(t)
     }
 
     /**
@@ -704,17 +459,7 @@ class JourneyViewModel(
     fun seekPosition(pos: Double) {
         if (!moving()) depart()
         if (!moving()) return
-        val p = pos.coerceIn(0.0, plan.segments.toDouble())
-        val target = (if (direction < 0) plan.segments - p else p) * plan.segDist
-        // 거리는 시간에 대해 줄지 않으므로 이분 탐색으로 그 거리에 닿는 시각을 찾는다.
-        var lo = 0.0
-        var hi = plan.durationSec
-        repeat(60) {
-            val mid = (lo + hi) / 2
-            if (plan.distanceAt(mid) < target) lo = mid else hi = mid
-        }
-        session.seek(hi)
-        save()
+        session.seek(experience.secondsAtPosition(pos))
     }
 
     /** 세션의 [fraction](0~1) 지점으로 옮긴다. 달리는 중이 아니면 먼저 출발한다. */
@@ -722,23 +467,21 @@ class JourneyViewModel(
         if (!moving()) depart()
         // 잠긴 코스라 출발하지 못했으면 건너뛰지 않는다.
         if (!moving()) return
-        session.seek(plan.durationSec * fraction.coerceIn(0f, 1f))
-        save()
+        session.seek(session.durationSeconds * fraction.coerceIn(0f, 1f))
     }
 
     /** 도착 20초 전으로 건너뛴다. */
     fun seekNearEnd() {
         if (!moving()) depart()
         if (!moving()) return
-        seekFraction(((plan.durationSec - 20) / plan.durationSec).toFloat())
+        seekFraction(((session.durationSeconds - 20) / session.durationSeconds).toFloat())
     }
 
     /** 다음 정차역 5초 전으로 건너뛴다. */
     fun seekNextStop() {
         if (!moving()) depart()
         if (!moving()) return
-        session.seek((plan.arrivalAt(nextStop) - 5).coerceAtLeast(0.0))
-        save()
+        session.seek((experience.arrivalAt(nextStop) - 5).coerceAtLeast(0.0))
     }
 
     /** 쉬는 시간을 바로 끝낸다. */
@@ -750,12 +493,11 @@ class JourneyViewModel(
     fun selectScale(s: Double) {
         session.setScale(s)
         timeScale = s
-        save()
     }
 
     fun selectMode(m: RenderMode) {
         mode = m
-        scene.mode = m
+        experience.selectMode(m)
     }
 
     /** 개발 검증용 날씨 고정. 일반 설정에 노출하거나 저장하지 않는다. */
@@ -765,18 +507,17 @@ class JourneyViewModel(
 
     private fun applyWeather(w: Weather?) {
         fixedWeather = w
-        scene.autoWeather = w == null
-        if (w != null) scene.weather = w
+        experience.selectWeather(w)
     }
 
     fun toggleBoxes() {
         boxes = !boxes
-        scene.showBoxes = boxes
+        experience.setBoxes(boxes)
     }
 
     fun toggleWindowFrame() {
         windowFrame = !windowFrame
-        scene.windowFrame = windowFrame
+        experience.setWindowFrame(windowFrame)
     }
 
     fun toggleCap60() {
@@ -787,14 +528,10 @@ class JourneyViewModel(
         showHud = !showHud
     }
 
-    private fun applyLand() {
-        scene.urban = land?.field ?: planField
-    }
-
     private fun hudText(refreshHz: Float, t: Double): String {
         val rt = Runtime.getRuntime()
-        val shown = t.coerceIn(0.0, plan.durationSec).toLong()
-        val total = plan.durationSec.toLong()
+        val shown = t.coerceIn(0.0, session.durationSeconds).toLong()
+        val total = session.durationSeconds.toLong()
         return String.format(
             Locale.US,
             "%.0fHz · %s\n프레임 %.1fms (p95 %.1f) · 끊김 %d\n그리기 기록 %.2fms (최대 %.1f)\n비트맵 %.1fMB · 네이티브 %.1fMB · 자바 %.1fMB\n%s %d:%02d / %d:%02d ×%.0f · 도시 %.2f · 속도 %.0f · %s · 비 %.2f 눈 %.2f",
@@ -803,35 +540,34 @@ class JourneyViewModel(
             stats.avgDraw(), stats.maxDraw(),
             renderer.bitmapBytes / MB, Debug.getNativeHeapAllocatedSize() / MB, (rt.totalMemory() - rt.freeMemory()) / MB,
             phase.name, shown / 60, shown % 60, total / 60, total % 60, timeScale,
-            scene.urban.at(scene.distanceU), scene.speed, getApplication<Application>().getString(scene.timeOfDay.label),
+            scene.urbanDensity, scene.speed, getApplication<Application>().getString(scene.timeOfDay.label),
             scene.rainAmount, scene.snowAmount,
         )
     }
 
     override fun onCleared() {
-        sound.stop()
+        unsubscribe()
+        experience.releasePresentation()
         billing.end()
-        renderer.release()
     }
 
     class Factory(
         private val app: Application,
         private val options: JourneyOptions,
         private val store: JourneyStore,
+        private val session: () -> SessionRuntime,
+        private val registry: ExperienceRegistry,
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             require(modelClass == JourneyViewModel::class.java)
-            return JourneyViewModel(app, options, store) as T
+            return JourneyViewModel(app, options, store, session(), registry) as T
         }
     }
 
     private companion object {
         const val MB = 1024.0 * 1024.0
         val PAPER = Pb.Paper.toArgb()
-        val ARRIVAL_PATTERN = longArrayOf(0, 180, 140, 180, 140, 320)
-        val REST_PATTERN = longArrayOf(0, 120, 120, 120)
-        val SOUND_LEVELS = floatArrayOf(.35f, .6f, .9f)
         val SOUND_NAMES = arrayOf("low", "mid", "high")
     }
 }

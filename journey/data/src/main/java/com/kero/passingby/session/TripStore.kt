@@ -41,41 +41,17 @@ class TripStore(private val context: Context) : JourneyStore {
         return prefs.getInt(KEY_DAY_TRIPS, 0) to prefs.getInt(KEY_DAY_MINUTES, 0)
     }
 
-    override fun recordArrival(minutes: Int) {
-        val (trips, total) = today()
-        prefs.edit()
-            .putString(KEY_DAY, LocalDate.now().toString())
-            .putInt(KEY_DAY_TRIPS, trips + 1)
-            .putInt(KEY_DAY_MINUTES, total + minutes)
-            .apply()
-    }
-
     // ── 여행 수첩 ──
 
     /** 들른 역("코스id:정방향 역 번호"). */
-    override var visited: Set<String>
+    override val visited: Set<String>
         get() = prefs.getStringSet(KEY_VISITED, emptySet()) ?: emptySet()
-        private set(v) = prefs.edit().putStringSet(KEY_VISITED, v).apply()
-
-    override fun visit(courseId: String, station: Int) {
-        val key = "$courseId:$station"
-        if (key !in visited) visited = visited + key
-    }
 
     /** 코스를 끝까지 달린 횟수. */
     override fun completions(courseId: String): Int = prefs.getInt(KEY_DONE + courseId, 0)
 
     /** 지금까지 도착한 횟수와 집중한 분. */
     override fun lifetime(): Pair<Int, Int> = prefs.getInt(KEY_ALL_TRIPS, 0) to prefs.getInt(KEY_ALL_MINUTES, 0)
-
-    override fun recordCompletion(courseId: String, minutes: Int) {
-        val (trips, total) = lifetime()
-        prefs.edit()
-            .putInt(KEY_DONE + courseId, completions(courseId) + 1)
-            .putInt(KEY_ALL_TRIPS, trips + 1)
-            .putInt(KEY_ALL_MINUTES, total + minutes)
-            .apply()
-    }
 
     // ── 코스 잠금 ──
 
@@ -142,8 +118,6 @@ class TripStore(private val context: Context) : JourneyStore {
         putString(KEY_A_ID, active.sessionId)
         putInt(KEY_A_BOOT, bootCount())
     }
-
-    override fun saveActive(active: Active) { prefs.edit().active(active).apply() }
 
     override fun saveSession(active: Active, courseId: String, direction: Int, stations: Set<Int>, arrived: Boolean) {
         require(active.sessionId.isNotBlank())

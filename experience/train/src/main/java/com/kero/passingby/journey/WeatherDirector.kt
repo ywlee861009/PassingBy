@@ -1,7 +1,7 @@
 package com.kero.passingby.journey
 
 import kotlin.math.max
-import com.kero.passingby.scene.Season
+import com.kero.passingby.experience.Season
 
 /**
  * 선택한 계절과 코스의 적설 특성에 맞춰 세션마다 정하는 날씨. 실제 날씨와 연동하지 않는다.

@@ -1,5 +1,6 @@
 package com.kero.passingby.scene
 
+
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.LinearGradient

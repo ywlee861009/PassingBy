@@ -1,6 +1,8 @@
 package com.kero.passingby.content
 
-import com.kero.passingby.experience.train.R
+import com.kero.passingby.experience.api.R
+import com.kero.passingby.experience.JourneyCourse
+import com.kero.passingby.experience.JourneyStation
 import android.content.res.Resources
 import androidx.annotation.StringRes
 import com.kero.passingby.scene.CityLook
@@ -13,7 +15,7 @@ import com.kero.passingby.scene.Theme
  * 이름판은 실제 역처럼 현지 표기를 쓰므로 앱 언어와 상관없이 같다.
  * [look]은 그 도시의 모습(건물 높이·양식, 언덕·강, 뒷산). 실제 사진을 보고 알아볼 수 있는 특징을 맞춘다.
  */
-class Station(@StringRes val name: Int, val local: String, val roman: String, val look: CityLook = CityLook.DEFAULT)
+class Station(@param:StringRes override val name: Int, override val local: String, override val roman: String, val look: CityLook = CityLook.DEFAULT) : JourneyStation
 
 /**
  * 코스. 실제 노선 하나를 따라가고, 세션 하나가 코스 전체이며 중간 역마다 잠깐 정차한다(명세 7.2).
@@ -31,31 +33,31 @@ class Station(@StringRes val name: Int, val local: String, val roman: String, va
  * @param theme 지형·식생·마을·이름판. 같은 나라의 노선끼리 나눠 쓰거나 지형만 바꿔 쓴다.
  */
 class Course(
-    val id: String,
-    val number: Int,
-    @StringRes val region: Int,
-    @StringRes val vehicle: Int,
-    val stations: List<Station>,
+    override val id: String,
+    override val number: Int,
+    @param:StringRes override val region: Int,
+    @param:StringRes override val vehicle: Int,
+    override val stations: List<Station>,
     val cruise: Double,
-    val productId: String?,
+    override val productId: String?,
     /** 이 코스 날씨에 눈이 올 수 있는지. 남쪽 코스는 눈이 오지 않는다. */
     val snowy: Boolean,
     val theme: Theme,
     val features: List<Feature> = emptyList(),
     val landmarks: List<LandmarkSpot> = emptyList(),
-) {
-    val free: Boolean get() = productId == null
+) : JourneyCourse {
+    override val free: Boolean get() = productId == null
 
     /** [direction]이 −1이면 역방향(부산 → 서울). */
-    fun ordered(direction: Int): List<Station> = if (direction < 0) stations.asReversed() else stations
+    override fun ordered(direction: Int): List<Station> = if (direction < 0) stations.asReversed() else stations
 
-    fun title(res: Resources, direction: Int): String {
+    override fun title(res: Resources, direction: Int): String {
         val s = ordered(direction)
         return "${res.getString(s.first().name)} → ${res.getString(s.last().name)}"
     }
 
     /** 중간 정차역 문구. "대전 · 대구 정차" */
-    fun stopsLine(res: Resources, direction: Int): String {
+    override fun stopsLine(res: Resources, direction: Int): String {
         val mid = ordered(direction).drop(1).dropLast(1)
         return if (mid.isEmpty()) {
             res.getString(R.string.nonstop)

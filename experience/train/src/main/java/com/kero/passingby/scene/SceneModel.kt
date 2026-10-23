@@ -1,5 +1,9 @@
 package com.kero.passingby.scene
 
+import com.kero.passingby.experience.SceneKind
+
+import com.kero.passingby.experience.Season
+
 import com.kero.passingby.experience.train.R
 import androidx.annotation.StringRes
 import kotlin.math.abs
@@ -200,11 +204,6 @@ internal object Placement {
     }
 }
 
-enum class SceneKind(val label: String, val field: UrbanField) {
-    COUNTRY("시골", UrbanField { 0f }),
-    CITY("도시", UrbanField { 1f }),
-}
-
 /**
  * 세계 위치(카메라 이동 거리, 장면 단위)별 도시화 정도(0 = 시골, 1 = 도시).
  * 여정이 정하고, 렌더러는 사물마다 화면 가운데를 지날 때의 세계 위치로 환산해 읽는다.
@@ -265,10 +264,5 @@ internal fun desaturate(c: Int, k: Float): Int {
 /**
  * 날씨. [rain]·[snow]는 목표 세기(0~1)이고, 실제 세기는 [SceneState]에서 서서히 따라간다. [label]은 설정 화면에 쓰는 문자열 리소스.
  */
-enum class Weather(@StringRes val label: Int, val rain: Float, val snow: Float) {
-    CLEAR(R.string.weather_clear, 0f, 0f),
-    DRIZZLE(R.string.weather_drizzle, .4f, 0f),
-    SHOWER(R.string.weather_shower, 1f, 0f),
-    LIGHT_SNOW(R.string.weather_light_snow, 0f, .35f),
-    HEAVY_SNOW(R.string.weather_heavy_snow, 0f, 1f),
-}
+
+internal val SceneKind.field: UrbanField get() = UrbanField { if (this == SceneKind.CITY) 1f else 0f }

@@ -1,37 +1,11 @@
 package com.kero.passingby.scene
 
+import com.kero.passingby.experience.Season
+import com.kero.passingby.experience.TimeOfDay
+
 import com.kero.passingby.experience.train.R
 import androidx.annotation.StringRes
 import kotlin.math.max
-
-/** 저장 ID는 UI 순서와 독립적이다. 이전 기본 풍경(default)은 여름으로 복원한다. */
-enum class Season(val id: String, @param:StringRes val label: Int) {
-    SPRING("spring", R.string.season_spring), SUMMER("summer", R.string.season_summer),
-    AUTUMN("autumn", R.string.season_autumn), WINTER("winter", R.string.season_winter);
-
-    fun baseSnow(snowy: Boolean): Float = if (this == WINTER && snowy) .55f else 0f
-
-    companion object {
-        fun fromId(id: String?): Season = entries.firstOrNull { it.id == id } ?: SUMMER
-    }
-}
-
-/** 설정의 선택과 실제 그리는 계절을 구분한다. 무작위는 여행 시드로 정해 복원 시에도 유지한다. */
-enum class SeasonChoice(val season: Season?) {
-    RANDOM(null), SPRING(Season.SPRING), SUMMER(Season.SUMMER), AUTUMN(Season.AUTUMN), WINTER(Season.WINTER);
-
-    val id: String get() = season?.id ?: "random"
-    val label: Int get() = season?.label ?: R.string.random
-
-    fun resolve(seed: Int): Season = season ?: Season.entries[
-        (seed xor (seed ushr 16)).ushr(1) % Season.entries.size
-    ]
-
-    companion object {
-        fun fromId(id: String?): SeasonChoice = entries.firstOrNull { it.id == id } ?: SUMMER
-        fun fromSeason(season: Season): SeasonChoice = entries.first { it.season == season }
-    }
-}
 
 /** 원래 명도와 밤의 청색을 유지하면서 색상만 바꾼다. 매번 원본 팔레트로 계산한다. */
 internal fun seasonColor(base: Int, tint: Int, night: Float): Int {
@@ -119,3 +93,5 @@ internal data class TileStyle(val time: TimeOfDay, val season: Season, val rain:
         fun of(state: SceneState) = TileStyle(state.timeOfDay, state.season, step(state.rainAmount), step(state.snowAmount), step(state.surfaceSnowCover))
     }
 }
+
+internal fun Season.baseSnow(snowy: Boolean): Float = if (this == Season.WINTER && snowy) .55f else 0f

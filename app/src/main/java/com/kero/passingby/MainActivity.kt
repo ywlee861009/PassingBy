@@ -12,14 +12,13 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.ViewModelProvider
-import com.kero.passingby.content.Course
 import com.kero.passingby.locale.AppLanguage
-import com.kero.passingby.scene.SceneKind
-import com.kero.passingby.scene.SeasonChoice
-import com.kero.passingby.scene.RenderMode
+import com.kero.passingby.experience.SceneKind
+import com.kero.passingby.experience.SeasonChoice
+import com.kero.passingby.experience.RenderMode
 import com.kero.passingby.session.AppVisibility
-import com.kero.passingby.scene.TimeOfDay
-import com.kero.passingby.scene.Weather
+import com.kero.passingby.experience.TimeOfDay
+import com.kero.passingby.experience.Weather
 import com.kero.passingby.ui.journey.JourneyViewModel
 import com.kero.passingby.ui.journey.JourneyScreen
 import com.kero.passingby.ui.startup.LaunchScreen
@@ -72,7 +71,7 @@ class MainActivity : ComponentActivity() {
      */
     private fun applyDebugExtras(i: Intent) {
         val vm = journeyViewModel
-        i.getStringExtra("course")?.let { id -> vm.forceCourse(Course.byId(id)) }
+        i.getStringExtra("course")?.let { id -> vm.forceCourse(vm.courseById(id)) }
         i.getStringExtra("scene")?.let { n -> SceneKind.entries.firstOrNull { it.name == n }?.let(vm::selectLand) }
         i.getStringExtra("time")?.let { n -> TimeOfDay.entries.firstOrNull { it.name == n }?.let(vm::selectTime) }
         i.getStringExtra("season")?.let { vm.selectSeasonChoice(SeasonChoice.fromId(it)) }

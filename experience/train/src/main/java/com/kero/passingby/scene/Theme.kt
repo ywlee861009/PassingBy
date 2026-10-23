@@ -1,5 +1,6 @@
 package com.kero.passingby.scene
 
+
 import android.graphics.Color
 
 /** 마을 집 지붕 모양. */

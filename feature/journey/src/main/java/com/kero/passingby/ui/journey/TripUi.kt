@@ -43,7 +43,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.kero.passingby.content.Course
+import com.kero.passingby.experience.JourneyCourse as Course
 import com.kero.passingby.ui.theme.Pb
 import com.kero.passingby.ui.theme.PbType
 import java.util.Locale

@@ -8,5 +8,7 @@ android {
 }
 
 dependencies {
+    api(project(":journey:domain"))
+    implementation(libs.androidx.core.ktx)
     testImplementation(libs.junit)
 }

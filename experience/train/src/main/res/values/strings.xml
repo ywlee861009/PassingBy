@@ -1,6 +1,4 @@
 <resources>
-    <string name="stops_line">Stops at %1$s</string>
-    <string name="nonstop">Nonstop</string>
     <string name="region_korea_gyeongbu">Korea Gyeongbu Line</string>
     <string name="region_korea_jeolla">Korea Jeolla Line</string>
     <string name="region_korea_gangneung">Korea Gangneung Line</string>
@@ -41,18 +39,4 @@
     <string name="station_lyon">Lyon</string>
     <string name="station_avignon">Avignon</string>
     <string name="station_marseille">Marseille</string>
-    <string name="time_dawn">Dawn</string>
-    <string name="time_day">Day</string>
-    <string name="time_dusk">Sunset</string>
-    <string name="time_night">Night</string>
-    <string name="random">Random</string>
-    <string name="weather_clear">Clear</string>
-    <string name="weather_drizzle">Drizzle</string>
-    <string name="weather_shower">Shower</string>
-    <string name="weather_light_snow">Light snow</string>
-    <string name="weather_heavy_snow">Heavy snow</string>
-    <string name="season_autumn">Autumn</string>
-    <string name="season_spring">Spring</string>
-    <string name="season_summer">Summer</string>
-    <string name="season_winter">Winter</string>
 </resources>
