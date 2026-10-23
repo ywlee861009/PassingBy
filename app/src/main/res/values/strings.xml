@@ -193,7 +193,9 @@
     <string name="purchases_restore_failed">Couldn\'t check your purchases. Please try again shortly.</string>
     <string name="purchase_pending">Your payment is pending. The course will unlock when it completes.</string>
     <string name="season">Season</string>
-    <string name="season_desc">Choose the original scenery or autumn foliage for all courses.</string>
-    <string name="season_default">Default</string>
+    <string name="season_desc">Scenery and weather change naturally with your chosen season.</string>
     <string name="season_autumn">Autumn</string>
+    <string name="season_spring">Spring</string>
+    <string name="season_summer">Summer</string>
+    <string name="season_winter">Winter</string>
 </resources>

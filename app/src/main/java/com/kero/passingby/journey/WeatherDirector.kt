@@ -1,27 +1,42 @@
 package com.kero.passingby.journey
 
 import kotlin.math.max
+import com.kero.passingby.scene.Season
 
 /**
- * 세션마다 무작위로 정하는 날씨(명세 7.4). 실제 날씨와는 연동하지 않는다.
+ * 선택한 계절과 코스의 적설 특성에 맞춰 세션마다 정하는 날씨. 실제 날씨와 연동하지 않는다.
  *
  * 세션을 시작할 때 성격(맑음 위주·비·눈)을 하나 고르고, 세기는 여정 시각의 부드러운 노이즈로 몇 분에 걸쳐 오르내린다.
  * 같은 세션이면 같은 시각에 같은 날씨라 회전·복원 후에도 이어진다.
  */
-class WeatherDirector(private val seed: Int, snowy: Boolean) {
+class WeatherDirector(private val seed: Int, snowy: Boolean, private val season: Season) {
     private val character: Int
 
     init {
         val r = hash(seed, 1)
+        val snowChance = if (season == Season.WINTER && snowy) .62 else 0.0
+        val rainChance = when (season) {
+            Season.SPRING -> .38
+            Season.SUMMER -> .58
+            Season.AUTUMN -> .24
+            Season.WINTER -> if (snowy) .08 else .42
+        }
         character = when {
-            snowy && r < .14 -> SNOW
-            r < .52 -> RAIN
+            r < snowChance -> SNOW
+            r < snowChance + rainChance -> RAIN
             else -> CLEAR
         }
     }
 
+    private val passingRain: Float = when (season) {
+        Season.SPRING -> .35f
+        Season.SUMMER -> .65f
+        Season.AUTUMN -> .2f
+        Season.WINTER -> 0f
+    }
+
     /** [t]초 시점의 (비, 눈) 목표 세기(0~1). */
-    fun rainAt(t: Double): Float = if (character == RAIN) wave(t, 0.0) else if (character == CLEAR) .45f * shower(t) else 0f
+    fun rainAt(t: Double): Float = if (character == RAIN) wave(t, 0.0) else if (character == CLEAR) passingRain * shower(t) else 0f
 
     fun snowAt(t: Double): Float = if (character == SNOW) wave(t, 37.0) else 0f
 

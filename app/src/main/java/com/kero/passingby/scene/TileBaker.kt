@@ -93,7 +93,7 @@ internal object TileBaker {
                     for (k in k0..k1) {
                         val n = Placement.count(l, rule, k)
                         for (j in 0 until n) {
-                            Placement.place(l, rule, k, j, sprites, placed)
+                            Placement.place(l, rule, k, j, sprites, placed, key.season)
                             val local = placed.wx - base
                             val hPx = placed.heightU * layout.u
                             val m = placed.sprite.base

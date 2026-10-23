@@ -170,7 +170,7 @@ internal object Placement {
         return floor(d.pow(1.3) * r.density + hash01(k, l.seed + 3) * .9).toInt()
     }
 
-    fun place(l: TerrainLayer, r: ObjectRule, k: Int, j: Int, sprites: SpriteSet, out: Placed) {
+    fun place(l: TerrainLayer, r: ObjectRule, k: Int, j: Int, sprites: SpriteSet, out: Placed, season: Season) {
         val key = k * 16 + j
         val s = l.seed
         val r1 = hash01(key, s + 11)
@@ -189,7 +189,7 @@ internal object Placement {
         } else {
             val kind = r.kinds[(r4 * r.kinds.size).toInt()]
             out.kind = kind
-            val arr = sprites.of(kind)
+            val arr = sprites.of(kind, season)
             out.sprite = arr[(r5 * arr.size).toInt()]
             out.heightU = when (kind) {
                 SpriteKind.BUSH -> 20 + r3 * 12

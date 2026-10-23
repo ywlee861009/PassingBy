@@ -5,7 +5,16 @@ import androidx.annotation.StringRes
 import com.kero.passingby.R
 
 enum class TimeOfDay(@param:StringRes val label: Int) {
-    DAWN(R.string.time_dawn), DAY(R.string.time_day), DUSK(R.string.time_dusk), NIGHT(R.string.time_night),
+    DAWN(R.string.time_dawn), DAY(R.string.time_day), DUSK(R.string.time_dusk), NIGHT(R.string.time_night);
+
+    companion object {
+        /** 이전 새벽/노을 설정을 현재 낮/밤 선택으로 옮긴다. */
+        fun fromSetting(name: String?): TimeOfDay? = when (name) {
+            "DAY", "DAWN" -> DAY
+            "NIGHT", "DUSK" -> NIGHT
+            else -> null
+        }
+    }
 }
 
 /**
@@ -40,9 +49,9 @@ class Palette {
         const val PANEL_SHADE = 12
         /** 눈 덮인 땅·잎 색. 프리셋에는 없고 [snowInto]가 매 프레임 계산한다. */
         const val SNOW_WHITE = 13
-        const val AUTUMN_RED = 14
-        const val AUTUMN_AMBER = 15
-        const val AUTUMN_GOLD = 16
+        const val FOLIAGE_A = 14
+        const val FOLIAGE_B = 15
+        const val FOLIAGE_C = 16
         const val C_COUNT = 17
 
         const val SUN_X = 0
@@ -136,7 +145,7 @@ internal fun snowInto(p: Palette, amount: Float, cover: Float) {
         p.c[Palette.NEAR] = mix(p.c[Palette.NEAR], fog, amount * .15f)
         p.c[Palette.TREE] = mix(p.c[Palette.TREE], fog, amount * .1f)
         p.c[Palette.CLOUD] = mix(p.c[Palette.CLOUD], fog, amount * .5f)
-        for (i in Palette.AUTUMN_RED..Palette.AUTUMN_GOLD) p.c[i] = mix(p.c[i], fog, amount * .1f)
+        for (i in Palette.FOLIAGE_A..Palette.FOLIAGE_C) p.c[i] = mix(p.c[i], fog, amount * .1f)
         p.f[Palette.SUN_A] *= 1 - amount
         p.f[Palette.STARS] *= 1 - amount
     }

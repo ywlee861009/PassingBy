@@ -41,6 +41,9 @@ class Sprite(
 }
 
 class SpriteSet {
+    private val bareRounds = Array(6) { bareTree(1201 + it, 170, 210) }
+    private val barePoplars = Array(4) { bareTree(1301 + it, 64, 240) }
+    private val bareBushes = Array(4) { bareTree(1401 + it, 140, 64, bush = true) }
     val pines = Array(5) { pine(101 + it) }
     val rounds = Array(6) { deciduous(201 + it) }
     val poplars = Array(4) { poplar(301 + it) }
@@ -66,17 +69,17 @@ class SpriteSet {
         },
     )
 
-    fun of(kind: SpriteKind): Array<Sprite> = when (kind) {
+    fun of(kind: SpriteKind, season: Season): Array<Sprite> = when (kind) {
         SpriteKind.PINE -> pines
-        SpriteKind.ROUND -> rounds
-        SpriteKind.POPLAR -> poplars
-        SpriteKind.BUSH -> bushes
+        SpriteKind.ROUND -> if (season == Season.WINTER) bareRounds else rounds
+        SpriteKind.POPLAR -> if (season == Season.WINTER) barePoplars else poplars
+        SpriteKind.BUSH -> if (season == Season.WINTER) bareBushes else bushes
         SpriteKind.REED -> reeds
         SpriteKind.BAMBOO -> bamboos
         SpriteKind.CYPRESS -> cypresses
     }
 
-    val bytes: Long = listOf(pines, rounds, poplars, bushes, clouds, reeds, tufts, houses, bamboos, cypresses).sumOf { arr ->
+    val bytes: Long = listOf(pines, rounds, poplars, bushes, clouds, reeds, tufts, houses, bamboos, cypresses, bareRounds, barePoplars, bareBushes).sumOf { arr ->
         arr.sumOf { s ->
             s.base.allocationByteCount.toLong() + (s.dark?.allocationByteCount ?: 0) + (s.light?.allocationByteCount ?: 0)
         }
@@ -261,6 +264,34 @@ private fun deciduous(seed: Int) = shaded(170, 210) { b, l, d, base, w, h ->
     restrict(d, base)
     for (c in cl) blob(l, c[0] + c[2] * .3f, c[1] - c[2] * .34f, c[2] * .5f, r, .2f)
     restrict(l, base)
+}
+
+/** 겨울 낙엽수: 줄기와 잔가지만 남긴 재사용 마스크. 상록수는 기존 마스크를 쓴다. */
+private fun bareTree(seed: Int, width: Int, height: Int, bush: Boolean = false) = shaded(width, height) { b, l, d, base, w, h ->
+    val random = SeqRandom(seed)
+    val pen = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE; style = Paint.Style.STROKE; strokeCap = Paint.Cap.ROUND }
+    val path = Path()
+    val spread = if (w / h < .4f) .23f else .6f
+    fun branch(x: Float, y: Float, length: Float, angle: Float, thickness: Float, depth: Int) {
+        val nx = x + cos(angle) * length
+        val ny = y + sin(angle) * length
+        path.rewind()
+        path.moveTo(x, y)
+        path.quadTo(x + (nx - x) * .35f + (random.next() - .5f) * 3, y + (ny - y) * .5f, nx, ny)
+        pen.strokeWidth = thickness
+        b.drawPath(path, pen)
+        if (depth == 0) return
+        branch(nx, ny, length * .6f, angle - spread * (.8f + random.next() * .3f), thickness * .6f, depth - 1)
+        branch(nx, ny, length * .63f, angle + spread * (.8f + random.next() * .3f), thickness * .6f, depth - 1)
+    }
+    if (bush) {
+        repeat(7) { i -> branch(w * (.14f + i * .12f), h - 2, h * .43f, -PI.toFloat() / 2 + (random.next() - .5f) * .5f, 2f, 2) }
+    } else {
+        branch(w / 2, h - 2, h * .38f, -PI.toFloat() / 2 + (random.next() - .5f) * .08f, max(3f, w * .035f), 3)
+    }
+    leftSide(d, w / 2, h, random, 1f)
+    restrict(d, base)
+    rim(l, base, -2f, 2f)
 }
 
 /** 침엽수: 톱니처럼 삐죽하고 끝이 처지는 가지층, 층마다 아래 그림자. */

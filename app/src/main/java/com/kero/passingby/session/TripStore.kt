@@ -3,6 +3,7 @@ package com.kero.passingby.session
 import android.content.Context
 import android.provider.Settings
 import com.kero.passingby.scene.Season
+import com.kero.passingby.scene.TimeOfDay
 import java.time.LocalDate
 
 /**
@@ -120,15 +121,10 @@ class TripStore(private val context: Context) {
         get() = prefs.getBoolean(KEY_TELEMETRY, true)
         set(v) = prefs.edit().putBoolean(KEY_TELEMETRY, v).apply()
 
-    /** 창밖 날씨. null이면 무작위, 아니면 [com.kero.passingby.scene.Weather] 이름. */
-    var weather: String?
-        get() = prefs.getString(KEY_WEATHER, null)
-        set(v) = prefs.edit().putString(KEY_WEATHER, v).apply()
-
-    /** 창밖 시간대. null이면 여행에 맞춰 자동 순환, 아니면 [com.kero.passingby.scene.TimeOfDay] 이름. */
-    var timeOfDay: String?
-        get() = prefs.getString(KEY_TIME, null)
-        set(v) = prefs.edit().putString(KEY_TIME, v).apply()
+    /** null은 자동 순환. 이전 새벽/노을은 낮/밤으로 복원한다. */
+    var timeOfDay: TimeOfDay?
+        get() = TimeOfDay.fromSetting(prefs.getString(KEY_TIME, null))
+        set(v) = prefs.edit().putString(KEY_TIME, TimeOfDay.fromSetting(v?.name)?.name).apply()
 
     var season: Season
         get() = Season.fromId(prefs.getString(KEY_SEASON, null))
@@ -196,7 +192,6 @@ class TripStore(private val context: Context) {
         const val KEY_LEDGE = "ledge_info"
         const val KEY_OVERLAY = "overlay_always"
         const val KEY_POWER = "power_save"
-        const val KEY_WEATHER = "weather"
         const val KEY_TIME = "time_of_day"
         const val KEY_SEASON = "season"
         const val KEY_SOUND = "sound"

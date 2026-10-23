@@ -29,7 +29,26 @@ class SceneState {
     val target = Palette()
     private val current = Palette()
     private val seasonal = Palette()
-    var season = Season.DEFAULT
+    var season = Season.SUMMER
+        set(value) {
+            if (field == value) return
+            field = value
+            if (value != Season.WINTER && autoWeather) clearSnow()
+        }
+    var snowy = true
+        set(value) {
+            field = value
+            if (!value && autoWeather) clearSnow()
+        }
+    /** 계절 기본 설경과 날씨로 쌓인 눈을 별도로 관리한다. */
+    val surfaceSnowCover: Float get() = max(season.baseSnow(snowy), snowCover)
+
+    private fun clearSnow() {
+        autoSnow = 0f
+        snowAmount = 0f
+        snowCover = 0f
+        glassSnow = 0f
+    }
     /** 이번 프레임에 실제로 그릴 팔레트. */
     val effective = Palette()
     private var transition = 1f
@@ -168,7 +187,7 @@ class SceneState {
         glassSnow = approach(glassSnow, snowAmount, dt * if (snowAmount > glassSnow) .04f else .03f)
         seasonInto(seasonal, current, season)
         wetInto(effective, seasonal, rainAmount)
-        snowInto(effective, snowAmount, snowCover)
+        snowInto(effective, snowAmount, surfaceSnowCover)
     }
 
     /** 개발용: 시간대 전환 애니메이션을 건너뛴다. */

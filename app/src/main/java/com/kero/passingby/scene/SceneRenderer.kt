@@ -573,7 +573,7 @@ class SceneRenderer(private val state: SceneState) {
         for (k in k0..k1) {
             val n = Placement.count(l, rule, k)
             for (j in 0 until n) {
-                Placement.place(l, rule, k, j, sprites, placed)
+                Placement.place(l, rule, k, j, sprites, placed, state.season)
                 if (gate != GATE_NONE) {
                     if (!present(gate, strength, urbanAt(l.speed, placed.wx, 0.0), hash01(placed.key, l.seed + 41))) continue
                     if (submerged(l.speed, placed.wx)) continue
@@ -1204,11 +1204,20 @@ class SceneRenderer(private val state: SceneState) {
         }
     }
 
-    private fun fieldColor(original: Int, autumn: Int, p: Palette, haze: Float): Int {
-        val color = themed(if (state.season == Season.AUTUMN) autumn else original, p, haze)
-        // 밭도 계절색 위에 비의 채도 저하와 눈 덮임을 적용한다.
+    private fun fieldSurface(material: Int, p: Palette, haze: Float): Int {
+        val color = themed(material, p, haze)
         val wet = mix(color, desaturate(color, .6f), state.rainAmount * .55f)
         return mix(wet, p.c[Palette.SNOW_WHITE], p.f[Palette.SNOW] * .85f)
+    }
+
+    private fun fieldColor(original: Int, autumn: Int, p: Palette, haze: Float): Int {
+        val material = when (state.season) {
+            Season.SPRING -> mix(original, Color.rgb(128, 164, 100), .2f)
+            Season.SUMMER -> original
+            Season.AUTUMN -> autumn
+            Season.WINTER -> mix(autumn, Color.rgb(133, 124, 103), .65f)
+        }
+        return fieldSurface(material, p, haze)
     }
 
     private fun drawPlot(canvas: Canvas, p: Palette, style: FieldStyle, k: Int, x0: Float, x1: Float, top: Float, bot: Float, u: Float) {
@@ -1225,7 +1234,7 @@ class SceneRenderer(private val state: SceneState) {
                     val y = top + hgt * (.1f + r * .3f)
                     canvas.drawRect(x0, y, x1, y + hgt * .07f, paint)
                 }
-                paint.color = themed(Color.rgb(96, 104, 64), p, 0f)
+                paint.color = fieldSurface(Color.rgb(96, 104, 64), p, 0f)
                 for (r in 0..2) {
                     val y = top + hgt * (.26f + r * .3f)
                     canvas.drawRect(x0, y, x1, y + max(1f, 1.1f * u), paint)
@@ -1233,26 +1242,26 @@ class SceneRenderer(private val state: SceneState) {
             }
             FieldStyle.TEA -> {
                 // 차밭: 선로와 나란한 차나무 줄. 줄 윗면이 둥글게 물결지고, 줄 사이 고랑은 그늘.
-                paint.color = themed(Color.rgb(34, 64, 36), p, 0f)
+                paint.color = fieldSurface(Color.rgb(34, 64, 36), p, 0f)
                 canvas.drawRect(x0, top, x1, bot, paint)
                 for (r in 0..2) {
                     val y = top + hgt * (.04f + r * .33f)
                     val rh = hgt * .27f
                     val bump = rh * .32f
-                    paint.color = themed(if (r % 2 == 0) Color.rgb(78, 132, 62) else Color.rgb(88, 144, 70), p, 0f)
+                    paint.color = fieldSurface(if (r % 2 == 0) Color.rgb(78, 132, 62) else Color.rgb(88, 144, 70), p, 0f)
                     canvas.drawRect(x0, y + bump, x1, y + rh, paint)
                     var x = x0 + bump
                     while (x < x1) {
                         canvas.drawCircle(x, y + bump, bump, paint)
                         x += bump * 1.8f
                     }
-                    paint.color = themed(Color.rgb(140, 190, 104), p, 0f)
+                    paint.color = fieldSurface(Color.rgb(140, 190, 104), p, 0f)
                     canvas.drawRect(x0, y + bump * .9f, x1, y + bump * .9f + max(1f, .6f * u), paint)
                 }
             }
             FieldStyle.VINE -> {
                 // 포도밭: 선로와 직각으로 난 줄이 끝에서 보여 세로 줄무늬가 된다.
-                paint.color = themed(Color.rgb(128, 100, 70), p, 0f)
+                paint.color = fieldSurface(Color.rgb(128, 100, 70), p, 0f)
                 canvas.drawRect(x0, top, x1, bot, paint)
                 paint.color = fieldColor(Color.rgb(64, 104, 48), Color.rgb(153, 105, 47), p, 0f)
                 var n = 0
@@ -1269,7 +1278,7 @@ class SceneRenderer(private val state: SceneState) {
             }
             FieldStyle.LAVENDER -> {
                 // 라벤더: 보라 줄과 마른 땅 줄을 번갈아.
-                paint.color = themed(Color.rgb(150, 150, 120), p, 0f)
+                paint.color = fieldSurface(Color.rgb(150, 150, 120), p, 0f)
                 canvas.drawRect(x0, top, x1, bot, paint)
                 paint.color = fieldColor(Color.rgb(132, 108, 186), Color.rgb(145, 127, 98), p, 0f)
                 for (r in 0..3) {
@@ -1280,9 +1289,9 @@ class SceneRenderer(private val state: SceneState) {
             }
             FieldStyle.WHEAT -> {
                 // 밀밭: 금빛 면에 바람 결 몇 줄.
-                paint.color = themed(Color.rgb(214, 182, 96), p, 0f)
+                paint.color = fieldSurface(Color.rgb(214, 182, 96), p, 0f)
                 canvas.drawRect(x0, top, x1, bot, paint)
-                paint.color = themed(Color.rgb(182, 148, 70), p, 0f)
+                paint.color = fieldSurface(Color.rgb(182, 148, 70), p, 0f)
                 for (r in 0..2) {
                     val y = top + hgt * (.25f + r * .28f)
                     val x = x0 + (x1 - x0) * hash01(k * 3 + r, 402).toFloat() * .5f
@@ -1292,7 +1301,7 @@ class SceneRenderer(private val state: SceneState) {
             FieldStyle.NONE -> return
         }
         // 밭 경계
-        paint.color = themed(Color.rgb(96, 88, 64), p, 0f)
+        paint.color = fieldSurface(Color.rgb(96, 88, 64), p, 0f)
         canvas.drawRect(x0, top, x0 + max(1f, .8f * u), bot, paint)
     }
 

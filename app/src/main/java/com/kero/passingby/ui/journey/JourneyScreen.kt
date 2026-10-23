@@ -482,12 +482,12 @@ fun JourneyScreen(vm: JourneyViewModel = viewModel()) {
                     SheetKind.JOURNAL -> JournalSheetContent(vm.today, vm.lifetime, vm.visited, vm::completions, vm::owns)
                     SheetKind.LICENSES -> LicenseSheetContent(licenses)
                     else -> SettingsSheetContent(
-                        vm.fixedTime, vm.fixedWeather, vm.soundOn, vm.soundLevel, vm.ledgeInfo, vm.overlayAlways, vm.powerSave, language,
+                        vm.fixedTime, vm.soundOn, vm.soundLevel, vm.ledgeInfo, vm.overlayAlways, vm.powerSave, language,
                         vm.telemetryOn,
                         vm.devUnlockAll, vm.restoringPurchases,
                         season = vm.season, onSeason = vm::selectSeason,
                         onTime = vm::selectTime,
-                        onWeather = vm::selectWeather, onSound = { vm.toggleSound() }, onSoundLevel = vm::selectSoundLevel,
+                        onSound = { vm.toggleSound() }, onSoundLevel = vm::selectSoundLevel,
                         onLedge = vm::setLedge, onOverlay = vm::setOverlay, onPower = vm::setPower,
                         onLanguage = { l ->
                             if (l != language) {

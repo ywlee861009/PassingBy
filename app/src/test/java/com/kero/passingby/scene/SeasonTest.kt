@@ -4,11 +4,14 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class SeasonTest {
-    @Test fun stableIdsAndUnknownSettingsFallBackToOriginal() {
-        assertEquals(Season.DEFAULT, Season.fromId(null))
-        assertEquals(Season.DEFAULT, Season.fromId("winter"))
+    @Test fun stableIdsAndOldDefaultFallBackToSummer() {
+        assertEquals(Season.SUMMER, Season.fromId(null))
+        assertEquals(Season.WINTER, Season.fromId("winter"))
         assertEquals(Season.AUTUMN, Season.fromId("autumn"))
-        assertEquals("default", Season.DEFAULT.id)
+        assertEquals(Season.SUMMER, Season.fromId("default"))
+        assertEquals(Season.SUMMER, Season.fromId("unknown"))
+        assertEquals(4, Season.entries.size)
+        assertEquals("summer", Season.SUMMER.id)
     }
 
     @Test fun togglesAlwaysStartFromOriginalAndLeaveSkyBuildingsAndEvergreensAlone() {
@@ -18,7 +21,7 @@ class SeasonTest {
         seasonInto(out, src, Season.AUTUMN)
         val autumn = out.c.copyOf()
         repeat(100) {
-            seasonInto(out, src, Season.DEFAULT)
+            seasonInto(out, src, Season.SUMMER)
             assertArrayEquals(original, out.c)
             seasonInto(out, src, Season.AUTUMN)
             assertArrayEquals(autumn, out.c)
@@ -41,7 +44,7 @@ class SeasonTest {
         val day = palette(TimeOfDay.DAY)
         val night = palette(TimeOfDay.NIGHT)
         fun brightness(color: Int) = ((color shr 16) and 255) + ((color shr 8) and 255) + (color and 255)
-        assertTrue(brightness(night.c[Palette.AUTUMN_RED]) < brightness(day.c[Palette.AUTUMN_RED]) / 2)
+        assertTrue(brightness(night.c[Palette.FOLIAGE_A]) < brightness(day.c[Palette.FOLIAGE_A]) / 2)
         val tones = FoliageTones()
         tones.update(day.c[Palette.TREE], 0f, 1f, day, Season.AUTUMN)
         val bare = tones.forObject(SpriteKind.ROUND, 0).copyOf()
@@ -53,4 +56,29 @@ class SeasonTest {
     }
 
 
+    @Test fun allSeasonsKeepEvergreensAndSkyButHaveDifferentDeciduousTones() {
+        val src = Palette.of(TimeOfDay.DAY)
+        val colors = mutableSetOf<Int>()
+        for (season in Season.entries) {
+            val pal = Palette().also { seasonInto(it, src, season) }
+            assertEquals(src.c[Palette.TOP], pal.c[Palette.TOP])
+            val tones = FoliageTones()
+            tones.update(pal.c[Palette.TREE], 0f, 1f, pal, season)
+            assertEquals(src.c[Palette.TREE], tones.forObject(SpriteKind.PINE, 0)[TONE_BASE])
+            colors += tones.forObject(SpriteKind.ROUND, 0)[TONE_BASE]
+        }
+        assertEquals(4, colors.size)
+    }
+
+    @Test fun onlyColdWinterHasSeasonalSnowAndOldTimesMigrateToDayOrNight() {
+        for (season in Season.entries) {
+            assertEquals(0f, season.baseSnow(false), 0f)
+            if (season != Season.WINTER) assertEquals(0f, season.baseSnow(true), 0f)
+        }
+        assertTrue(Season.WINTER.baseSnow(true) > 0f)
+        assertEquals(TimeOfDay.DAY, TimeOfDay.fromSetting("DAWN"))
+        assertEquals(TimeOfDay.NIGHT, TimeOfDay.fromSetting("DUSK"))
+        assertNull(TimeOfDay.fromSetting(null))
+        assertNull(TimeOfDay.fromSetting("unknown"))
+    }
 }

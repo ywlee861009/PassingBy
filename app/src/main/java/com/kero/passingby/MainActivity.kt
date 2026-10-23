@@ -57,8 +57,8 @@ class MainActivity : ComponentActivity() {
      * 개발용 실행 옵션(개발 도구가 켜진 빌드에서만). 화면을 누르지 않고 상태를 정해 확인할 때 쓴다.
      * - course: 코스 id (korea, korea-jeolla, korea-gangneung, japan, china-north, china-south, portugal, france)
      * - scene: COUNTRY | CITY (생략하면 여정을 따름)
-     * - time: DAWN | DAY | DUSK | NIGHT (생략하면 실제 시각)
-     * - season: default | autumn, mode: DIRECT | BAKED | TILES
+     * - time: DAWN | DAY | DUSK | NIGHT (개발용, 생략하면 저장된 설정/자동 순환)
+     * - season: spring | summer | autumn | winter, mode: DIRECT | BAKED | TILES
      * - weather: CLEAR | DRIZZLE | SHOWER | LIGHT_SNOW | HEAVY_SNOW
      * - minutes: 구간 길이(분), at: 구간의 몇 % 지점에서 시작할지(0~1), speedup: 빨리 감기 배율
      * - pos: 정방향 기준 노선 위치(구간 단위, 예 2.97). 랜드마크 위치를 확인할 때 쓴다.
@@ -71,8 +71,8 @@ class MainActivity : ComponentActivity() {
         i.getStringExtra("course")?.let { id -> vm.forceCourse(Course.byId(id)) }
         i.getStringExtra("scene")?.let { n -> SceneKind.entries.firstOrNull { it.name == n }?.let(vm::selectLand) }
         i.getStringExtra("time")?.let { n -> TimeOfDay.entries.firstOrNull { it.name == n }?.let(vm::selectTime) }
-        i.getStringExtra("weather")?.let { n -> Weather.entries.firstOrNull { it.name == n }?.let(vm::selectWeather) }
         i.getStringExtra("season")?.let { vm.selectSeason(Season.fromId(it)) }
+        i.getStringExtra("weather")?.let { n -> Weather.entries.firstOrNull { it.name == n }?.let(vm::selectWeather) }
         i.getStringExtra("mode")?.let { n -> RenderMode.entries.firstOrNull { it.name == n }?.let(vm::selectMode) }
         if (i.getBooleanExtra("unlock", false) && !vm.devUnlockAll) vm.toggleDevUnlock()
         if (i.hasExtra("minutes")) vm.selectMinutes(i.getIntExtra("minutes", 25))

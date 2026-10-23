@@ -70,7 +70,6 @@ import com.kero.passingby.content.Course
 import com.kero.passingby.locale.AppLanguage
 import com.kero.passingby.scene.TimeOfDay
 import com.kero.passingby.scene.Season
-import com.kero.passingby.scene.Weather
 import com.kero.passingby.ui.theme.Pb
 import com.kero.passingby.ui.theme.PbType
 import kotlinx.coroutines.CoroutineScope
@@ -270,7 +269,6 @@ fun CourseSheetContent(
 @Composable
 fun SettingsSheetContent(
     time: TimeOfDay?,
-    weather: Weather?,
     sound: Boolean,
     soundLevel: Int,
     ledge: Boolean,
@@ -283,7 +281,6 @@ fun SettingsSheetContent(
     season: Season,
     onSeason: (Season) -> Unit,
     onTime: (TimeOfDay?) -> Unit,
-    onWeather: (Weather?) -> Unit,
     onSound: (Boolean) -> Unit,
     onSoundLevel: (Int) -> Unit,
     onLedge: (Boolean) -> Unit,
@@ -302,7 +299,7 @@ fun SettingsSheetContent(
 
     SectionTitle(stringResource(R.string.time_of_day))
     BasicText(stringResource(R.string.time_of_day_desc), style = PbType.kicker.copy(color = Pb.InkSoft))
-    val times = listOf<TimeOfDay?>(null) + TimeOfDay.entries
+    val times = listOf(null, TimeOfDay.DAY, TimeOfDay.NIGHT)
     for (row in times.chunked(3)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             for (t in row) {
@@ -315,16 +312,6 @@ fun SettingsSheetContent(
     BasicText(stringResource(R.string.season_desc), style = PbType.kicker.copy(color = Pb.InkSoft))
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         for (option in Season.entries) Choice(stringResource(option.label), option == season) { onSeason(option) }
-    }
-
-    SectionTitle(stringResource(R.string.weather_outside))
-    val options = listOf<Weather?>(null) + Weather.entries
-    for (row in options.chunked(3)) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            for (w in row) {
-                Choice(stringResource(w?.label ?: R.string.random), w == weather) { onWeather(w) }
-            }
-        }
     }
 
     SectionTitle(stringResource(R.string.sound))

@@ -1,5 +1,9 @@
 package com.kero.passingby
 
+import android.app.Application
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.ViewModelStore
+import com.kero.passingby.ui.journey.JourneyViewModel
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.os.Debug
@@ -44,15 +48,69 @@ class HandoffValidationTest {
     @Test fun seasonStorageDefaultsAndSurvivesNewStore() {
         val prefs = context.getSharedPreferences("trip", 0)
         val saved = prefs.getString("season", null)
+        val savedTime = prefs.getString("time_of_day", null)
         try {
             prefs.edit().remove("season").commit()
-            assertEquals(Season.DEFAULT, TripStore(context).season)
-            TripStore(context).season = Season.AUTUMN
-            assertEquals(Season.AUTUMN, TripStore(context).season)
+            assertEquals(Season.SUMMER, TripStore(context).season)
+            for (season in Season.entries) {
+                TripStore(context).season = season
+                assertEquals(season, TripStore(context).season)
+            }
+            prefs.edit().putString("season", "default").commit()
+            assertEquals(Season.SUMMER, TripStore(context).season)
+            prefs.edit().putString("time_of_day", "DAWN").commit()
+            assertEquals(TimeOfDay.DAY, TripStore(context).timeOfDay)
+            prefs.edit().putString("time_of_day", "DUSK").commit()
+            assertEquals(TimeOfDay.NIGHT, TripStore(context).timeOfDay)
             prefs.edit().putString("season", "unknown").commit()
-            assertEquals(Season.DEFAULT, TripStore(context).season)
+            assertEquals(Season.SUMMER, TripStore(context).season)
         } finally {
-            prefs.edit().putString("season", saved).commit()
+            prefs.edit().putString("season", saved).putString("time_of_day", savedTime).commit()
+        }
+    }
+
+    @Test fun winterSceneryDoesNotRequireSnowfallAndClearsWhenSeasonChanges() {
+        val state = SceneState().apply { season = Season.WINTER; autoWeather = true }
+        state.update(0f, .4f)
+        assertEquals(0f, state.snowAmount, 0f)
+        assertEquals(0f, state.snowCover, 0f)
+        assertTrue(state.effective.f[Palette.SNOW] > 0f)
+        state.snowy = false
+        state.update(0f, .4f)
+        assertEquals(0f, state.effective.f[Palette.SNOW], 0f)
+        state.snowy = true
+        state.autoSnow = 1f
+        state.snapWeather()
+        state.season = Season.SUMMER
+        state.update(0f, .4f)
+        assertEquals(0f, state.snowAmount, 0f)
+        assertEquals(0f, state.snowCover, 0f)
+        assertEquals(0f, state.glassSnow, 0f)
+        assertEquals(0f, state.effective.f[Palette.SNOW], 0f)
+    }
+
+    @Test fun legacyManualWeatherCannotOverrideAutomaticWeatherAfterRestart() {
+        val prefs = context.getSharedPreferences("trip", 0)
+        val savedWeather = prefs.getString("weather", null)
+        val savedSeason = prefs.getString("season", null)
+        try {
+            prefs.edit().putString("weather", "HEAVY_SNOW").putString("season", "summer").commit()
+            InstrumentationRegistry.getInstrumentation().runOnMainSync {
+                val models = ViewModelStore()
+                try {
+                    val app = context.applicationContext as Application
+                    val factory = ViewModelProvider.AndroidViewModelFactory.getInstance(app)
+                    val vm = ViewModelProvider(models, factory)[JourneyViewModel::class.java]
+                    assertNull(vm.fixedWeather)
+                    assertTrue(vm.scene.autoWeather)
+                    assertEquals(Season.SUMMER, vm.season)
+                    vm.selectSeason(Season.WINTER)
+                    assertEquals(Season.WINTER, vm.scene.season)
+                    assertTrue(vm.scene.autoWeather)
+                } finally { models.clear() }
+            }
+        } finally {
+            prefs.edit().putString("weather", savedWeather).putString("season", savedSeason).commit()
         }
     }
 
@@ -61,6 +119,7 @@ class HandoffValidationTest {
             val plan = CoursePlan(25 * 60.0, course.stations.size, course.cruise)
             val state = SceneState().apply {
                 theme = course.theme
+                snowy = course.snowy
                 zones = CourseZones(plan, course, 1, 0.0)
                 urban = com.kero.passingby.scene.UrbanField { x -> plan.at(x) }
                 windowFrame = false
@@ -97,7 +156,7 @@ class HandoffValidationTest {
                 repeat(40) { state.update(0f, .4f); renderer.render(canvas, 720, 1280); SystemClock.sleep(10) }
                 val before = renderer.bitmapBytes
                 repeat(100) {
-                    state.season = if (it % 2 == 0) Season.AUTUMN else Season.DEFAULT
+                    state.season = Season.entries[it % Season.entries.size]
                     state.update(0f, .4f)
                     renderer.render(canvas, 720, 1280)
                 }
@@ -114,11 +173,11 @@ class HandoffValidationTest {
                 for (mode in RenderMode.entries) {
                     state.mode = mode
                     repeat(12) {
-                        state.season = if (it % 2 == 0) Season.AUTUMN else Season.DEFAULT
+                        state.season = Season.entries[it % Season.entries.size]
                         state.update(0f, .4f)
                         renderer.render(canvas, 720, 1280)
                     }
-                    state.season = Season.AUTUMN
+                    state.season = Season.WINTER
                     state.update(0f, .4f)
                     if (mode == RenderMode.TILES) {
                         val field = SceneRenderer::class.java.getDeclaredField("tileSet").apply { isAccessible = true }
@@ -132,7 +191,7 @@ class HandoffValidationTest {
                         val tiles = field.get(renderer) as TileSet?
                         assertTrue("${course.id} stale tile result", tiles?.key?.matches(state) == true)
                     } else repeat(30) { renderer.render(canvas, 720, 1280); SystemClock.sleep(10) }
-                    File(output, "${course.id}-autumn-$mode.png").outputStream().use { assertTrue(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)) }
+                    File(output, "${course.id}-winter-$mode.png").outputStream().use { assertTrue(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)) }
                 }
                 bitmap.recycle()
             } finally { renderer.release() }
