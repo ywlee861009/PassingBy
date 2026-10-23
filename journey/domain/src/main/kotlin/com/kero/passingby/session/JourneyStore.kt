@@ -1,10 +1,16 @@
 package com.kero.passingby.session
 
 /** Storage boundary. Experience-specific setting IDs are interpreted by their owner. */
-interface JourneyStore {
+interface SessionPersistence {
+    var minutes: Int
+    fun loadActive(): JourneyStore.Active?
+    fun saveSession(active: JourneyStore.Active, courseId: String, direction: Int, stations: Set<Int> = emptySet(), arrived: Boolean = false)
+}
+
+interface JourneyStore : SessionPersistence {
     var courseId: String?
     var direction: Int
-    var minutes: Int
+    override var minutes: Int
     var notificationAsked: Boolean
     var hintShown: Boolean
     val visited: Set<String>
@@ -26,11 +32,10 @@ interface JourneyStore {
     fun lifetime(): Pair<Int, Int>
     fun recordCompletion(courseId: String, minutes: Int)
     fun saveActive(active: Active)
-    fun loadActive(): Active?
+    override fun loadActive(): Active?
 
     /** One atomic storage edit: session, route, stamps and optional completion share a checkpoint. */
-    fun saveSession(active: Active, courseId: String, direction: Int, stations: Set<Int> = emptySet(), arrived: Boolean = false)
-
+    override fun saveSession(active: Active, courseId: String, direction: Int, stations: Set<Int>, arrived: Boolean)
 
     class Active(
         val phase: String,
