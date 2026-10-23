@@ -83,6 +83,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.core.content.ContextCompat
 import androidx.window.layout.FoldingFeature
 import androidx.window.layout.WindowInfoTracker
+import com.kero.passingby.journey.SessionPhase
 import com.kero.passingby.locale.AppLanguage
 import com.kero.passingby.telemetry.Telemetry
 import com.kero.passingby.ui.debug.DevPanel
@@ -155,7 +156,7 @@ fun JourneyScreen(vm: JourneyViewModel) {
     val hingeY = fold.tabletopY
     val screenReader = rememberTouchExploration()
     val phase = vm.phase
-    val moving = phase == TripPhase.RUNNING || phase == TripPhase.PAUSED
+    val moving = phase == SessionPhase.RUNNING || phase == SessionPhase.PAUSED
 
     var overlay by remember { mutableStateOf(false) }
     var interactions by remember { mutableIntStateOf(0) }
@@ -175,14 +176,14 @@ fun JourneyScreen(vm: JourneyViewModel) {
     }
 
     LaunchedEffect(overlay, interactions, phase) {
-        if (overlay && phase == TripPhase.RUNNING) {
+        if (overlay && phase == SessionPhase.RUNNING) {
             delay(OVERLAY_HIDE_MS)
             overlay = false
         }
     }
     LaunchedEffect(phase) {
-        overlay = phase == TripPhase.PAUSED
-        if (phase == TripPhase.RUNNING && !vm.hintShown) {
+        overlay = phase == SessionPhase.PAUSED
+        if (phase == SessionPhase.RUNNING && !vm.hintShown) {
             vm.markHintShown()
             hint = true
             delay(HINT_MS)
@@ -317,11 +318,11 @@ fun JourneyScreen(vm: JourneyViewModel) {
             val paper = Color(vm.paper)
             val terminus = stringResource(vm.stations.last().name)
             when (phase) {
-                TripPhase.ARRIVED -> ArrivalCard(
+                SessionPhase.ARRIVED -> ArrivalCard(
                     terminus, vm.tripMinutes, vm.today, paper, vm::rest, vm::getOff,
                     onShare = { shareApp(context, "arrival") },
                 )
-                TripPhase.RESTING -> RestCard(
+                SessionPhase.RESTING -> RestCard(
                     terminus, vm.course.title(res, -vm.direction), vm.minutes, vm.restLeftSec, paper, depart, vm::getOff,
                 )
                 else -> TicketCard(
@@ -338,7 +339,7 @@ fun JourneyScreen(vm: JourneyViewModel) {
         }
 
         // ── 주행 중 ──
-        val paused = phase == TripPhase.PAUSED
+        val paused = phase == SessionPhase.PAUSED
         val togglePause = {
             interactions++
             if (paused) vm.resume() else vm.pause()

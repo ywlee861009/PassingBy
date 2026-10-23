@@ -30,7 +30,11 @@ import com.kero.passingby.content.Course
 import com.kero.passingby.content.Station
 import com.kero.passingby.journey.CoursePlan
 import com.kero.passingby.journey.CourseZones
-import com.kero.passingby.journey.JourneyClock
+import com.kero.passingby.journey.SessionCoordinator
+import com.kero.passingby.journey.SessionEvent
+import com.kero.passingby.journey.SessionPhase
+import com.kero.passingby.journey.SessionSnapshot
+import com.kero.passingby.journey.SessionState
 import com.kero.passingby.journey.WeatherDirector
 import com.kero.passingby.locale.AppLanguage
 import com.kero.passingby.perf.FrameStats
@@ -53,11 +57,8 @@ import kotlin.math.ceil
 import kotlin.math.min
 import kotlin.random.Random
 
-/** 열차 상태(명세 5.0). 화면을 바꾸지 않고 이 상태에 따라 창 위의 UI만 바뀐다. */
-enum class TripPhase { DOCKED, RUNNING, PAUSED, ARRIVED, RESTING }
-
 /**
- * 여행 상태 머신과 장면을 들고 있는다. 세션 하나가 코스 하나이고, 중간 역마다 20초 정차한다(명세 7.2).
+ * 도메인 세션의 결과를 화면·기차 장면과 Android 어댑터에 연결한다. 세션 하나가 코스 하나이고, 중간 역마다 20초 정차한다(명세 7.2).
  *
  * ```
  * DOCKED ──출발──▶ RUNNING ◀──재개── PAUSED
@@ -78,21 +79,22 @@ class JourneyViewModel(
     val scene = SceneState()
     val renderer: ExperienceRenderer = SceneRenderer(scene)
     private val stats = FrameStats()
-    private val clock = JourneyClock(SystemClock::elapsedRealtime)
+    private val session = SessionCoordinator(store.minutes, SystemClock::elapsedRealtime)
+    private var sessionState by mutableStateOf(session.state)
 
     var course by mutableStateOf(Course.byId(store.courseId))
         private set
     /** 1이면 정방향(서울 → 부산), −1이면 역방향. */
     var direction by mutableIntStateOf(store.direction)
         private set
-    var phase by mutableStateOf(TripPhase.DOCKED)
-        private set
+    val phase: SessionPhase
+        get() = sessionState.phase
     /** 출발 카드에서 고른 집중 시간(분). */
     var minutes by mutableIntStateOf(store.minutes)
         private set
     /** 지금 달리는(또는 방금 마친) 세션의 집중 시간(분). */
-    var tripMinutes by mutableIntStateOf(store.minutes)
-        private set
+    val tripMinutes: Int
+        get() = sessionState.tripMinutes
     /** 종착까지 남은 초. 1초에 한 번만 바뀐다. */
     var remainingSec by mutableIntStateOf(0)
         private set
@@ -110,8 +112,8 @@ class JourneyViewModel(
     var restLeftSec by mutableIntStateOf(0)
         private set
     /** 쉬는 시간이 끝나 종착역에 서 있는 상태인지. 출발 카드 문구가 달라진다. */
-    var restDone by mutableStateOf(false)
-        private set
+    val restDone: Boolean
+        get() = sessionState.restDone
     var today by mutableStateOf(store.today())
         private set
     /** 여행 수첩: 들른 역과 누적 기록. 바뀔 때마다 새로 읽는다. */
@@ -143,7 +145,6 @@ class JourneyViewModel(
     private val planField = UrbanField { x -> plan.at(x - baseDistance) }
     private var weatherSeed = Random.nextInt()
     private var weather = WeatherDirector(weatherSeed, course.snowy, SeasonChoice.fromId(store.seasonChoiceId).resolve(weatherSeed))
-    private var restEndReal = 0L
 
     // ── 코스 잠금·결제 ──
     var unlocked by mutableStateOf(store.unlocked)
@@ -242,9 +243,9 @@ class JourneyViewModel(
         billing.connect()
         applyLand()
         applyStations()
-        updateTicks(clock.seconds())
+        updateTicks(session.elapsedSeconds)
         // 앱을 다시 열었을 때 진행 중인 여행이 있으면 남은 시간 알림과 알람을 다시 맞춘다.
-        if (phase != TripPhase.DOCKED) syncTimer()
+        if (phase != SessionPhase.DOCKED) syncTimer()
         Telemetry.state(phase.name, course.id, tripMinutes, direction)
         reportSettings()
     }
@@ -252,18 +253,14 @@ class JourneyViewModel(
     /** 프레임마다 호출된다. 여정 시각으로 위치·하늘·날씨를 정하고, 상태 전환(도착·쉬는 시간 끝)을 확인한다. */
     fun onFrame(intervalNanos: Long, refreshHz: Float) {
         val dt = (intervalNanos / 1e9).toFloat().coerceAtMost(.05f)
-        var t = clock.seconds()
-        if (moving() && t >= plan.durationSec) {
-            arrive()
-            t = plan.durationSec
-        }
-        if (phase == TripPhase.RESTING && SystemClock.elapsedRealtime() >= restEndReal) finishRest()
+        applySessionEvent(session.advance())
+        val t = session.elapsedSeconds
         val tt = t.coerceIn(0.0, plan.durationSec)
-        scene.setTravel(baseDistance + plan.distanceAt(tt), plan.speedAt(tt) * clock.rate())
+        scene.setTravel(baseDistance + plan.distanceAt(tt), plan.speedAt(tt) * session.rate)
         scene.autoRain = weather.rainAt(tt)
         scene.autoSnow = weather.snowAt(tt)
         val sky = when (phase) {
-            TripPhase.ARRIVED, TripPhase.RESTING -> 1f
+            SessionPhase.ARRIVED, SessionPhase.RESTING -> 1f
             else -> (tt / plan.durationSec).toFloat()
         }
         scene.update(dt, sky)
@@ -277,20 +274,16 @@ class JourneyViewModel(
         if (showHud) hud = hudText(refreshHz, t)
     }
 
-    private fun moving() = phase == TripPhase.RUNNING || phase == TripPhase.PAUSED
-
-    /** 이번 세션을 몇 % 달렸는지(시간 기준). */
-    private fun progressPct(): Int = (clock.seconds() / plan.durationSec * 100).toInt().coerceIn(0, 100)
+    private fun moving() = session.moving
 
     // ── 사용자 동작 ──
 
     fun selectMinutes(m: Int) {
+        session.selectMinutes(m)
+        sessionState = session.state
         minutes = m
         store.minutes = m
-        if (phase == TripPhase.DOCKED) {
-            tripMinutes = m
-            rebuildPlan()
-        }
+        if (phase == SessionPhase.DOCKED) rebuildPlan()
     }
 
     /** 여행 수첩에 역 도장을 찍는다. [i]는 지금 방향 기준 역 번호. */
@@ -400,72 +393,20 @@ class JourneyViewModel(
         messageTick++
     }
 
-    /** 정차·도착·휴식 중 어디서든 출발한다. 도착·휴식 중이면 종착역에서 역방향으로 떠난다. 잠긴 코스는 출발하지 않는다. */
+    /** 잠긴 코스는 출발하지 않는다. 세션 전이의 허용 여부는 도메인이 결정한다. */
     fun depart() {
-        if (!owns(course)) return
-        val from = phase
-        if (phase == TripPhase.ARRIVED || phase == TripPhase.RESTING) dockAtTerminus()
-        tripMinutes = minutes
-        weatherSeed = Random.nextInt()
-        season = seasonChoice.resolve(weatherSeed)
-        scene.season = season
-        rebuildPlan()
-        clock.seek(0.0, 1.0)
-        restDone = false
-        phase = TripPhase.RUNNING
-        stamp(0)
-        Telemetry.event(
-            "trip_start", "course" to course.id, "minutes" to tripMinutes, "direction" to direction,
-            "from" to from.name.lowercase(),
-        )
-        save()
+        if (owns(course)) applySessionEvent(session.depart())
     }
 
-    /** 열차가 몇 초에 걸쳐 서서히 선다. */
-    fun pause() {
-        if (phase != TripPhase.RUNNING) return
-        clock.setRate(0.0, STOP_SEC)
-        phase = TripPhase.PAUSED
-        Telemetry.event("trip_pause", "course" to course.id, "progress" to progressPct())
-        save()
-    }
+    fun pause() = applySessionEvent(session.pause())
 
-    fun resume() {
-        if (phase != TripPhase.PAUSED) return
-        clock.setRate(1.0, STOP_SEC)
-        phase = TripPhase.RUNNING
-        Telemetry.event("trip_resume", "course" to course.id)
-        save()
-    }
+    fun resume() = applySessionEvent(session.resume())
 
-    /** 여행을 중간에 끝낸다. 출발역 정차 상태로 돌아가며 장면은 순간 이동한다. */
-    fun endTrip() {
-        if (!moving()) return
-        Telemetry.event("trip_end_early", "course" to course.id, "minutes" to tripMinutes, "progress" to progressPct())
-        tripMinutes = minutes
-        rebuildPlan()
-        clock.seek(0.0, 0.0)
-        phase = TripPhase.DOCKED
-        cutTick++
-        save()
-    }
+    fun endTrip() = applySessionEvent(session.end())
 
-    fun rest() {
-        if (phase != TripPhase.ARRIVED) return
-        restEndReal = SystemClock.elapsedRealtime() + REST_SEC * 1000L
-        phase = TripPhase.RESTING
-        Telemetry.event("rest_start", "course" to course.id)
-        save()
-    }
+    fun rest() = applySessionEvent(session.rest())
 
-    /** 종착역에서 내린다. 그 역에서 역방향 승차권이 준비된다. */
-    fun getOff() {
-        if (phase != TripPhase.ARRIVED && phase != TripPhase.RESTING) return
-        Telemetry.event("trip_get_off", "course" to course.id, "from" to phase.name.lowercase())
-        dockAtTerminus()
-        phase = TripPhase.DOCKED
-        save()
-    }
+    fun getOff() = applySessionEvent(session.getOff())
 
     /** 알림 권한을 이미 한 번 물었는지. 거절해도 매번 묻지 않는다. */
     val notificationAsked: Boolean
@@ -482,40 +423,60 @@ class JourneyViewModel(
 
     // ── 상태 전환 ──
 
-    private fun arrive() {
-        // 앱 밖에 있는 동안 도착했으면 이미 알림으로 알렸으니 다시 울리지 않는다.
-        val late = clock.seconds() - plan.durationSec > LATE_SEC
-        clock.seek(plan.durationSec, 0.0)
-        phase = TripPhase.ARRIVED
-        store.recordArrival(tripMinutes)
-        store.recordCompletion(course.id, tripMinutes)
-        stamp(stations.size - 1)
-        today = store.today()
-        lifetime = store.lifetime()
-        // late면 앱 밖에서 도착해 화면을 다시 열 때 알아챈 것이다.
-        Telemetry.event("trip_arrive", "course" to course.id, "minutes" to tripMinutes, "late" to late)
-        if (!late) signal(ARRIVAL_PATTERN)
+    /** 반환된 전이만 한 번 소비한다. 경험별 이동과 저장·알림은 아직 이 어댑터가 처리한다. */
+    private fun applySessionEvent(event: SessionEvent?) {
+        if (event == null) return
+        sessionState = session.state
+        when (event) {
+            is SessionEvent.Departed -> {
+                if (event.from == SessionPhase.ARRIVED || event.from == SessionPhase.RESTING) prepareReturn()
+                weatherSeed = Random.nextInt()
+                season = seasonChoice.resolve(weatherSeed)
+                scene.season = season
+                rebuildPlan()
+                stamp(0)
+                Telemetry.event(
+                    "trip_start", "course" to course.id, "minutes" to tripMinutes, "direction" to direction,
+                    "from" to event.from.name.lowercase(),
+                )
+            }
+            is SessionEvent.Paused -> Telemetry.event("trip_pause", "course" to course.id, "progress" to event.progressPercent)
+            SessionEvent.Resumed -> Telemetry.event("trip_resume", "course" to course.id)
+            is SessionEvent.Ended -> {
+                Telemetry.event("trip_end_early", "course" to course.id, "minutes" to event.tripMinutes, "progress" to event.progressPercent)
+                rebuildPlan()
+                cutTick++
+            }
+            SessionEvent.RestStarted -> Telemetry.event("rest_start", "course" to course.id)
+            is SessionEvent.GotOff -> {
+                Telemetry.event("trip_get_off", "course" to course.id, "from" to event.from.name.lowercase())
+                prepareReturn()
+                rebuildPlan()
+            }
+            is SessionEvent.Arrived -> {
+                store.recordArrival(tripMinutes)
+                store.recordCompletion(course.id, tripMinutes)
+                stamp(stations.size - 1)
+                today = store.today()
+                lifetime = store.lifetime()
+                Telemetry.event("trip_arrive", "course" to course.id, "minutes" to tripMinutes, "late" to event.late)
+                if (!event.late) signal(ARRIVAL_PATTERN)
+            }
+            is SessionEvent.RestFinished -> {
+                Telemetry.event("rest_end", "course" to course.id, "late" to event.late)
+                prepareReturn()
+                rebuildPlan()
+                if (!event.late) signal(REST_PATTERN)
+            }
+        }
         save()
     }
 
-    private fun finishRest() {
-        val late = SystemClock.elapsedRealtime() - restEndReal > LATE_SEC * 1000
-        Telemetry.event("rest_end", "course" to course.id, "late" to late)
-        dockAtTerminus()
-        restDone = true
-        phase = TripPhase.DOCKED
-        if (!late) signal(REST_PATTERN)
-        save()
-    }
-
-    /** 방금 도착한 종착역에 선 채로 역방향 세션을 준비한다. 풍경은 그 자리에서 이어진다. */
-    private fun dockAtTerminus() {
+    /** 종착역의 풍경을 이어 붙이고 방향을 뒤집는 처리는 기차 경험에만 해당한다. */
+    private fun prepareReturn() {
         baseDistance += plan.totalDistance
         direction = -direction
         store.direction = direction
-        tripMinutes = minutes
-        rebuildPlan()
-        clock.seek(0.0, 0.0)
     }
 
     private fun rebuildPlan() {
@@ -549,7 +510,7 @@ class JourneyViewModel(
 
     private fun updateTicks(t: Double) {
         when (phase) {
-            TripPhase.RUNNING, TripPhase.PAUSED -> {
+            SessionPhase.RUNNING, SessionPhase.PAUSED -> {
                 val left = ceil(plan.durationSec - t).toInt().coerceAtLeast(0)
                 if (left != remainingSec) {
                     remainingSec = left
@@ -565,13 +526,13 @@ class JourneyViewModel(
                     nextStopSec = ceil(plan.arrivalAt(nextStop) - t).toInt().coerceAtLeast(0)
                 }
             }
-            TripPhase.RESTING -> {
-                val left = ceil((restEndReal - SystemClock.elapsedRealtime()) / 1000.0).toInt().coerceAtLeast(0)
+            SessionPhase.RESTING -> {
+                val left = session.restRemainingSeconds
                 if (left != restLeftSec) restLeftSec = left
             }
             else -> {
                 remainingSec = tripMinutes * 60
-                progress = if (phase == TripPhase.ARRIVED) 1f else 0f
+                progress = if (phase == SessionPhase.ARRIVED) 1f else 0f
                 stoppedAt = -1
                 nextStop = 1
             }
@@ -617,25 +578,25 @@ class JourneyViewModel(
         val title = course.title(res, direction)
         val terminus = res.getString(stations.last().name)
         val now = SystemClock.elapsedRealtime()
-        val realtime = clock.scale == 1.0
+        val realtime = session.scale == 1.0
         when (phase) {
-            TripPhase.RUNNING -> {
-                val left = (plan.durationSec - clock.seconds()).coerceAtLeast(0.0)
+            SessionPhase.RUNNING -> {
+                val left = (plan.durationSec - session.elapsedSeconds).coerceAtLeast(0.0)
                 TripTimer.update(
                     ctx, title, res.getString(R.string.notif_running, course.stopsLine(res, direction), terminus),
                     if (realtime) now + (left * 1000).toLong() else 0L,
                     res.getString(R.string.arrived_at, terminus), res.getString(R.string.notif_arrived, tripMinutes),
                 )
             }
-            TripPhase.PAUSED -> {
-                val left = (plan.durationSec - clock.seconds()).coerceAtLeast(0.0).toInt()
+            SessionPhase.PAUSED -> {
+                val left = (plan.durationSec - session.elapsedSeconds).coerceAtLeast(0.0).toInt()
                 TripTimer.update(ctx, title, res.getString(R.string.notif_paused, formatClock(left)), 0L, "", "")
             }
-            TripPhase.RESTING -> {
+            SessionPhase.RESTING -> {
                 val next = course.title(res, -direction)
                 TripTimer.update(
                     ctx, res.getString(R.string.resting_at, terminus), res.getString(R.string.notif_next_trip, next),
-                    restEndReal, res.getString(R.string.rest_over), res.getString(R.string.notif_ticket_ready, next),
+                    sessionState.restEndElapsedMillis, res.getString(R.string.rest_over), res.getString(R.string.notif_ticket_ready, next),
                 )
             }
             else -> TripTimer.stop(ctx)
@@ -647,21 +608,32 @@ class JourneyViewModel(
     private fun save() {
         Telemetry.state(phase.name, course.id, tripMinutes, direction)
         syncTimer()
+        val snapshot = session.snapshot()
         store.saveActive(
             JourneyStore.Active(
-                phase.name, tripMinutes, baseDistance, clock.save(), restEndReal, restDone, weatherSeed,
+                snapshot.state.phase.name, snapshot.state.tripMinutes, baseDistance, snapshot.clock,
+                snapshot.state.restEndElapsedMillis, snapshot.state.restDone, weatherSeed,
             ),
         )
     }
 
     private fun restore() {
         val a = store.loadActive() ?: return
-        phase = runCatching { TripPhase.valueOf(a.phase) }.getOrDefault(TripPhase.DOCKED)
-        tripMinutes = a.tripMinutes
+        val restored = runCatching {
+            session.restore(
+                SessionSnapshot(
+                    SessionState(
+                        runCatching { SessionPhase.valueOf(a.phase) }.getOrDefault(SessionPhase.DOCKED),
+                        a.tripMinutes, a.restEnd, a.restDone,
+                    ),
+                    a.clock,
+                ),
+            )
+        }
+        if (restored.isFailure) return
+        sessionState = session.state
+        timeScale = session.scale
         baseDistance = a.base
-        if (a.clock.size == 6) clock.restore(a.clock)
-        restEndReal = a.restEnd
-        restDone = a.restDone
         weatherSeed = a.weatherSeed
         season = seasonChoice.resolve(weatherSeed)
         plan = CoursePlan(tripMinutes * 60.0, course.stations.size, course.cruise)
@@ -670,16 +642,16 @@ class JourneyViewModel(
 
     /** 코스를 바꾼다. 정차 중에만 되고, 새 코스의 출발역으로 순간 이동한다. */
     fun selectCourse(c: Course) {
-        if (phase != TripPhase.DOCKED || c == course) return
+        if (phase != SessionPhase.DOCKED || c == course) return
         Telemetry.event("course_select", "course" to c.id, "owned" to owns(c))
         course = c
         store.courseId = c.id
         direction = 1
         store.direction = 1
         baseDistance = 0.0
-        restDone = false
+        session.reset()
+        sessionState = session.state
         rebuildPlan()
-        clock.seek(0.0, 0.0)
         cutTick++
         save()
     }
@@ -688,14 +660,11 @@ class JourneyViewModel(
 
     /** 개발용: 여행 중이어도 끊고 코스를 바꾼다. */
     fun forceCourse(c: Course) {
-        if (phase != TripPhase.DOCKED) {
-            phase = TripPhase.DOCKED
-            clock.seek(0.0, 0.0)
-        }
+        session.reset()
+        sessionState = session.state
         if (c != course) {
             selectCourse(c)
         } else {
-            tripMinutes = minutes
             rebuildPlan()
             cutTick++
             save()
@@ -740,7 +709,7 @@ class JourneyViewModel(
             val mid = (lo + hi) / 2
             if (plan.distanceAt(mid) < target) lo = mid else hi = mid
         }
-        clock.seek(hi)
+        session.seek(hi)
         save()
     }
 
@@ -749,7 +718,7 @@ class JourneyViewModel(
         if (!moving()) depart()
         // 잠긴 코스라 출발하지 못했으면 건너뛰지 않는다.
         if (!moving()) return
-        clock.seek(plan.durationSec * fraction.coerceIn(0f, 1f))
+        session.seek(plan.durationSec * fraction.coerceIn(0f, 1f))
         save()
     }
 
@@ -764,18 +733,19 @@ class JourneyViewModel(
     fun seekNextStop() {
         if (!moving()) depart()
         if (!moving()) return
-        clock.seek((plan.arrivalAt(nextStop) - 5).coerceAtLeast(0.0))
+        session.seek((plan.arrivalAt(nextStop) - 5).coerceAtLeast(0.0))
         save()
     }
 
     /** 쉬는 시간을 바로 끝낸다. */
     fun skipRest() {
-        if (phase == TripPhase.RESTING) restEndReal = SystemClock.elapsedRealtime()
+        session.skipRest()
+        sessionState = session.state
     }
 
     fun selectScale(s: Double) {
+        session.setScale(s)
         timeScale = s
-        clock.setScale(s)
         save()
     }
 
@@ -855,11 +825,6 @@ class JourneyViewModel(
     private companion object {
         const val MB = 1024.0 * 1024.0
         val PAPER = Pb.Paper.toArgb()
-        /** 잠깐 멈추기·재개 때 열차가 서거나 다시 붙는 데 걸리는 시간(초). */
-        const val STOP_SEC = 3.5
-        /** 이 초보다 늦게 알아챈 도착·쉬는 시간 끝은 앱 밖에서 이미 알렸다고 보고 다시 울리지 않는다. */
-        const val LATE_SEC = 3.0
-        const val REST_SEC = 5 * 60
         val ARRIVAL_PATTERN = longArrayOf(0, 180, 140, 180, 140, 320)
         val REST_PATTERN = longArrayOf(0, 120, 120, 120)
         val SOUND_LEVELS = floatArrayOf(.35f, .6f, .9f)

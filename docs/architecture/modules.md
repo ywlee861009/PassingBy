@@ -1,14 +1,14 @@
 # 앱 하나의 여행 경험 모듈화
 
-이 변경은 동작을 보존하는 1단계 모듈 분리다. 항공·항해 기능, 새 세션 상태 머신,
-저장 스키마 변경, 신규 마이그레이션 코드는 포함하지 않는다.
+1단계에서 물리적인 모듈 분리를 마쳤고, 2단계의 첫 작업으로 세션 상태 머신을 JVM 도메인에 추출했다.
+항공·항해 기능, 저장 스키마 변경, 신규 마이그레이션 코드는 포함하지 않는다.
 
 ## 실제 모듈과 의존성
 
 | 모듈 | 소유하는 코드 | 직접 프로젝트 의존성 |
 | --- | --- | --- |
 | `:app` | Application, MainActivity, Receiver, AppGraph, 앱 테마·런처·서명·Firebase 빌드 설정 | 아래 구현 모듈을 조립 |
-| `:journey:domain` | Android 없는 JourneyClock, JourneyStore 저장 계약 | 없음 |
+| `:journey:domain` | Android 없는 SessionCoordinator·상태/이벤트·JourneyClock, JourneyStore 저장 계약 | 없음 |
 | `:journey:data` | SharedPreferences TripStore 구현 | domain |
 | `:experience:api` | Canvas ExperienceRenderer 계약, 프레임 통계 | 없음 |
 | `:experience:train` | 코스·운행 계획·계절/날씨·SceneState·렌더러·기차 환경음, 해당 리소스 | api, telemetry |
@@ -29,17 +29,32 @@ AppGraph가 저장소와 JourneyViewModel.Factory를 조립하고, 라이브러�
 따라서 라이브러리가 MainActivity나 앱 BuildConfig를 역참조하지 않는다.
 Telemetry의 빌드별 수집 허용 여부도 Application에서 전달한다.
 
-기존 ViewModel 수명, 프레임 루프, 감속/가속 시계, 알람 종류, 저장 형식은 유지한다.
+기존 ViewModel 수명, 감속/가속 시계, 알람 종류, 저장 형식은 유지한다.
+상태 전이 규칙은 SessionCoordinator가 소유하고, ViewModel은 이벤트를 Android/기차 어댑터에 연결한다.
+현재 기한 확인은 기존 프레임 루프의 advance 호출을 유지한다.
 Billing의 Play SDK listener는 facade 내부로 숨겨 feature의 컴파일 API로 노출하지 않는다.
 내부 렌더링 구현을 검증하는 기기 테스트는 train으로 옮기고, 실제 앱 그래프를 사용하는
 저장·세션 복원 기기 테스트는 app에 유지했다.
 
+## 완료한 2단계 첫 작업: 세션 상태 머신
+
+`journey:domain`의 SessionCoordinator는 단조 증가 시각을 주입받아 출발·감속 정지·재개·중단·도착·휴식을 처리한다.
+SessionState는 불변 상태이며, SessionEvent는 실제 전이가 일어났을 때만 반환되는 일회성 결과다.
+SessionSnapshot에는 상태와 기존 시계 배열을 담고, ViewModel이 JourneyStore.Active의 기존 필드로 변환한다.
+현재 선택 시간과 진행 중인 세션 시간을 구분하므로, 주행 중 다음 승차권 시간을 바꿔도 현재 여정은 변하지 않는다.
+
+도메인은 Android·Compose·코스·렌더러·저장소를 참조하지 않는다. 기차의 누적 거리와 방향 반전은
+ViewModel의 경험 어댑터에 남아 있다. 전이 후 시각으로 장면을 계산해 휴식 종료 프레임에도 종착역 위치가 이어진다.
+도착 후 상태를 저장한 스냅샷을 복원하면 완료 이벤트를 다시 반환하지 않는다.
+
 ## 남아 있는 2단계 작업
 
-feature의 JourneyViewModel은 아직 train의 Course·SceneState·CoursePlan을 직접 사용한다.
-Billing/Telemetry facade도 현재 호출 경로를 유지한다. 이번 단계가 최종 플러그인 구조는 아니다.
-다음 단계에서 SessionCoordinator/세션 명령과 JourneyProgram을 추출하고,
-ExperienceProvider registry로 기차를 연결한 뒤 feature → train 의존성을 제거한다.
+기한 확인과 저장·알림·기록 이벤트 소비는 아직 ViewModel의 프레임 경로에 있다.
+다음 작업은 이를 프레임 루프 밖의 세션 런타임으로 옮기는 것이다. 이벤트 처리와 저장의 원자성,
+프로세스 종료 사이의 중복 처리 방지도 이 경계에서 다룬다.
+
+이후 JourneyProgram과 ExperienceProvider registry로 기차를 연결해 feature → train 의존성을 제거한다.
+feature는 아직 train의 Course·SceneState·CoursePlan을 직접 사용하며 Billing/Telemetry facade도 유지한다.
 항공·항해 Gradle 모듈은 실제 구현 때 추가하며 빈 모듈을 미리 만들지 않는다.
 
 ## 검증 명령
@@ -59,7 +74,7 @@ CI도 같은 의존성 검사·단위 테스트·전체 Android 모듈 Lint를 �
 출시 노트 변경 검사는 app뿐 아니라 journey/experience/feature/platform과 공통 Gradle 변경을 포함한다.
 로컬 릴리스 검증 명령은 Crashlytics 매핑 업로드를 제외하며, 실제 배포 CI는 기존 업로드를 유지한다.
 
-## 이번 분리의 검증 결과 (2026-10-23)
+## 1단계 모듈 분리 검증 결과 (2026-10-23)
 
 - 의존성 경계 검사 통과. 9개 모듈 사이 순환·앱 역참조 없음.
 - JVM/Android 단위 테스트 24개 통과(기존 19개 + JourneyClock 5개).
@@ -75,3 +90,14 @@ CI도 같은 의존성 검사·단위 테스트·전체 Android 모듈 Lint를 �
 
 위 결과는 자동 테스트와 에뮬레이터 검증 범위다. 실제 Play 구매·구매 복원,
 실기기 오디오 청취·장시간 배터리 검증은 수행하지 않았다.
+
+## 2단계 첫 작업 검증 결과 (2026-10-23)
+
+- 전체 단위 테스트 43개 통과. 도메인 24개 중 SessionCoordinator 가상 시간 테스트는 19개다.
+- 앱 기기 테스트 7개 통과(기존 복원 테스트 3개 + 세션 통합 테스트 4개).
+  일시정지·중단 중복 호출, 완료 상태 복원 시 중복 기록 방지, 휴식 종료와 돌아오는 여정의 방향·풍경 연속성을 확인했다.
+- 모듈 경계 검사와 전체 Android 모듈 Lint 오류 0개, 디버그·난독화 릴리스 빌드 성공.
+- 실제 MainActivity의 세로/가로 회전, 프로세스 종료 후 같은 세션 복원,
+  프로세스가 없는 상태의 도착 알림을 재검증했으며 앱 크래시가 없었다.
+
+세션 스케줄러·이벤트 소비의 프레임 루프 분리, 저장 원자성, ExperienceProvider 추상화는 후속 작업이다.
