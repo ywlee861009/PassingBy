@@ -24,7 +24,7 @@
     <string name="price_pending">가격 준비 중</string>
     <string name="unlock_once">한 번 열면 계속 탈 수 있어요.</string>
     <string name="arrived_at">%1$s에 도착했어요</string>
-    <string name="trip_minutes">%1$d분 머물렀어요</string>
+    <string name="trip_minutes">%1$d분 동안 함께 달렸어요</string>
     <string name="rest_and_continue">%1$d분 쉬고 이어 가기</string>
     <string name="get_off_here">여기서 내리기</string>
     <string name="resting_at">%1$s에서 쉬는 중</string>
@@ -95,8 +95,8 @@
     </plurals>
     <string name="not_completed">아직 완주 전</string>
     <string name="notif_running">%1$s · 종착 %2$s</string>
-    <string name="notif_arrived">%1$d분 머물렀어요. 쉬었다 가거나 여기서 내릴 수 있어요.</string>
-    <string name="notif_paused">잠깐 멈춤 · 종착까지 %1$s</string>
+    <string name="notif_arrived">%1$d분 동안 함께 달렸어요. 쉬었다 가거나 여기서 내릴 수 있어요.</string>
+    <string name="notif_paused">잠깐 멈춤 · 종착 %1$s</string>
     <string name="notif_next_trip">다음 여행 %1$s</string>
     <string name="rest_over">쉬는 시간이 끝났어요</string>
     <string name="notif_ticket_ready">%1$s 승차권이 준비됐어요.</string>

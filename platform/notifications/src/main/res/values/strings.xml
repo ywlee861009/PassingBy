@@ -3,4 +3,6 @@
     <string name="channel_trip_desc">Shows the time left while the train is moving.</string>
     <string name="channel_alert">Arrival alerts</string>
     <string name="channel_alert_desc">Lets you know when you reach the final stop or your break ends.</string>
+    <string name="notification_time_remaining">Time remaining</string>
+    <string name="notification_time_paused">Paused · Time remaining</string>
 </resources>

@@ -25,11 +25,12 @@ object TripTimer {
 
     /**
      * 남은 시간 알림을 띄우거나 내용을 바꾸고 알람을 다시 건다.
-     * @param endElapsed 알릴 시각(elapsedRealtime). 0 이하면 시계와 알람 없이 문구만 띄운다(일시정지).
+     * @param endElapsed 알릴 시각(elapsedRealtime). 0 이하면 카운트다운과 알람을 멈춘다(일시정지).
+     * @param remainingMillis 일시정지 중 크게 표시할 고정된 남은 시간.
      */
-    fun update(ctx: Context, title: String, text: String, endElapsed: Long, alertTitle: String, alertText: String) {
+    fun update(ctx: Context, title: String, text: String, endElapsed: Long, alertTitle: String, alertText: String, remainingMillis: Long? = null) {
         val endWall = if (endElapsed > 0) System.currentTimeMillis() + (endElapsed - SystemClock.elapsedRealtime()) else null
-        TripNotifications.ongoing(ctx, title, text, endWall)
+        TripNotifications.ongoing(ctx, title, text, endWall, remainingMillis)
         cancelAlarm(ctx)
         if (endElapsed > 0) scheduleAlarm(ctx, endElapsed, alertTitle, alertText)
     }

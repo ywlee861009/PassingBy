@@ -1,0 +1,12 @@
+<resources>
+    <style name="NotificationTimer" parent="TextAppearance.Compat.Notification.Title">
+        <item name="android:textSize">32sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:fontFeatureSettings">tnum</item>
+        <item name="android:includeFontPadding">false</item>
+    </style>
+    <style name="NotificationTimer.Expanded">
+        <item name="android:textSize">44sp</item>
+    </style>
+</resources>

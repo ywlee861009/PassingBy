@@ -67,11 +67,11 @@ internal class JourneySessionEffects(private val app: Application, private val r
                     res.getString(R.string.arrived_at, terminus), res.getString(R.string.notif_arrived, state.tripMinutes))
             }
             SessionPhase.PAUSED -> {
-                val left = (runtime.durationSeconds - runtime.elapsedSeconds).coerceAtLeast(0.0).toInt()
-                val clock = String.format(java.util.Locale.US, "%d:%02d", left / 60, left % 60)
-                TripTimer.update(app, title, res.getString(R.string.notif_paused, clock),
+                val leftMillis = ((runtime.durationSeconds - runtime.elapsedSeconds).coerceAtLeast(0.0) * 1000).toLong()
+                TripTimer.update(app, title, res.getString(R.string.notif_paused, terminus),
                     if (runtime.scale == 1.0) runtime.deadlineElapsedMillis ?: 0L else 0L,
-                    res.getString(R.string.arrived_at, terminus), res.getString(R.string.notif_arrived, state.tripMinutes))
+                    res.getString(R.string.arrived_at, terminus), res.getString(R.string.notif_arrived, state.tripMinutes),
+                    remainingMillis = leftMillis)
             }
             SessionPhase.RESTING -> {
                 val next = course.title(res, -direction)

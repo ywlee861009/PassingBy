@@ -5,8 +5,13 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
+import android.os.SystemClock
+import android.view.View
+import android.widget.RemoteViews
 import androidx.core.app.NotificationCompat
 import com.kero.passingby.telemetry.Telemetry
+import java.util.Locale
+import kotlin.math.ceil
 
 /** 여행 알림 두 가지: 여행 중 계속 떠 있는 남은 시간 알림, 도착·쉬는 시간 끝 알림. */
 object TripNotifications {
@@ -47,7 +52,7 @@ object TripNotifications {
      * (시스템이 그리므로 1초마다 갱신할 필요 없고, 앱 프로세스가 없어도 줄어든다).
      * 그 시각이 지나면 알림이 저절로 사라진다. 절전 때문에 도착 알람이 늦어져도 시계가 0을 지나 음수로 가지 않는다.
      */
-    fun ongoing(ctx: Context, title: String, text: String, endWallMillis: Long?) {
+    fun ongoing(ctx: Context, title: String, text: String, endWallMillis: Long?, remainingMillis: Long? = null) {
         ensureChannels(ctx)
         val b = NotificationCompat.Builder(ctx, CH_TRIP)
             .setSmallIcon(R.drawable.ic_stat_window)
@@ -56,18 +61,46 @@ object TripNotifications {
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setSilent(true)
+            .setShowWhen(false)
             .setCategory(NotificationCompat.CATEGORY_PROGRESS)
             .setContentIntent(openApp(ctx))
+        if (endWallMillis != null || remainingMillis != null) {
+            b.setStyle(NotificationCompat.DecoratedCustomViewStyle())
+                .setCustomContentView(timerView(ctx, R.layout.notification_trip, title, text, endWallMillis, remainingMillis))
+                .setCustomBigContentView(timerView(ctx, R.layout.notification_trip_expanded, title, text, endWallMillis, remainingMillis))
+        }
         if (endWallMillis != null) {
-            b.setUsesChronometer(true)
-                .setChronometerCountDown(true)
-                .setWhen(endWallMillis)
-                .setShowWhen(true)
+            b.setWhen(endWallMillis)
             val left = endWallMillis - System.currentTimeMillis()
             if (left > 0) b.setTimeoutAfter(left)
         }
         runCatching { ctx.getSystemService(NotificationManager::class.java)?.notify(ONGOING_ID, b.build()) }
             .onFailure { Telemetry.error(it, "notify_ongoing") }
+    }
+
+    private fun timerView(ctx: Context, layout: Int, title: String, text: String, endWallMillis: Long?, remainingMillis: Long?): RemoteViews {
+        val res = localizedContext(ctx).resources
+        return RemoteViews(ctx.packageName, layout).apply {
+            setTextViewText(R.id.notification_title, title)
+            if (layout == R.layout.notification_trip_expanded) setTextViewText(R.id.notification_text, text)
+            setTextViewText(R.id.notification_time_label, res.getString(
+                if (endWallMillis != null) R.string.notification_time_remaining else R.string.notification_time_paused,
+            ))
+            setViewVisibility(R.id.notification_countdown, if (endWallMillis != null) View.VISIBLE else View.GONE)
+            setViewVisibility(R.id.notification_paused_time, if (endWallMillis == null) View.VISIBLE else View.GONE)
+            if (endWallMillis != null) {
+                // SystemUI owns the ticking view, including when the app process is gone.
+                val base = SystemClock.elapsedRealtime() + (endWallMillis - System.currentTimeMillis()).coerceAtLeast(0L)
+                setChronometerCountDown(R.id.notification_countdown, true)
+                setChronometer(R.id.notification_countdown, base, null, true)
+            } else {
+                setChronometer(R.id.notification_countdown, SystemClock.elapsedRealtime(), null, false)
+                val seconds = ceil((remainingMillis ?: 0L).coerceAtLeast(0L) / 1000.0).toLong()
+                val clock = if (seconds >= 3600) String.format(Locale.US, "%d:%02d:%02d", seconds / 3600, seconds / 60 % 60, seconds % 60)
+                    else String.format(Locale.US, "%d:%02d", seconds / 60, seconds % 60)
+                setTextViewText(R.id.notification_paused_time, clock)
+            }
+        }
     }
 
     fun cancelOngoing(ctx: Context) {

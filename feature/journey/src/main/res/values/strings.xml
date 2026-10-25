@@ -100,7 +100,7 @@
     <string name="not_completed">Not completed yet</string>
     <string name="notif_running">%1$s · Final stop %2$s</string>
     <string name="notif_arrived">%1$d min on board. Take a break or get off here.</string>
-    <string name="notif_paused">Paused · %1$s to the final stop</string>
+    <string name="notif_paused">Paused · Final stop %1$s</string>
     <string name="notif_next_trip">Next trip %1$s</string>
     <string name="rest_over">Break\'s over</string>
     <string name="notif_ticket_ready">Your ticket for %1$s is ready.</string>
