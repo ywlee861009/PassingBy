@@ -5,11 +5,15 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 ALLOWED = {
-    'app': {'journey/domain', 'journey/data', 'feature/journey', 'experience/api', 'experience/train', 'platform/notifications', 'platform/billing', 'platform/telemetry'},
+    'app': {'journey/domain', 'journey/data', 'feature/journey', 'experience/api', 'experience/train', 'experience/airplane', 'experience/ship', 'experience/spaceship', 'platform/notifications', 'platform/billing', 'platform/telemetry'},
     'journey/domain': set(),
     'journey/data': {'journey/domain'},
     'experience/api': {'journey/domain'},
     'experience/train': {'experience/api', 'journey/domain', 'platform/telemetry'},
+    'experience/voyage': {'experience/api'},
+    'experience/airplane': {'experience/api', 'experience/voyage'},
+    'experience/ship': {'experience/api', 'experience/voyage'},
+    'experience/spaceship': {'experience/api', 'experience/voyage'},
     'feature/journey': {'journey/domain', 'experience/api', 'platform/billing', 'platform/telemetry'},
     'platform/notifications': {'platform/telemetry'},
     'platform/billing': {'platform/telemetry'},

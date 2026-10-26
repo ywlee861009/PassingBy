@@ -1,7 +1,7 @@
 # 앱 하나의 여행 경험 모듈화
 
-9개 Gradle 모듈 분리와 공통 세션 런타임·경험 제공자 연결을 완료했다.
-항공·항해 콘텐츠는 실제 기능 구현 시 제공자를 등록하며, 빈 모듈은 만들지 않는다.
+13개 Gradle 모듈 분리와 공통 세션 런타임·경험 제공자 연결을 완료했다.
+기차·비행기·배·우주선을 각각 경험 제공자로 등록한다. 비기차 모드의 공통 항해 수명과 창틀은 voyage가 담당한다.
 
 ## 모듈과 의존성
 
@@ -12,6 +12,10 @@
 | `:journey:data` | SharedPreferences 설정과 원자적 세션 체크포인트 | domain |
 | `:experience:api` | 경험 제공자·레지스트리·코스/역 메타데이터·읽기 전용 장면·렌더링/환경 설정 계약 | domain |
 | `:experience:train` | TrainExperienceProvider, 코스·운행 계획·풍경·날씨·렌더러·환경음과 기차 리소스 | api, domain, telemetry |
+| `:experience:voyage` | 비기차 공통 항해 진행·복원·창틀·환경음 | api |
+| `:experience:airplane` | 비행기 코스·구름·날개·리소스 | api, voyage |
+| `:experience:ship` | 배 코스·바다·섬·파도·리소스 | api, voyage |
+| `:experience:spaceship` | 태양계 코스·천체·별·행성 표면·리소스 | api, voyage |
 | `:feature:journey` | Compose 화면·표시 상태 ViewModel·설정·수첩·폰트·언어·구매 UI | domain, api, billing, telemetry |
 | `:platform:notifications` | 알림·AlarmManager·채널 리소스 | telemetry |
 | `:platform:billing` | Play Billing SDK와 구매 조회/승인/복원 | telemetry |
@@ -118,3 +122,37 @@ CI도 같은 의존성 검사·단위 테스트·전체 Android 모듈 Lint를 �
 - 한국어·영어 출시 노트를 함께 갱신했고 각 파일의 500자 제한을 확인했다.
 
 실제 Play 구매·기기 청취·장시간 배터리는 기존 별도 검증 범위로 유지한다.
+
+
+## 비밀 승차권과 여행 모드 (2026-10-26)
+
+- `experience:airplane`, `experience:ship`, `experience:spaceship`은 각각 코스·렌더러·리소스를 소유한다.
+- `experience:voyage`는 api에만 의존하며, 무정차 항해 진행·체크포인트·반환 여정·공통 창틀·환경음 루프를 제공한다.
+- feature는 각 구현 모듈을 직접 참조하지 않고 JourneyMode와 ExperienceRegistry로 코스를 선택한다.
+- 기본 공개 모드는 기차뿐이다. 잠긴 사용자는 다른 모드의 메뉴·코스·수첩 항목에 접근할 수 없다.
+- 설정 맨 아래 Passing By를 7회 연속 탭하면 비밀 승차권 입력창이 열린다(탭 간격 1.2초 이내).
+- 올바른 코드를 입력하면 설치별로 해제되며, 설정에 여행 모드 메뉴가 나타난다. 설정에서 다시 잠글 수 있다.
+- 입력 코드·원문 비밀값은 저장/통계에 남기지 않는다. 무설정 빌드는 입력창도 열리지 않는다.
+- 검증값은 무시되는 local.properties의 `passingby.preview.code.sha256`, Gradle 속성 `passingby.previewCodeSha256`,
+  또는 CI의 `PASSINGBY_PREVIEW_CODE_SHA256`으로 주입한다. 코드의 UTF-8 SHA-256 소문자 64자리만 넣는다.
+- 잠금 해제 표식은 noBackupFilesDir에 저장해 다른 설치로 복원하지 않는다. 검증값 변경 시 기존 해제는 무효다.
+- 이것은 로컬 미리보기 잠금이다. 서버에서 사용자 신원을 확인하는 권한 시스템은 아니다.
+- 정식 공개는 `-Ppassingby.publicModes=train,spaceship` 등으로 제어한다. 비밀 입력 없이 같은 메뉴·선택 화면으로 진입한다.
+- 모드 전환과 다시 잠그기는 DOCKED에서만 가능하다. 진행/일시정지/도착/휴식 중인 세션은 교체하지 않는다.
+- 비공개/삭제 모드가 저장돼 있으면 기차로 돌아가며 이전 모드의 시계를 기차에 잘못 복원하지 않는다.
+- 우주선은 모두 지구에서 출발한다. 달 탐사, 내행성 탐사(금성·수성), 화성 탐사,
+  화성·토성·천왕성, 뉴호라이즌스, 보이저 2호의 6개 태양계 항로를 제공한다.
+  프록시마 b, TRAPPIST-1 e/f/g, LHS 1140 b, TOI-700 e/d, 55 Cancri e의 5개 외계행성 항로도 포함한다.
+  실제 태양계 천체를 경유하며 중간 행성도 창밖에 연속적으로 나타난다.
+  천체 기준은 NASA Science의 태양계/행성/명왕성 자료를 참고했다.
+  https://science.nasa.gov/solar-system/planets/ , https://science.nasa.gov/dwarf-planets/pluto/
+  거리·크기·비행 시간은 집중 타이머에 맞춘 연출이며 실제 우주선 비행 궤적을 계산하지 않는다.
+- 비행기는 인천→제주, 배는 부산→제주의 기본 코스를 제공한다.
+- 제품 계획: 새 코스는 추후 코스별 약 1,500원 일회성 구매 아이템으로 연결한다.
+  현재는 비밀 미리보기에서 무료 테스트한다. 기존 기차의 결제 상품/구매 복원은 유지한다.
+
+검증: `checkModuleBoundaries testDebugUnitTest :journey:domain:test :app:assembleDebug lintDebug`.
+기기 통합 테스트는 `:app:connectedDebugAndroidTest`로 실행하며, 비밀 진입 검증 시
+`-Pandroid.testInstrumentationRunnerArguments.previewCode=<로컬 코드>`를 추가한다.
+
+관측 논문·선정 근거·정확한 방문 순서·연출 범위는 [우주 코스 관측 근거](space-research.md)를 참고한다.

@@ -161,6 +161,7 @@ fun JourneyScreen(vm: JourneyViewModel) {
     var overlay by remember { mutableStateOf(false) }
     var interactions by remember { mutableIntStateOf(0) }
     var devPanel by remember { mutableStateOf(false) }
+    var secretCode by remember { mutableStateOf(false) }
     var confirmEnd by remember { mutableStateOf(false) }
     var backArmed by remember { mutableStateOf(false) }
     var hint by remember { mutableStateOf(false) }
@@ -346,6 +347,7 @@ fun JourneyScreen(vm: JourneyViewModel) {
         val ride = RideInfo(
             vm.stations.map { stringResource(it.name) }, vm.stationMarks, vm.progress, vm.remainingSec,
             vm.stoppedAt, vm.nextStop, vm.nextStopSec, paused, vm.soundOn,
+            stopsEnRoute = vm.course.stopsEnRoute,
             locationText = if (paused) null else routeCaptionText(vm.routeCaption),
         )
         val toggleSound = {
@@ -491,14 +493,25 @@ fun JourneyScreen(vm: JourneyViewModel) {
                         vm.selectCourse(it)
                         sheet = SheetKind.NONE
                     }
-                    SheetKind.JOURNAL -> JournalSheetContent(vm.courses, vm.today, vm.lifetime, vm.visited, vm::completions, vm::owns)
+                    SheetKind.JOURNAL -> JournalSheetContent(vm.journalCourses, vm.today, vm.lifetime, vm.visited, vm::completions, vm::owns)
                     SheetKind.LICENSES -> LicenseSheetContent(licenses)
+                    SheetKind.MODES -> ModeSheetContent(vm.availableModes, vm.journeyMode, vm.phase == SessionPhase.DOCKED) {
+                        if (vm.selectJourneyMode(it)) sheet = SheetKind.NONE
+                    }
                     else -> SettingsSheetContent(
                         vm.fixedTime, vm.soundOn, vm.soundLevel, vm.ledgeInfo, vm.overlayAlways, vm.powerSave, language,
                         vm.telemetryOn,
                         vm.devUnlockAll, vm.restoringPurchases,
                         developerTools = vm.options.developerTools,
                         season = vm.season, seasonChoice = vm.seasonChoice, onSeason = vm::selectSeasonChoice,
+                        supportsSeasons = vm.course.supportsSeasons,
+                        supportsTimeOfDay = vm.course.supportsTimeOfDay,
+                        modeMenu = vm.showModeMenu,
+                        previewUnlocked = vm.previewUnlocked,
+                        canSwitch = vm.phase == SessionPhase.DOCKED,
+                        onModes = { sheet = SheetKind.MODES },
+                        onLockPreview = vm::lockPreviewModes,
+                        onSecretEntry = if (vm.options.modeAccess.codeEnabled) ({ secretCode = true }) else null,
                         onTime = vm::selectTime,
                         onSound = { vm.toggleSound() }, onSoundLevel = vm::selectSoundLevel,
                         onLedge = vm::setLedge, onOverlay = vm::setOverlay, onPower = vm::setPower,
@@ -532,10 +545,23 @@ fun JourneyScreen(vm: JourneyViewModel) {
         }
     }
 
+    if (secretCode) {
+        Dialog(onDismissRequest = { secretCode = false }) {
+            SecretCodeDialog(
+                onSubmit = { code ->
+                    vm.unlockModes(code).also { success ->
+                        if (success) { secretCode = false; sheet = SheetKind.MODES }
+                    }
+                },
+                onDismiss = { secretCode = false },
+            )
+        }
+    }
     if (confirmEnd) {
         Dialog(onDismissRequest = { confirmEnd = false }) {
             EndTripDialog(
                 stringResource(vm.stations.first().name), Color(vm.paper),
+                rail = vm.course.stopsEnRoute,
                 onKeep = { confirmEnd = false },
                 onEnd = {
                     confirmEnd = false
@@ -586,7 +612,7 @@ private fun rememberSystemPowerSave(): Boolean {
     return on
 }
 
-private enum class SheetKind { NONE, COURSES, SETTINGS, JOURNAL, LICENSES }
+private enum class SheetKind { NONE, COURSES, SETTINGS, JOURNAL, LICENSES, MODES }
 
 /** 스크린리더(터치 탐색)가 켜져 있으면 true. 이때는 주행 중 오버레이를 늘 보여 준다(명세 6장). */
 @Composable

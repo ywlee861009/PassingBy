@@ -24,6 +24,14 @@ fun uploadKeyValue(localKey: String, envKey: String): String? =
 // debug에서 확인하려면 -Ppassingby.telemetry=true 로 빌드한다.
 val debugTelemetry = providers.gradleProperty("passingby.telemetry").orNull == "true"
 
+// Preview entry is disabled when no local/CI hash is supplied. Public release defaults to train.
+val previewCodeHash = providers.gradleProperty("passingby.previewCodeSha256").orNull
+    ?: System.getenv("PASSINGBY_PREVIEW_CODE_SHA256")
+    ?: localProperties.getProperty("passingby.preview.code.sha256", "")
+require(previewCodeHash.isEmpty() || previewCodeHash.matches(Regex("[0-9a-f]{64}"))) { "Invalid preview code SHA-256" }
+val publicModes = providers.gradleProperty("passingby.publicModes").orNull ?: "train"
+require(publicModes.split(',').all { it in setOf("train", "airplane", "ship", "spaceship") }) { "Unknown public mode" }
+
 val uploadKeyFile: File? = uploadKeyValue("storeFile", "KERO_UPLOAD_STORE_FILE")
     ?.let { rootProject.file(it) }?.takeIf { it.exists() }
 
@@ -65,6 +73,8 @@ android {
 
     defaultConfig {
         applicationId = "com.kero.passingby"
+        buildConfigField("String", "PREVIEW_CODE_SHA256", "\"$previewCodeHash\"")
+        buildConfigField("String", "PUBLIC_MODES", "\"$publicModes\"")
         minSdk = 26
         targetSdk = 36
         versionCode = resolvedVersionCode
@@ -134,6 +144,9 @@ dependencies {
     implementation(project(":feature:journey"))
     implementation(project(":experience:api"))
     implementation(project(":experience:train"))
+    implementation(project(":experience:airplane"))
+    implementation(project(":experience:ship"))
+    implementation(project(":experience:spaceship"))
     implementation(project(":platform:notifications"))
     implementation(project(":platform:billing"))
     implementation(project(":platform:telemetry"))

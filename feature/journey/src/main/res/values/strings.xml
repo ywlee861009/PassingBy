@@ -114,4 +114,19 @@
     <string name="route_passing">Passing through %1$s…</string>
     <string name="route_departing">Leaving %1$s…</string>
     <string name="route_approaching">Approaching %1$s…</string>
+    <string name="travel_modes">Travel mode</string>
+    <string name="travel_modes_hint">Choose a window for your next journey.</string>
+    <string name="travel_modes_docked">You can change modes before departure. Finish your current journey first.</string>
+    <string name="secret_ticket">Secret boarding pass</string>
+    <string name="secret_ticket_hint">Enter your code to open the other windows.</string>
+    <string name="secret_code_label">Secret code</string>
+    <string name="secret_code_wrong">That code did not open the pass. Try again.</string>
+    <string name="secret_open">Open boarding pass</string>
+    <string name="preview_lock">Lock preview modes</string>
+    <string name="voyage_ambient_desc">A quiet cabin sound, only while the app is visible. Keeps other music playing.</string>
+    <string name="voyage_ledge_desc">Shows the minutes to the next waypoint below the window.</string>
+    <string name="next_waypoint_clock">Next waypoint %1$s · %2$s</string>
+    <string name="end_voyage_body">Return to %1$s. This journey will not be recorded.</string>
+    <string name="voyage_paused">Paused · Your journey is waiting</string>
+    <string name="system_distance">Host system about %1$s light-years from Earth</string>
 </resources>

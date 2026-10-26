@@ -1,0 +1,7 @@
+<resources>
+    <string name="air_region">Above the Yellow Sea</string>
+    <string name="air_vehicle">Airplane</string>
+    <string name="air_incheon">Incheon</string>
+    <string name="air_yellow_sea">Yellow Sea</string>
+    <string name="air_jeju">Jeju</string>
+</resources>

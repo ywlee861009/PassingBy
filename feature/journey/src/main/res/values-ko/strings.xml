@@ -110,4 +110,19 @@
     <string name="route_passing">%1$s 지나는 중…</string>
     <string name="route_departing">%1$s 출발…</string>
     <string name="route_approaching">잠시 후 %1$s에 도착해요…</string>
+    <string name="travel_modes">여행 모드</string>
+    <string name="travel_modes_hint">다음 여행을 함께할 창가를 골라요.</string>
+    <string name="travel_modes_docked">모드는 출발 전에 바꿀 수 있어요. 지금 여행을 먼저 마쳐 주세요.</string>
+    <string name="secret_ticket">비밀 승차권</string>
+    <string name="secret_ticket_hint">코드를 입력하면 다른 창가가 열려요.</string>
+    <string name="secret_code_label">비밀 코드</string>
+    <string name="secret_code_wrong">코드가 맞지 않아요. 다시 입력해 주세요.</string>
+    <string name="secret_open">승차권 열기</string>
+    <string name="preview_lock">다른 모드 다시 잠그기</string>
+    <string name="voyage_ambient_desc">조용한 실내 환경음이에요. 다른 앱 음악을 멈추지 않고, 앱이 화면에 있을 때만 나요.</string>
+    <string name="voyage_ledge_desc">창 아래에 다음 경유 지점까지 남은 분을 표시해요.</string>
+    <string name="next_waypoint_clock">다음 경유 %1$s · %2$s</string>
+    <string name="end_voyage_body">%1$s(으)로 돌아가요. 이번 여행은 기록되지 않아요.</string>
+    <string name="voyage_paused">일시정지 · 잠시 쉬어 가요</string>
+    <string name="system_distance">지구에서 항성계까지 약 %1$s광년</string>
 </resources>

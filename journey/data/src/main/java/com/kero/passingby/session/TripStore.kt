@@ -185,6 +185,13 @@ class TripStore(private val context: Context) : JourneyStore {
         )
     }
 
+    /** A disabled/removed preview must never restore its clock onto the fallback train route. */
+    fun resetUnavailableCourse(availableIds: Set<String>) {
+        if (courseId != null && courseId !in availableIds) {
+            prefs.edit().remove(KEY_COURSE).remove(KEY_A_PHASE).putInt(KEY_DIRECTION, 1).apply()
+        }
+    }
+
     private fun bootCount(): Int = Settings.Global.getInt(context.contentResolver, Settings.Global.BOOT_COUNT, 0)
 
     private companion object {

@@ -1,0 +1,7 @@
+<resources>
+    <string name="ship_region">Southern sea</string>
+    <string name="ship_vehicle">Ferry</string>
+    <string name="ship_busan">Busan</string>
+    <string name="ship_strait">Korea Strait</string>
+    <string name="ship_jeju">Jeju</string>
+</resources>

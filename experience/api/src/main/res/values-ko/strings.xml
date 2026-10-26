@@ -16,4 +16,13 @@
     <string name="weather_heavy_snow">함박눈</string>
     <string name="nonstop">직통</string>
     <string name="stops_line">%1$s 정차</string>
+    <string name="mode_train">기차</string>
+    <string name="mode_train_description">익숙한 창가에서 레일 소리와 지나가는 풍경을 바라봐요.</string>
+    <string name="mode_airplane">비행기</string>
+    <string name="mode_airplane_description">구름 위 조용한 창가 좌석에서 집중해요.</string>
+    <string name="mode_ship">배</string>
+    <string name="mode_ship_description">수평선의 섬들과 천천히 흐르는 파도를 바라봐요.</string>
+    <string name="mode_spaceship">우주선</string>
+    <string name="mode_spaceship_description">지구에서 출발해 실제 태양계 천체를 여행해요. 집중 시간에 맞춰 항해해요.</string>
+    <string name="voyage_waypoints">경유 지점 %1$s</string>
 </resources>

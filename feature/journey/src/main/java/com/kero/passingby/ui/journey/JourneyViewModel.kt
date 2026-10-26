@@ -54,7 +54,32 @@ class JourneyViewModel(
     private val experience: ExperienceProgram get() = session.program as ExperienceProgram
     val scene: ExperienceScene get() = experience.scene
     val renderer: ExperienceRenderer get() = experience.renderer
-    val courses: List<Course> get() = registry.courses
+    val journeyMode: JourneyMode get() = registry.modeFor(course.id)
+    val courses: List<Course> get() = registry.coursesFor(journeyMode)
+    var previewUnlocked by mutableStateOf(options.modeAccess.unlocked)
+        private set
+    val availableModes: List<JourneyMode> get() = registry.modes.filter { previewUnlocked || it in options.modeAccess.publicModes }
+    val journalCourses: List<Course> get() = registry.courses.filter { registry.modeFor(it.id) in availableModes }
+    val showModeMenu: Boolean get() = previewUnlocked || availableModes.size > 1
+
+    fun unlockModes(code: String): Boolean {
+        val accepted = options.modeAccess.unlock(code)
+        previewUnlocked = options.modeAccess.unlocked
+        return accepted
+    }
+
+    fun selectJourneyMode(mode: JourneyMode): Boolean {
+        if (mode !in availableModes || phase != SessionPhase.DOCKED) return false
+        if (mode != journeyMode) registry.coursesFor(mode).firstOrNull()?.let { changeCourse(it, false) }
+        return journeyMode == mode
+    }
+
+    fun lockPreviewModes() {
+        if (phase != SessionPhase.DOCKED) return
+        if (journeyMode !in options.modeAccess.publicModes) selectJourneyMode(JourneyMode.TRAIN)
+        options.modeAccess.lock()
+        previewUnlocked = false
+    }
     private val stats = FrameStats()
     private var sessionState by mutableStateOf(session.state)
     private val unsubscribe: () -> Unit
@@ -131,7 +156,7 @@ class JourneyViewModel(
         private set
     private val billing = Billing(
         app,
-        courses.mapNotNull { it.productId },
+        registry.courses.mapNotNull { it.productId },
         onPrices = { prices = it },
         onOwned = { ids, _ ->
             val courses = courses.filter { it.productId in ids }.map { it.id }.toSet()
@@ -415,6 +440,7 @@ class JourneyViewModel(
     }
 
     private fun changeCourse(c: Course, force: Boolean) {
+        if (registry.modeFor(c.id) !in availableModes) return
         val old = experience
         val replacement = if (registry.providerFor(c.id).id != registry.providerFor(course.id).id)
             registry.create(c.id, store) else null
@@ -424,6 +450,8 @@ class JourneyViewModel(
                 experience.selectTime(fixedTime)
                 experience.selectSeasonChoice(seasonChoice)
                 experience.setSoundLevel(soundLevel)
+                experience.setWindowFrame(windowFrame)
+                experience.selectMode(mode)
                 applySound()
                 syncPresentation()
             }

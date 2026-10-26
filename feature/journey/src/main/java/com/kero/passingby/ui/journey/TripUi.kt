@@ -286,6 +286,7 @@ class RideInfo(
     val paused: Boolean,
     val soundOn: Boolean,
     val locationText: String? = null,
+    val stopsEnRoute: Boolean = true,
 ) {
     val last: Boolean get() = nextStop == stations.size - 1
 }
@@ -417,8 +418,12 @@ fun CourseProgress(info: RideInfo, modifier: Modifier = Modifier, labelColor: Co
             drawCircle(Color.White, r, Offset(xp, y), style = Stroke(1.5.dp.toPx()))
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            for (name in info.stations) {
-                BasicText(name, style = PbType.body.copy(color = labelColor), maxLines = 1, overflow = TextOverflow.Clip)
+            val labels = if (info.stopsEnRoute) info.stations else listOf(info.stations.first(), info.stations.last())
+            for ((index, name) in labels.withIndex()) {
+                BasicText(name, style = PbType.body.copy(color = labelColor,
+                    textAlign = if (index == 0) TextAlign.Start else TextAlign.End),
+                    modifier = if (info.stopsEnRoute) Modifier else Modifier.weight(1f),
+                    maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
     }
@@ -429,10 +434,10 @@ fun CourseProgress(info: RideInfo, modifier: Modifier = Modifier, labelColor: Co
 fun NextStopLine(info: RideInfo, color: Color = Pb.OnScrimSoft) {
     val next = info.stations[info.nextStop]
     val line = when {
-        info.paused -> stringResource(R.string.waiting_signal)
+        info.paused -> stringResource(if (info.stopsEnRoute) R.string.waiting_signal else R.string.voyage_paused)
         info.stoppedAt >= 0 -> stringResource(R.string.stopped_leaving_soon, info.stations[info.stoppedAt])
         info.last -> stringResource(R.string.final_stop_clock, next, clock(info.nextStopSec))
-        else -> stringResource(R.string.next_stop_clock, next, clock(info.nextStopSec))
+        else -> stringResource(if (info.stopsEnRoute) R.string.next_stop_clock else R.string.next_waypoint_clock, next, clock(info.nextStopSec))
     }
     Column {
         BasicText(line, style = PbType.label.copy(color = color, fontFeatureSettings = "tnum"))
@@ -544,11 +549,11 @@ fun Notice(text: String, modifier: Modifier = Modifier) {
 
 /** 여행 끝내기 확인. */
 @Composable
-fun EndTripDialog(origin: String, paper: Color, onKeep: () -> Unit, onEnd: () -> Unit) {
+fun EndTripDialog(origin: String, paper: Color, rail: Boolean = true, onKeep: () -> Unit, onEnd: () -> Unit) {
     Sheet(paper, Modifier.width(320.dp)) {
         BasicText(stringResource(R.string.end_trip_title), style = PbType.title.copy(color = Pb.Ink))
         BasicText(
-            stringResource(R.string.end_trip_body, origin),
+            stringResource(if (rail) R.string.end_trip_body else R.string.end_voyage_body, origin),
             style = PbType.body.copy(color = Pb.InkSoft),
         )
         Spacer(Modifier.height(4.dp))

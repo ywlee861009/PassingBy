@@ -1,0 +1,94 @@
+{
+  "retrieved": "2026-10-26",
+  "source": "https://exoplanetarchive.ipac.caltech.edu/TAP/sync?query=select+pl_name%2Chostname%2Csy_dist%2Cra%2Cdec%2Cdiscoverymethod%2Cdisc_year%2Cpl_rade%2Cpl_orbper+from+pscomppars+where+pl_name+in+%28%27Proxima+Cen+b%27%2C%27TRAPPIST-1+e%27%2C%27TRAPPIST-1+f%27%2C%27TRAPPIST-1+g%27%2C%27LHS+1140+b%27%2C%27TOI-700+e%27%2C%27TOI-700+d%27%2C%2755+Cnc+e%27%29&format=json",
+  "planets": [
+    {
+      "pl_name": "55 Cnc e",
+      "hostname": "55 Cnc",
+      "sy_dist": 12.5855,
+      "ra": 133.1468373,
+      "dec": 28.3298154,
+      "discoverymethod": "Radial Velocity",
+      "disc_year": 2004,
+      "pl_rade": 1.875,
+      "pl_orbper": 0.7365474
+    },
+    {
+      "pl_name": "LHS 1140 b",
+      "hostname": "LHS 1140",
+      "sy_dist": 14.9861,
+      "ra": 11.248632,
+      "dec": -15.2741085,
+      "discoverymethod": "Transit",
+      "disc_year": 2017,
+      "pl_rade": 1.73,
+      "pl_orbper": 24.73723
+    },
+    {
+      "pl_name": "Proxima Cen b",
+      "hostname": "Proxima Cen",
+      "sy_dist": 1.30119,
+      "ra": 217.3934657,
+      "dec": -62.6761821,
+      "discoverymethod": "Radial Velocity",
+      "disc_year": 2016,
+      "pl_rade": 1.02,
+      "pl_orbper": 11.18465
+    },
+    {
+      "pl_name": "TOI-700 d",
+      "hostname": "TOI-700",
+      "sy_dist": 31.1265,
+      "ra": 97.0957165,
+      "dec": -65.5786149,
+      "discoverymethod": "Transit",
+      "disc_year": 2020,
+      "pl_rade": 1.145,
+      "pl_orbper": 37.423457
+    },
+    {
+      "pl_name": "TOI-700 e",
+      "hostname": "TOI-700",
+      "sy_dist": 31.1265,
+      "ra": 97.0957165,
+      "dec": -65.5786149,
+      "discoverymethod": "Transit",
+      "disc_year": 2023,
+      "pl_rade": 0.919,
+      "pl_orbper": 27.810124
+    },
+    {
+      "pl_name": "TRAPPIST-1 e",
+      "hostname": "TRAPPIST-1",
+      "sy_dist": 12.42988881,
+      "ra": 346.6263919,
+      "dec": -5.0434618,
+      "discoverymethod": "Transit",
+      "disc_year": 2017,
+      "pl_rade": 0.92,
+      "pl_orbper": 6.101013
+    },
+    {
+      "pl_name": "TRAPPIST-1 f",
+      "hostname": "TRAPPIST-1",
+      "sy_dist": 12.42988881,
+      "ra": 346.6263919,
+      "dec": -5.0434618,
+      "discoverymethod": "Transit",
+      "disc_year": 2017,
+      "pl_rade": 1.045,
+      "pl_orbper": 9.20754
+    },
+    {
+      "pl_name": "TRAPPIST-1 g",
+      "hostname": "TRAPPIST-1",
+      "sy_dist": 12.42988881,
+      "ra": 346.6263919,
+      "dec": -5.0434618,
+      "discoverymethod": "Transit",
+      "disc_year": 2017,
+      "pl_rade": 1.129,
+      "pl_orbper": 12.352446
+    }
+  ]
+}

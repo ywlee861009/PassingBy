@@ -1,0 +1,7 @@
+<resources>
+    <string name="ship_region">남해 항로</string>
+    <string name="ship_vehicle">여객선</string>
+    <string name="ship_busan">부산</string>
+    <string name="ship_strait">대한해협</string>
+    <string name="ship_jeju">제주</string>
+</resources>

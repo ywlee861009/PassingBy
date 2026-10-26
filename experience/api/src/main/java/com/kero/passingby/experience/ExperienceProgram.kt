@@ -9,6 +9,8 @@ import com.kero.passingby.session.JourneyStore
 interface JourneyStation { val name: Int; val local: String; val roman: String }
 
 /** UI catalog metadata, without terrain, audio or rendering data. */
+data class CourseReference(val title: String, val url: String)
+
 interface JourneyCourse {
     val id: String
     val number: Int
@@ -16,6 +18,13 @@ interface JourneyCourse {
     val vehicle: Int
     val stations: List<JourneyStation>
     val productId: String?
+    val description: Int? get() = null
+    val researchNote: Int? get() = null
+    val distanceLightYears: Double? get() = null
+    val references: List<CourseReference> get() = emptyList()
+    val supportsSeasons: Boolean get() = true
+    val supportsTimeOfDay: Boolean get() = true
+    val stopsEnRoute: Boolean get() = true
     val free: Boolean get() = productId == null
     fun ordered(direction: Int): List<JourneyStation> = if (direction < 0) stations.asReversed() else stations
     fun title(res: Resources, direction: Int): String {
@@ -76,6 +85,7 @@ interface ExperienceProgram : JourneyProgram, AutoCloseable {
 interface ExperienceProvider {
     val id: String
     val courses: List<JourneyCourse>
+    val mode: JourneyMode get() = JourneyMode.TRAIN
     fun create(store: JourneyStore): ExperienceProgram
 }
 
@@ -88,6 +98,9 @@ class ExperienceRegistry(providers: List<ExperienceProvider>) {
         require(this.providers.map { it.id }.distinct().size == this.providers.size)
         require(courses.isNotEmpty() && courses.map { it.id }.distinct().size == courses.size)
     }
+    val modes: List<JourneyMode> get() = providers.map { it.mode }.distinct()
+    fun coursesFor(mode: JourneyMode): List<JourneyCourse> = providers.filter { it.mode == mode }.flatMap { it.courses }
+    fun modeFor(courseId: String?): JourneyMode = providerFor(courseId).mode
     fun providerFor(courseId: String?): ExperienceProvider = providers.firstOrNull { p -> p.courses.any { it.id == courseId } } ?: providers.first()
     fun courseById(id: String?): JourneyCourse = courses.firstOrNull { it.id == id } ?: courses.first()
     fun create(courseId: String?, store: JourneyStore): ExperienceProgram = providerFor(courseId).create(store)

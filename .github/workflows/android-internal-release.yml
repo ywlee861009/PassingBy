@@ -139,6 +139,8 @@ jobs:
 
       - name: Build release AAB
         env:
+          # Optional private preview code digest; absent means train-only with no secret entry.
+          PASSINGBY_PREVIEW_CODE_SHA256: ${{ secrets.PASSINGBY_PREVIEW_CODE_SHA256 }}
           PASSINGBY_VERSION_CODE: ${{ steps.version.outputs.code }}
           PASSINGBY_VERSION_NAME: ${{ steps.version.outputs.name }}
           KERO_UPLOAD_STORE_FILE: keystore/upload.jks

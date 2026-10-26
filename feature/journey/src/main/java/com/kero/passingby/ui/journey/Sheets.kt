@@ -42,6 +42,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -57,7 +58,11 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.onSizeChanged
+import android.os.SystemClock
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalUriHandler
+import java.util.Locale
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -236,6 +241,7 @@ fun CourseSheetContent(
     onPick: (Course) -> Unit,
 ) {
     val res = LocalResources.current
+    val uriHandler = LocalUriHandler.current
     BasicText(stringResource(R.string.courses), style = PbType.title.copy(color = Pb.Ink))
     BasicText(stringResource(R.string.courses_hint), style = PbType.body.copy(color = Pb.InkSoft))
     for (c in courses) {
@@ -253,6 +259,17 @@ fun CourseSheetContent(
                 BasicText(courseLabel(c), style = PbType.kicker.copy(color = Pb.InkSoft))
                 BasicText(c.title(res, 1), style = PbType.label.copy(color = Pb.Ink))
                 BasicText(c.stopsLine(res, 1), style = PbType.kicker.copy(color = Pb.InkSoft))
+                c.description?.let { BasicText(stringResource(it), style = PbType.kicker.copy(color = Pb.InkSoft)) }
+                c.distanceLightYears?.let { distance ->
+                    BasicText(stringResource(R.string.system_distance, String.format(Locale.US, if (distance < 10) "%.2f" else "%.1f", distance)), style = PbType.kicker.copy(color = Pb.InkSoft))
+                }
+                if (selected) {
+                    c.researchNote?.let { BasicText(stringResource(it), style = PbType.kicker.copy(color = Pb.InkSoft)) }
+                    for (reference in c.references) BasicText(
+                        reference.title + " ↗", style = PbType.kicker.copy(color = Pb.Accent),
+                        modifier = Modifier.clickable { runCatching { uriHandler.openUri(reference.url) } }.padding(vertical = 8.dp),
+                    )
+                }
             }
             Tag(
                 when {
@@ -297,9 +314,19 @@ fun SettingsSheetContent(
     onPlayStore: () -> Unit,
     onLicenses: () -> Unit,
     onPrivacy: () -> Unit,
+    supportsSeasons: Boolean = true,
+    supportsTimeOfDay: Boolean = true,
+    modeMenu: Boolean = false,
+    previewUnlocked: Boolean = false,
+    canSwitch: Boolean = true,
+    onModes: () -> Unit = {},
+    onLockPreview: () -> Unit = {},
+    onSecretEntry: (() -> Unit)? = null,
 ) {
     BasicText(stringResource(R.string.settings), style = PbType.title.copy(color = Pb.Ink))
 
+    if (modeMenu) QuietButton(stringResource(R.string.travel_modes), onModes, Modifier.fillMaxWidth())
+    if (supportsTimeOfDay) {
     SectionTitle(stringResource(R.string.time_of_day))
     BasicText(stringResource(R.string.time_of_day_desc), style = PbType.kicker.copy(color = Pb.InkSoft))
     val times = listOf(null, TimeOfDay.DAY, TimeOfDay.NIGHT)
@@ -311,6 +338,8 @@ fun SettingsSheetContent(
         }
     }
 
+    }
+    if (supportsSeasons) {
     SectionTitle(stringResource(R.string.season))
     BasicText(stringResource(R.string.season_desc), style = PbType.kicker.copy(color = Pb.InkSoft))
     for (row in SeasonChoice.entries.chunked(3)) {
@@ -325,8 +354,9 @@ fun SettingsSheetContent(
         )
     }
 
+    }
     SectionTitle(stringResource(R.string.sound))
-    Toggle(stringResource(R.string.ambient), stringResource(R.string.ambient_desc), sound, onSound)
+    Toggle(stringResource(R.string.ambient), stringResource(if (supportsSeasons) R.string.ambient_desc else R.string.voyage_ambient_desc), sound, onSound)
     if (sound) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             for ((i, label) in listOf(R.string.volume_low, R.string.volume_mid, R.string.volume_high).withIndex()) {
@@ -336,7 +366,7 @@ fun SettingsSheetContent(
     }
 
     SectionTitle(stringResource(R.string.display))
-    Toggle(stringResource(R.string.ledge), stringResource(R.string.ledge_desc), ledge, onLedge)
+    Toggle(stringResource(R.string.ledge), stringResource(if (supportsSeasons) R.string.ledge_desc else R.string.voyage_ledge_desc), ledge, onLedge)
     Toggle(stringResource(R.string.overlay_always), stringResource(R.string.overlay_always_desc), overlay, onOverlay)
     Toggle(stringResource(R.string.power_save), stringResource(R.string.power_save_desc), power, onPower)
 
@@ -370,6 +400,20 @@ fun SettingsSheetContent(
     if (developerTools) {
         Toggle("개발용: 모든 코스 열기", "결제 상품 등록 전 확인용. 출시 빌드에는 나오지 않아요.", devUnlock) { onDevUnlock() }
     }
+    if (previewUnlocked) QuietButton(stringResource(R.string.preview_lock), onLockPreview, Modifier.fillMaxWidth(), enabled = canSwitch)
+    var taps by remember { mutableStateOf(0) }
+    var lastTap by remember { mutableStateOf(0L) }
+    BasicText(
+        "Passing By", style = PbType.kicker.copy(color = Pb.InkSoft),
+        modifier = Modifier.fillMaxWidth().testTag("secret-entry").then(
+            if (onSecretEntry != null) Modifier.clickable {
+                val now = SystemClock.elapsedRealtime()
+                taps = if (now - lastTap <= 1_200L) taps + 1 else 1
+                lastTap = now
+                if (taps >= 7) { taps = 0; onSecretEntry() }
+            } else Modifier,
+        ).padding(vertical = 16.dp),
+    )
     Spacer(Modifier.height(4.dp))
 }
 
@@ -487,9 +531,9 @@ fun JournalSheetContent(
                     style = PbType.kicker.copy(color = Pb.InkSoft),
                 )
             }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                for ((i, st) in c.stations.withIndex()) {
-                    Stamp(stringResource(st.name), "${c.id}:$i" in visited)
+            for (stops in c.stations.withIndex().toList().chunked(if (c.stopsEnRoute) c.stations.size.coerceAtLeast(1) else 3)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    for ((i, st) in stops) Stamp(stringResource(st.name), "${c.id}:$i" in visited)
                 }
             }
         }

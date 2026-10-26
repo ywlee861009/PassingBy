@@ -16,4 +16,13 @@
     <string name="weather_heavy_snow">Heavy snow</string>
     <string name="nonstop">Nonstop</string>
     <string name="stops_line">Stops at %1$s</string>
+    <string name="mode_train">Train</string>
+    <string name="mode_train_description">Familiar landscapes, rails and a seat by the window.</string>
+    <string name="mode_airplane">Airplane</string>
+    <string name="mode_airplane_description">A quiet window seat above a sea of clouds.</string>
+    <string name="mode_ship">Ship</string>
+    <string name="mode_ship_description">Islands on the horizon and slow waves outside the porthole.</string>
+    <string name="mode_spaceship">Spaceship</string>
+    <string name="mode_spaceship_description">Depart from Earth and visit real solar-system worlds, paced to your focus time.</string>
+    <string name="voyage_waypoints">Via %1$s</string>
 </resources>

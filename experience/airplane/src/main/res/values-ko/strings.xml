@@ -1,0 +1,7 @@
+<resources>
+    <string name="air_region">서해 상공</string>
+    <string name="air_vehicle">비행기</string>
+    <string name="air_incheon">인천</string>
+    <string name="air_yellow_sea">서해 상공</string>
+    <string name="air_jeju">제주</string>
+</resources>

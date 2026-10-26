@@ -100,10 +100,9 @@ class HandoffValidationTest {
 
     @Test fun legacyManualWeatherCannotOverrideAutomaticWeatherAfterRestart() {
         val prefs = context.getSharedPreferences("trip", 0)
-        val savedWeather = prefs.getString("weather", null)
-        val savedSeason = prefs.getString("season", null)
+        val saved = prefs.all
         try {
-            prefs.edit().putString("weather", "HEAVY_SNOW").putString("season", "summer").commit()
+            prefs.edit().clear().putString("weather", "HEAVY_SNOW").putString("season", "summer").commit()
             InstrumentationRegistry.getInstrumentation().runOnMainSync {
                 val models = ViewModelStore()
                 val graph = AppGraph(context.applicationContext as PassingByApp)
@@ -119,7 +118,16 @@ class HandoffValidationTest {
                 } finally { models.clear(); graph.closeSession() }
             }
         } finally {
-            prefs.edit().putString("weather", savedWeather).putString("season", savedSeason).commit()
+            val editor = prefs.edit().clear()
+            for ((key, value) in saved) when (value) {
+                is String -> editor.putString(key, value)
+                is Boolean -> editor.putBoolean(key, value)
+                is Int -> editor.putInt(key, value)
+                is Long -> editor.putLong(key, value)
+                is Float -> editor.putFloat(key, value)
+                is Set<*> -> editor.putStringSet(key, value.filterIsInstance<String>().toSet())
+            }
+            editor.commit()
         }
     }
 }
