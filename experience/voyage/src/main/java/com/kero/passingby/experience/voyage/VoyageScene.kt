@@ -4,6 +4,7 @@ import com.kero.passingby.experience.*
 
 class VoyageScene(var course: VoyageCourse) : ExperienceScene {
     var progress = 0f
+    var durationSeconds = 1500.0
     var direction = 1
     val routePosition get() = if (direction > 0) progress else 1f - progress
     var distance = 0.0

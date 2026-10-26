@@ -1,5 +1,6 @@
 package com.kero.passingby.experience.spaceship
 
+import android.content.Context
 import com.kero.passingby.experience.*
 import com.kero.passingby.experience.voyage.*
 import com.kero.passingby.session.JourneyStore
@@ -80,9 +81,10 @@ object SpaceCourses {
     )
 }
 
-class SpaceExperienceProvider : ExperienceProvider {
+class SpaceExperienceProvider(context: Context) : ExperienceProvider {
+    private val assets = context.applicationContext.assets
     override val id = "spaceship"
     override val mode = JourneyMode.SPACESHIP
     override val courses: List<JourneyCourse> = SpaceCourses.all
-    override fun create(store: JourneyStore) = VoyageProgram(store, SpaceCourses.all, ::SpaceRenderer, AmbientLoop.Kind.SPACE)
+    override fun create(store: JourneyStore) = VoyageProgram(store, SpaceCourses.all, { scene -> SpaceRenderer(scene, assets) }, AmbientLoop.Kind.SPACE)
 }

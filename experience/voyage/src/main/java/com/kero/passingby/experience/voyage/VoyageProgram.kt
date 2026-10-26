@@ -49,6 +49,7 @@ class VoyageProgram(
 
     override fun configure(minutes: Int) {
         duration = minutes.coerceAtLeast(1) * 60.0
+        scene.durationSeconds = duration
         scene.course = course
         scene.direction = direction
         stationMarks = FloatArray(course.stations.size) { it.toFloat() / course.stations.lastIndex }

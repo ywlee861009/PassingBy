@@ -1,199 +1,163 @@
 package com.kero.passingby.experience.spaceship
 
+import android.content.res.AssetManager
 import android.graphics.*
 import com.kero.passingby.experience.voyage.*
 import kotlin.math.*
 import kotlin.random.Random
 
-/** Layered starfield, interplanetary haze and procedural planets, without image downloads. */
-class SpaceRenderer(scene: VoyageScene) : VoyageRenderer(scene) {
-    private val stars = FloatArray(220 * 4).apply {
+/** Ground launch, vertical climb, gravity turn and deep-space flybys sampled from one clock. */
+class SpaceRenderer(scene: VoyageScene, assets: AssetManager) : VoyageRenderer(scene) {
+    private val images = PlanetImages(assets)
+    private val landscape = EarthLaunchLandscape(assets)
+    private val starData = FloatArray(180 * 4).apply {
         val random = Random(108)
         for (i in indices step 4) {
             this[i] = random.nextFloat(); this[i + 1] = random.nextFloat()
             this[i + 2] = random.nextFloat(); this[i + 3] = random.nextFloat()
         }
     }
-    private val circle = Path()
-    private val oval = RectF()
+    private val ring = RectF()
     override val roundness = .12f
+    override val bitmapBytes: Long get() = images.bytes + landscape.bytes
 
     override fun drawWorld(canvas: Canvas, width: Float, height: Float) {
         val course = scene.course as SpaceCourse
-        val p = scene.routePosition
-        val u = min(width, height)
-        fill(canvas, width, height, 0xff050c1c.toInt(), 0xff152038.toInt())
-        // Wide, translucent gas clouds sit behind stars. Fixed route coordinates avoid flicker.
-        for (i in 0..4) {
-            val x = width * (.12f + i * .23f) - p * width * .09f
-            val y = height * (.7f - i * .105f)
-            val radius = max(width, height) * (.34f + i * .015f)
-            val alpha = 18
-            paint.shader = RadialGradient(x, y, radius, intArrayOf((course.glow and 0xffffff) or (alpha shl 24), Color.TRANSPARENT), null, Shader.TileMode.CLAMP)
-            canvas.drawRect(0f, 0f, width, height, paint)
-        }
-        paint.shader = null
-        for (i in stars.indices step 4) {
-            val depth = stars[i + 2]
-            val drift = (scene.distance * (.025 + depth * .11)).toFloat()
-            val x = ((stars[i] - drift) % 1f + 1f) % 1f * width
-            val y = stars[i + 1] * height
-            paint.color = Color.argb((75 + stars[i + 3] * 175).toInt(), 206 + (depth * 45).toInt(), 219 + (depth * 30).toInt(), 255)
-            val r = (.0008f + depth * .0015f) * u
-            canvas.drawCircle(x, y, r.coerceAtLeast(.6f), paint)
-            if (depth > .97f) {
-                paint.strokeWidth = .65f
-                canvas.drawLine(x - r * 3, y, x + r * 3, y, paint)
-                canvas.drawLine(x, y - r * 3, x, y + r * 3, paint)
+        val view = SpaceFlightPath.sample(scene.routePosition, scene.durationSeconds, course.bodies.size)
+        val unit = min(width, height)
+        val darkness = SpaceFlightPath.smooth((view.ascent - .12f) / .88f)
+        fill(canvas, width, height,
+            mix(mix(0xffa37a4d.toInt(), 0xff3c779f.toInt(), view.ascent), 0xff02050c.toInt(), darkness),
+            mix(mix(0xffebbe88.toInt(), 0xffb0d1e4.toInt(), SpaceFlightPath.smooth(view.ascent / .5f)), 0xff0a1320.toInt(), darkness))
+        stars(canvas, width, height, view)
+
+        if (view.turn < 1f) {
+            // A seek back to the launch must not retain three cruise globes plus the coast photo.
+            images.retain(CelestialBody.EARTH)
+            // Before launch completes there is deliberately no horizontal camera movement.
+            val radius = unit * lerp(3f, .42f, view.turn)
+            val top = lerp(height * .64f, height * .55f - unit * .42f, view.turn)
+            val earthVisibility = SpaceFlightPath.smooth((view.ascent - .38f) / .62f)
+            globe(canvas, CelestialBody.EARTH, width * lerp(.5f, .4f, view.turn),
+                top + radius, radius, earthVisibility)
+            landscape.draw(canvas, width, height, view.ascent)
+            landscape.clouds(canvas, width, height, view.ascent)
+        } else {
+            landscape.releaseGround()
+            val position = view.trackPosition
+            val interstellar = course.bodies[1].ordinal >= CelestialBody.PROXIMA_B.ordinal
+            course.bodies.forEachIndexed { index, body ->
+                val offset = index - position
+                if (offset in -1.35f..1.5f) {
+                    val visibility = if (interstellar && position < 1f) when (index) {
+                        0 -> (1f - position / .28f).coerceIn(0f, 1f)
+                        1 -> SpaceFlightPath.smooth((position - .7f) / .3f)
+                        else -> 0f
+                    } else 1f
+                    val scale = when (body) {
+                        CelestialBody.JUPITER -> 1.13f
+                        CelestialBody.SATURN -> .88f
+                        else -> 1f
+                    }
+                    val radius = unit * (.045f + .375f * exp(-abs(offset) * 2.15f)) * scale
+                    // Changing apparent size and vertical position conveys a three-dimensional flyby.
+                    val x = width * (.4f + offset * .94f)
+                    val y = height * (.55f + offset * .075f + sin(index * 1.7f) * .045f)
+                    globe(canvas, body, x, y, radius, visibility)
+                }
             }
+            val leg = position.toInt().coerceIn(0, course.bodies.lastIndex - 1)
+            if (course.bodies[leg] == CelestialBody.MARS && course.bodies[leg + 1] == CelestialBody.JUPITER)
+                asteroids(canvas, width, height, (position - leg).coerceIn(0f, 1f))
         }
-        // Each real waypoint moves continuously through the window; there is no scene cut at a flyby.
-        val position = p * course.bodies.lastIndex
-        course.bodies.forEachIndexed { index, body ->
-            val offset = index - position
-            if (offset in -1.4f..1.5f) {
-                val radius = u * (.085f + .28f * exp(-abs(offset) * 1.8f))
-                // An interstellar target is not a nearby, full-sized planet beside Earth.
-                val interstellar = course.bodies.getOrNull(1)?.ordinal?.let { it >= CelestialBody.PROXIMA_B.ordinal } == true
-                val visibility = if (interstellar && position < 1f) when (index) {
-                    0 -> (1f - position / .28f).coerceIn(0f, 1f)
-                    1 -> ((position - .72f) / .28f).coerceIn(0f, 1f)
-                    else -> 0f
-                } else 1f
-                if (visibility > 0f) drawBody(canvas, body, width * (.34f + offset * .95f),
-                    height * (.48f + sin(index * 1.9f) * .07f), radius * visibility)
-            }
-        }
-        val leg = position.toInt().coerceIn(0, course.bodies.lastIndex - 1)
-        if (course.bodies[leg] == CelestialBody.MARS && course.bodies[leg + 1] == CelestialBody.JUPITER)
-            drawAsteroids(canvas, width, height, (position - leg).coerceIn(0f, 1f))
-        // Gentle glass reflection, never flashing or tied to a wall-clock animation.
-        paint.color = 0x08d2edff
-        path.rewind(); path.moveTo(width * .09f, 0f); path.lineTo(width * .13f, 0f)
-        path.lineTo(width * .56f, height); path.lineTo(width * .5f, height); path.close()
+        // Very faint window reflections; they do not obscure surface details.
+        paint.shader = null; paint.style = Paint.Style.FILL; paint.color = 0x04d3e8f7
+        path.rewind(); path.moveTo(width * .1f, 0f); path.lineTo(width * .115f, 0f)
+        path.lineTo(width * .38f, height); path.lineTo(width * .35f, height); path.close()
         canvas.drawPath(path, paint)
     }
 
-    private fun drawBody(canvas: Canvas, body: CelestialBody, x: Float, y: Float, r: Float) {
-        if (x + r * 2 < 0 || r <= 0) return
-        if (body == CelestialBody.SATURN) rings(canvas, x, y, r, front = false)
-        paint.color = Color.WHITE
-        paint.shader = RadialGradient(x, y, r * 1.18f, intArrayOf(Color.TRANSPARENT, (body.color and 0xffffff) or 0x44000000, Color.TRANSPARENT), floatArrayOf(0f, .84f, 1f), Shader.TileMode.CLAMP)
-        canvas.drawCircle(x, y, r * 1.18f, paint)
-        paint.color = Color.WHITE
-        paint.shader = RadialGradient(x - r * .36f, y - r * .4f, r * 1.9f,
-            intArrayOf(body.color, body.shade, 0xff070e20.toInt()), floatArrayOf(0f, .64f, 1f), Shader.TileMode.CLAMP)
-        canvas.drawCircle(x, y, r, paint)
-        paint.shader = null
-        val saved = canvas.save()
-        circle.rewind(); circle.addCircle(x, y, r, Path.Direction.CW); canvas.clipPath(circle)
-        when (body) {
-            CelestialBody.EARTH -> {
-                // Soft continent silhouettes, positioned in normalized globe coordinates.
-                paint.color = 0xff709d91.toInt()
-                polygon(canvas, x, y, r, floatArrayOf(-.8f,-.25f,-.5f,-.55f,-.2f,-.42f,-.05f,-.14f,-.25f,.08f,-.2f,.28f,-.42f,.42f,-.67f,.18f))
-                polygon(canvas, x, y, r, floatArrayOf(.05f,-.7f,.42f,-.65f,.76f,-.3f,.56f,-.05f,.74f,.2f,.4f,.35f,.23f,.05f,.02f,-.1f))
-                paint.color = 0x60e8f7ff
-                repeat(5) { i ->
-                    val cy = y - r * .7f + i * r * .34f
-                    oval.set(x - r, cy, x + r * .5f, cy + r * .07f)
-                    canvas.drawOval(oval, paint)
-                }
-            }
-            CelestialBody.MOON, CelestialBody.MERCURY, CelestialBody.MARS, CelestialBody.PLUTO,
-            CelestialBody.PROXIMA_B, CelestialBody.TRAPPIST_E, CelestialBody.TOI700_E, CelestialBody.TOI700_D -> {
-                val random = Random(body.ordinal + 9)
-                repeat(18) {
-                    val dx = (random.nextFloat() * 1.8f - .9f) * r
-                    val dy = (random.nextFloat() * 1.8f - .9f) * r
-                    val cr = r * (.025f + random.nextFloat() * .085f)
-                    paint.color = 0x28505a67; canvas.drawCircle(x + dx, y + dy, cr, paint)
-                    paint.color = 0x24e6d6c7; canvas.drawCircle(x + dx - cr * .15f, y + dy - cr * .18f, cr * .75f, paint)
-                }
-                if (body == CelestialBody.PLUTO) {
-                    paint.color = 0x88e5d7be.toInt()
-                    path.rewind(); path.moveTo(x + r * .12f, y + r * .38f)
-                    path.cubicTo(x - r * .6f, y - r * .05f, x - r * .13f, y - r * .5f, x + r * .12f, y - r * .12f)
-                    path.cubicTo(x + r * .48f, y - r * .45f, x + r * .65f, y + r * .1f, x + r * .12f, y + r * .38f)
-                    canvas.drawPath(path, paint)
-                }
-                if (body == CelestialBody.MARS) { paint.color = 0x99e4dfd2.toInt(); canvas.drawOval(x - r * .4f, y - r * 1.05f, x + r * .4f, y - r * .86f, paint) }
-            }
-            CelestialBody.TRAPPIST_F, CelestialBody.TRAPPIST_G, CelestialBody.LHS1140_B -> {
-                // One possible icy scenario; the course note explicitly marks the surface as unknown.
-                paint.color = 0x36eef1ed
-                val random = Random(body.ordinal * 31)
-                repeat(18) {
-                    val cx = x + (random.nextFloat() * 1.8f - .9f) * r
-                    val cy = y + (random.nextFloat() * 1.8f - .9f) * r
-                    val span = r * (.1f + random.nextFloat() * .23f)
-                    path.rewind(); path.moveTo(cx - span, cy)
-                    path.cubicTo(cx - span, cy - span, cx + span * .2f, cy - span * .8f, cx + span, cy)
-                    path.cubicTo(cx + span * .5f, cy + span * .9f, cx - span * .4f, cy + span * .4f, cx - span, cy)
-                    canvas.drawPath(path, paint)
-                }
-            }
-            CelestialBody.CANCRI_E -> {
-                paint.style = Paint.Style.STROKE; paint.strokeWidth = r * .013f
-                paint.color = 0xb8ffc478.toInt()
-                repeat(9) { i ->
-                    val dx = x - r + i * r * .24f
-                    path.rewind(); path.moveTo(dx, y - r)
-                    path.cubicTo(dx + r * .5f, y - r * .3f, dx - r * .3f, y + r * .1f, dx + r * .2f, y + r)
-                    canvas.drawPath(path, paint)
-                }
-                paint.style = Paint.Style.FILL
-            }
-            CelestialBody.VENUS, CelestialBody.JUPITER, CelestialBody.SATURN, CelestialBody.URANUS, CelestialBody.NEPTUNE -> {
-                repeat(12) { i ->
-                    val yy = y - r + i * r / 6
-                    paint.color = if (i % 2 == 0) 0x24f4e6cc else 0x22503548
-                    canvas.drawRect(x - r, yy, x + r, yy + r * .08f, paint)
-                }
-                if (body == CelestialBody.JUPITER) {
-                    paint.color = 0x889c5c4c.toInt(); canvas.drawOval(x + r * .1f, y + r * .17f, x + r * .58f, y + r * .37f, paint)
-                }
-            }
+    private fun stars(canvas: Canvas, width: Float, height: Float, view: SpaceFlightPath.View) {
+        val unit = min(width, height)
+        for (i in starData.indices step 4) {
+            val depth = starData[i + 2]
+            val driftX = (scene.distance * (.008 + depth * .018)).toFloat() * view.turn
+            val driftY = view.ascent * .018f + (scene.distance * (.004 + depth * .007)).toFloat() * view.turn
+            val x = ((starData[i] - driftX) % 1f + 1f) % 1f * width
+            val y = ((starData[i + 1] + driftY) % 1f + 1f) % 1f * height
+            val alpha = ((35 + starData[i + 3] * 110) * view.stars).toInt()
+            paint.color = Color.argb(alpha, 220 + (depth * 30).toInt(), 225 + (depth * 25).toInt(), 248)
+            canvas.drawCircle(x, y, (unit * (.0006f + depth * .001f)).coerceAtLeast(.55f), paint)
         }
-        // Night-side shading covers surface detail as well as the base sphere.
-        paint.color = Color.WHITE
-        paint.shader = LinearGradient(x - r, y - r, x + r, y + r, intArrayOf(0x00ffffff, 0x14071120, 0xc9071120.toInt()), floatArrayOf(0f, .45f, 1f), Shader.TileMode.CLAMP)
-        canvas.drawCircle(x, y, r, paint); paint.shader = null
-        canvas.restoreToCount(saved)
-        if (body == CelestialBody.SATURN) rings(canvas, x, y, r, front = true)
     }
 
-    private fun rings(canvas: Canvas, x: Float, y: Float, r: Float, front: Boolean) {
-        val saved = canvas.save()
-        canvas.rotate(-22f, x, y)
-        if (front) canvas.clipRect(x - r * 2, y, x + r * 2, y + r)
+    private fun globe(canvas: Canvas, body: CelestialBody, x: Float, y: Float, radius: Float, opacity: Float) {
+        if (opacity <= 0 || radius < .5f || x + radius * 2.5f < 0) return
+        if (body == CelestialBody.SATURN) rings(canvas, x, y, radius, opacity, false)
+        val atmosphere = when (body) {
+            CelestialBody.EARTH -> 0xff5eb2f4.toInt()
+            CelestialBody.VENUS -> 0xffd5c4a0.toInt()
+            CelestialBody.URANUS, CelestialBody.NEPTUNE -> 0xff7bb8cc.toInt()
+            else -> 0
+        }
+        if (atmosphere != 0) {
+            paint.color = Color.WHITE
+            paint.alpha = (opacity * 255).toInt()
+            paint.shader = RadialGradient(x, y, radius * 1.045f,
+                intArrayOf(Color.TRANSPARENT, (atmosphere and 0xffffff) or 0x44000000, Color.TRANSPARENT),
+                floatArrayOf(.90f, .963f, 1f), Shader.TileMode.CLAMP)
+            canvas.drawCircle(x, y, radius * 1.045f, paint)
+            paint.shader = null; paint.alpha = 255
+        }
+        images.draw(canvas, body, x, y, radius, opacity)
+        if (body == CelestialBody.SATURN) rings(canvas, x, y, radius, opacity, true)
+        if (body == CelestialBody.URANUS) {
+            val save = canvas.save(); canvas.rotate(72f, x, y)
+            paint.style = Paint.Style.STROKE; paint.strokeWidth = radius * .004f
+            paint.color = Color.argb((opacity * 75).toInt(), 155, 180, 176)
+            ring.set(x - radius * 1.64f, y - radius * .18f, x + radius * 1.64f, y + radius * .18f)
+            canvas.drawOval(ring, paint); paint.style = Paint.Style.FILL; canvas.restoreToCount(save)
+        }
+    }
+
+    private fun rings(canvas: Canvas, x: Float, y: Float, radius: Float, opacity: Float, front: Boolean) {
+        val save = canvas.save(); canvas.rotate(-25f, x, y)
+        if (front) canvas.clipRect(x - radius * 2.4f, y, x + radius * 2.4f, y + radius)
         paint.style = Paint.Style.STROKE
-        repeat(8) { i ->
-            val span = r * (1.23f + i * .075f)
-            paint.strokeWidth = r * .035f
-            paint.color = if (i == 4) 0x557d7474 else 0x99cfc1a1.toInt()
-            oval.set(x - span, y - span * .33f, x + span, y + span * .33f)
-            canvas.drawOval(oval, paint)
+        for (i in 0..100) {
+            val r = 1.23f + i * .0102f
+            // The Cassini division separates the brighter B ring from the outer A ring.
+            if (r in 1.94f..2.015f) continue
+            val strength = when {
+                r < 1.5f -> .22f
+                r < 1.94f -> .58f + sin(i * .8f) * .12f
+                else -> .40f + sin(i * 1.2f) * .1f
+            }
+            paint.color = Color.argb((255 * opacity * strength).toInt(), 206, 193, 164)
+            paint.strokeWidth = radius * .011f
+            ring.set(x - radius * r, y - radius * r * .29f, x + radius * r, y + radius * r * .29f)
+            canvas.drawOval(ring, paint)
         }
-        paint.style = Paint.Style.FILL
-        canvas.restoreToCount(saved)
+        paint.style = Paint.Style.FILL; canvas.restoreToCount(save)
     }
 
-    private fun polygon(canvas: Canvas, x: Float, y: Float, r: Float, points: FloatArray) {
-        path.rewind(); path.moveTo(x + points[0] * r, y + points[1] * r)
-        for (i in 2 until points.size step 2) path.lineTo(x + points[i] * r, y + points[i + 1] * r)
-        path.close(); canvas.drawPath(path, paint)
-    }
-
-    private fun drawAsteroids(canvas: Canvas, w: Float, h: Float, p: Float) {
-        val amount = (sin(p * PI).toFloat() * .8f).coerceAtLeast(0f)
+    private fun asteroids(canvas: Canvas, width: Float, height: Float, progress: Float) {
+        val alpha = (sin(progress * PI) * 65).toInt().coerceAtLeast(0)
         val random = Random(91)
-        repeat(24) {
-            val x = ((random.nextFloat() - p * .6f + 1f) % 1f) * w
-            val y = random.nextFloat() * h
-            val r = min(w, h) * (.002f + random.nextFloat() * .008f)
-            paint.color = Color.argb((amount * 120).toInt(), 153, 141, 138)
+        repeat(18) {
+            val depth = random.nextFloat()
+            val x = ((random.nextFloat() - progress * (.1f + depth * .3f) + 1f) % 1f) * width
+            val y = random.nextFloat() * height + progress * depth * height * .04f
+            val r = min(width, height) * (.001f + depth * .004f)
+            paint.color = Color.argb(alpha, 149, 144, 137)
             canvas.drawCircle(x, y, r, paint)
         }
     }
+
+    override fun release() { super.release(); images.close(); landscape.close() }
+    private fun lerp(a: Float, b: Float, amount: Float) = a + (b - a) * amount
+    private fun mix(a: Int, b: Int, amount: Float) = Color.rgb(
+        lerp(Color.red(a).toFloat(), Color.red(b).toFloat(), amount).toInt(),
+        lerp(Color.green(a).toFloat(), Color.green(b).toFloat(), amount).toInt(),
+        lerp(Color.blue(a).toFloat(), Color.blue(b).toFloat(), amount).toInt())
 }

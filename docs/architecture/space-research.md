@@ -60,5 +60,24 @@
 화면에는 소수점 한 자리의 근삿값만 표시한다. 공전 순서는 같은 항성계의 `pl_orbper`로 교차 확인했다.
 카탈로그 합성표에는 추정된 물성도 있으므로 Proxima b의 카탈로그 반지름 등을 실측으로 표시하지 않는다.
 
-시각 자료는 외부 이미지를 복제하지 않고 Canvas로 그린다. 논문에서 확인된 천체의 분류와 관측 제약을
-참고하지만, 별 배경·천체의 세부 무늬·명암·각지름·실내 창문은 예술적 표현이다.
+행성 표면은 관측 지도 및 허가된 지도 텍스처를 구면에 투영하고 조명을 적용해 표시한다.
+- 지구: NASA Blue Marble와 구름 합성 지도. https://svs.gsfc.nasa.gov/2915/
+- 목성: NASA/JPL/SSI 카시니 전구 지도 PIA07782. 실제 띠·대적점·소용돌이를 사용한다.
+  https://science.nasa.gov/photojournal/cassinis-best-maps-of-jupiter-cylindrical-map/
+- 달: NASA LRO 기반 CGI Moon Kit의 2025 색상 지도. https://svs.gsfc.nasa.gov/4720/
+- 명왕성: New Horizons 전구 색상 지도. https://science.nasa.gov/resource/pluto-global-color-map/
+- 수성·금성 대기·화성·토성·천왕성·해왕성: Solar System Scope (CC BY 4.0)의 NASA 기반 지도.
+  https://www.solarsystemscope.com/textures/ . 원본 미관측 영역의 보완과 색조정이 포함될 수 있다.
+
+`scripts/build_space_planet_assets.py`는 이 지도를 양선형 보간·선형광 조명·구면 투영해
+1024px WebP로 생성한다. 앱은 네트워크를 사용하지 않으며 동시 최대 3개(약 12MiB)의 구면 이미지를
+캐시한다. 원본 URL·SHA-256은 assets/research/planet-map-sources.json, 생성 이미지 체크섬은
+assets/space/planet-assets.json에 남긴다. 앱 라이선스 화면에서도 크레딧과 변환 사실을 안내한다.
+
+지상 출발 풍경은 NASA/Ben Smegelsky의 케네디 우주센터 해안 사진(KSC-20200715-PH-JBS01_0019)을 사용하며
+하늘 가장자리 투명도와 수직 카메라 이동을 적용했다. 사진 메타데이터도 assets/research에 보관한다.
+출발은 해안 지상 → 수직 상승·구름 통과 → 푸른 대기권 가장자리 → 궤도 회전 → 우주 항해다.
+25분 코스에서는 처음 약 75초 상승한 후 약 35초 동안 항해 방향으로 회전한다.
+행성 경유 시각은 기존 집중 타이머의 시각을 유지한다. 왕복·탐색·일시정지·재시작에도 같은
+세션 진행률에서 같은 장면을 표시한다. 사진의 움직임·별 배경·조명·각지름·창틀은 연출이며,
+외계행성 지표는 실제 관측 사진이 아닌 절차적으로 생성한 상상도다.
