@@ -18,8 +18,8 @@
     <string name="body_toi700_e">TOI-700 e</string>
     <string name="body_toi700_d">TOI-700 d</string>
     <string name="body_cancri_e">55 Cancri e</string>
-    <string name="space_solar_note">실제 천체를 연결한 창작 스윙바이 코스예요. 크기·시간·궤적은 집중 시간에 맞춘 연출이며 실제 항법 계획은 아니에요.</string>
+    <string name="space_solar_note">실제 천체를 따라 떠나는 상상 속 여행이에요. 크기·시간·궤적은 집중 시간에 맞춰 연출했어요.</string>
     <string name="space_escape_route">태양계 탈출</string>
     <string name="space_exit">태양계 밖</string>
-    <string name="route_escape">지구 → 달 → 화성 → 목성 → 토성 → 천왕성 → 해왕성 → 명왕성 → 태양계 밖. 빠르게 지구를 벗어나 여러 행성을 스치고 별들 사이로 나아가요.</string>
+    <string name="route_escape">지구 → 달 → 목성 → 토성 → 명왕성 → 태양계 밖. 네 정착지를 여행하고, 작은 행성과 별똥별을 만나며 별들 사이로 나아가요.</string>
 </resources>

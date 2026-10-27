@@ -8,6 +8,9 @@ import kotlin.random.Random
 /** Ground launch, vertical climb, gravity turn and deep-space flybys sampled from one clock. */
 class SpaceRenderer(scene: VoyageScene) : VoyageRenderer(scene) {
     private val images = PlanetGlobes()
+    private val distantImages = PlanetGlobes(size = 192, capacity = 3)
+    private val passingWorld = SpaceScenery.World()
+    private val meteor = SpaceScenery.Meteor()
     private val landscape = EarthLaunchLandscape()
     private val starData = FloatArray(180 * 4).apply {
         val random = Random(108)
@@ -18,7 +21,7 @@ class SpaceRenderer(scene: VoyageScene) : VoyageRenderer(scene) {
     }
     private val ring = RectF()
     override val roundness = .12f
-    override val bitmapBytes: Long get() = images.bytes
+    override val bitmapBytes: Long get() = images.bytes + distantImages.bytes
 
     override fun drawWorld(canvas: Canvas, width: Float, height: Float) {
         val course = scene.course as SpaceCourse
@@ -33,6 +36,7 @@ class SpaceRenderer(scene: VoyageScene) : VoyageRenderer(scene) {
         if (view.turn < 1f) {
             // Retain only the globe needed for the launch, including after a seek back.
             images.retain(CelestialBody.EARTH)
+            distantImages.close()
             // Before launch completes there is deliberately no horizontal camera movement.
             val radius = unit * lerp(3f, .42f, view.turn)
             val top = lerp(height * .64f, height * .55f - unit * .42f, view.turn)
@@ -43,6 +47,8 @@ class SpaceRenderer(scene: VoyageScene) : VoyageRenderer(scene) {
             landscape.clouds(canvas, width, height, view.ascent)
         } else {
             val position = view.trackPosition
+            passingWorlds(canvas, width, height, position)
+            shootingStars(canvas, width, height)
             course.bodies.forEachIndexed { index, body ->
                 val offset = index - position
                 if (offset in -.6f.. .6f) {
@@ -55,11 +61,12 @@ class SpaceRenderer(scene: VoyageScene) : VoyageRenderer(scene) {
                     // Changing apparent size and vertical position conveys a three-dimensional flyby.
                     val x = width * (.4f + offset * 2.4f)
                     val y = height * (.55f + offset * .075f + sin(index * 1.7f) * .045f)
-                    globe(canvas, body, x, y, radius, 1f)
+                    if (x - radius * 2.5f < width)
+                        globe(canvas, body, x, y, radius, 1f)
                 }
             }
             val leg = position.toInt().coerceIn(0, course.bodies.lastIndex - 1)
-            if (course.bodies[leg] == CelestialBody.MARS && course.bodies[leg + 1] == CelestialBody.JUPITER)
+            if (course.bodies[leg] == CelestialBody.MOON && course.bodies[leg + 1] == CelestialBody.JUPITER)
                 asteroids(canvas, width, height, (position - leg).coerceIn(0f, 1f))
         }
         // Very faint window reflections; they do not obscure surface details.
@@ -67,6 +74,51 @@ class SpaceRenderer(scene: VoyageScene) : VoyageRenderer(scene) {
         path.rewind(); path.moveTo(width * .1f, 0f); path.lineTo(width * .115f, 0f)
         path.lineTo(width * .38f, height); path.lineTo(width * .35f, height); path.close()
         canvas.drawPath(path, paint)
+    }
+
+    private fun passingWorlds(canvas: Canvas, width: Float, height: Float, position: Float) {
+        val course = scene.course as SpaceCourse
+        val leg = position.toInt().coerceIn(course.bodies.indices)
+        // These are scenery between the four visits, so they add no map markers or countdowns.
+        if (leg == 0 || leg >= course.bodies.lastIndex) return
+        val visibility = SpaceFlightPath.smooth((abs(position - round(position)) - .18f) / .18f)
+        if (visibility <= 0f) return
+        val seconds = scene.routePosition * scene.durationSeconds
+        for (lane in 0 until SpaceScenery.WORLD_LANES) {
+            val body = when (course.bodies[leg]) {
+                CelestialBody.MOON -> if (lane == 0) CelestialBody.MARS else CelestialBody.MOON
+                CelestialBody.SATURN -> if (lane == 0) CelestialBody.URANUS else CelestialBody.NEPTUNE
+                else -> CelestialBody.MOON
+            }
+            SpaceScenery.worldAt(seconds, lane, passingWorld)
+            globe(canvas, body, passingWorld.x * width, passingWorld.y * height,
+                passingWorld.radius * min(width, height), passingWorld.opacity * visibility, distantImages)
+        }
+    }
+
+    private fun shootingStars(canvas: Canvas, width: Float, height: Float) {
+        val unit = min(width, height)
+        val seconds = scene.routePosition * scene.durationSeconds
+        for (lane in 0 until SpaceScenery.METEOR_LANES) {
+            SpaceScenery.meteorAt(seconds, lane, meteor)
+            if (meteor.opacity <= 0f) continue
+            val x = meteor.x * width; val y = meteor.y * height
+            val length = meteor.length * unit
+            paint.style = Paint.Style.STROKE
+            paint.strokeCap = Paint.Cap.ROUND
+            // Short, tapered tails keep these occasional glints smaller than the visiting worlds.
+            for (part in 0 until 8) {
+                val near = part / 8f; val far = (part + 1) / 8f
+                paint.color = Color.argb((meteor.opacity * (1f - near).pow(2) * 195).toInt(), 192, 220, 248)
+                paint.strokeWidth = unit * .0018f * (1f - near * .8f)
+                canvas.drawLine(x + length * near, y - length * near * .36f,
+                    x + length * far, y - length * far * .36f, paint)
+            }
+            paint.style = Paint.Style.FILL
+            paint.color = Color.argb((meteor.opacity * 235).toInt(), 234, 245, 255)
+            canvas.drawCircle(x, y, (unit * .0015f).coerceAtLeast(.7f), paint)
+            paint.strokeCap = Paint.Cap.BUTT
+        }
     }
 
     private fun stars(canvas: Canvas, width: Float, height: Float, view: SpaceFlightPath.View) {
@@ -89,7 +141,8 @@ class SpaceRenderer(scene: VoyageScene) : VoyageRenderer(scene) {
         }
     }
 
-    private fun globe(canvas: Canvas, body: CelestialBody, x: Float, y: Float, radius: Float, opacity: Float) {
+    private fun globe(canvas: Canvas, body: CelestialBody, x: Float, y: Float, radius: Float, opacity: Float,
+        cache: PlanetGlobes = images) {
         if (opacity <= 0 || radius < .5f || x + radius * 2.5f < 0) return
         if (body == CelestialBody.SATURN) rings(canvas, x, y, radius, opacity, false)
         val atmosphere = when (body) {
@@ -107,7 +160,7 @@ class SpaceRenderer(scene: VoyageScene) : VoyageRenderer(scene) {
             canvas.drawCircle(x, y, radius * 1.045f, paint)
             paint.shader = null; paint.alpha = 255
         }
-        images.draw(canvas, body, x, y, radius, opacity)
+        cache.draw(canvas, body, x, y, radius, opacity)
         if (body == CelestialBody.SATURN) rings(canvas, x, y, radius, opacity, true)
         if (body == CelestialBody.URANUS) {
             val save = canvas.save(); canvas.rotate(72f, x, y)
@@ -152,7 +205,7 @@ class SpaceRenderer(scene: VoyageScene) : VoyageRenderer(scene) {
         }
     }
 
-    override fun release() { super.release(); images.close() }
+    override fun release() { super.release(); images.close(); distantImages.close() }
     private fun lerp(a: Float, b: Float, amount: Float) = a + (b - a) * amount
     private fun mix(a: Int, b: Int, amount: Float) = Color.rgb(
         lerp(Color.red(a).toFloat(), Color.red(b).toFloat(), amount).toInt(),

@@ -49,8 +49,8 @@ class SpaceCourse(
 object SpaceCourses {
     val all = listOf(
         SpaceCourse("space_solar_escape", 101, R.string.space_escape_route,
-            listOf(CelestialBody.EARTH, CelestialBody.MOON, CelestialBody.MARS, CelestialBody.JUPITER,
-                CelestialBody.SATURN, CelestialBody.URANUS, CelestialBody.NEPTUNE, CelestialBody.PLUTO),
+            listOf(CelestialBody.EARTH, CelestialBody.MOON, CelestialBody.JUPITER,
+                CelestialBody.SATURN, CelestialBody.PLUTO),
             0xff6b7794.toInt(), R.string.route_escape),
     )
     val legacyIds = setOf("space_earth_moon", "space_inner_planets", "space_earth_mars", "space_mars_uranus",

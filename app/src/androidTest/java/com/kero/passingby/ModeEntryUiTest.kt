@@ -80,11 +80,8 @@ class ModeEntryUiTest {
             click(awaitText(context.getString(R.string.depart_minutes, 25)))
             try {
                 for (name in listOf(com.kero.passingby.experience.spaceship.R.string.body_moon,
-                    com.kero.passingby.experience.spaceship.R.string.body_mars,
                     com.kero.passingby.experience.spaceship.R.string.body_jupiter,
                     com.kero.passingby.experience.spaceship.R.string.body_saturn,
-                    com.kero.passingby.experience.spaceship.R.string.body_uranus,
-                    com.kero.passingby.experience.spaceship.R.string.body_neptune,
                     com.kero.passingby.experience.spaceship.R.string.body_pluto,
                     com.kero.passingby.experience.spaceship.R.string.space_exit)) {
                     awaitText("→ " + context.getString(name))

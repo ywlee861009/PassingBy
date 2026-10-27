@@ -3,7 +3,7 @@ package com.kero.passingby.experience.spaceship
 import android.graphics.*
 
 /** Like the train's terrain tiles: bake original Canvas paths once, then reuse at frame rate. */
-internal class PlanetGlobes : AutoCloseable {
+internal class PlanetGlobes(private val size: Int = 1024, private val capacity: Int = 2) : AutoCloseable {
     private val cache = LinkedHashMap<CelestialBody, Bitmap>(4, .75f, true)
     private val painter = PlanetPainter()
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
@@ -21,12 +21,12 @@ internal class PlanetGlobes : AutoCloseable {
     fun draw(canvas: Canvas, body: CelestialBody, x: Float, y: Float, radius: Float, opacity: Float) {
         if (radius <= 0 || opacity <= 0) return
         val bitmap = cache[body] ?: run {
-            if (cache.size >= 3) {
+            if (cache.size >= capacity) {
                 val entries = cache.entries.iterator()
                 entries.next().value.recycle(); entries.remove()
             }
-            Bitmap.createBitmap(1024, 1024, Bitmap.Config.ARGB_8888).also {
-                painter.draw(Canvas(it), body, 512f, 512f, 496f)
+            Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888).also {
+                painter.draw(Canvas(it), body, size * .5f, size * .5f, size * 496f / 1024f)
                 cache[body] = it
             }
         }

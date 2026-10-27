@@ -27,7 +27,7 @@ class ModeIntegrationTest {
             program.selectCourse("space_solar_escape", 25)
             val course = program.course
             assertTrue(course.flyby)
-            assertTrue(course.stations.size >= 4)
+            assertEquals(4, course.stations.drop(1).dropLast(1).size)
             val outbound = program.stationMarks.copyOf()
             assertEquals(12.0, program.arrivalAt(1), .001)
             for (direction in listOf(1, -1)) {

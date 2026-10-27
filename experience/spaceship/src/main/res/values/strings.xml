@@ -18,8 +18,8 @@
     <string name="body_toi700_e">TOI-700 e</string>
     <string name="body_toi700_d">TOI-700 d</string>
     <string name="body_cancri_e">55 Cancri e</string>
-    <string name="space_solar_note">An imagined flyby itinerary linking real worlds. Scale, timing and trajectories serve the focus session, not a calculated navigation plan.</string>
+    <string name="space_solar_note">An imagined journey among real worlds. Scale, timing and trajectories are shaped around your focus session.</string>
     <string name="space_escape_route">Solar system escape</string>
     <string name="space_exit">Interstellar space</string>
-    <string name="route_escape">Earth → Moon → Mars → Jupiter → Saturn → Uranus → Neptune → Pluto → interstellar space. Launch swiftly, sweep past the planets and head into the stars.</string>
+    <string name="route_escape">Earth → Moon → Jupiter → Saturn → Pluto → interstellar space. Visit four stops, watch little planets and shooting stars drift by, and journey into the stars.</string>
 </resources>

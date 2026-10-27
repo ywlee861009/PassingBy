@@ -31,7 +31,8 @@ class SpaceFlightVisualTest {
                         try {
                             val canvas = Canvas(bitmap)
                             val hashes = mutableSetOf<String>()
-                            val times = listOf(0, 1, 2, 3, 4, 6, 10, 12, 14, 20, 240, 750, 1500)
+                            val times = listOf(0, 1, 2, 3, 4, 6, 10, 12, 14, 20, 30, 60, 181, 300,
+                                384, 600, 750, 900, 1000, 1128, 1200, 1300, 1500)
                             for (seconds in times) {
                                 program.frame(seconds.toDouble(), 1.0, SessionPhase.RUNNING, .016f)
                                 program.renderer.render(canvas, w, h)
@@ -140,8 +141,8 @@ class SpaceFlightVisualTest {
                             assertTrue(program.renderer.bitmapBytes in 1..3L * 1024 * 1024 * 4)
                         }
                     }
-                    assertEquals(setOf(CelestialBody.EARTH, CelestialBody.MOON, CelestialBody.MARS, CelestialBody.JUPITER,
-                        CelestialBody.SATURN, CelestialBody.URANUS, CelestialBody.NEPTUNE, CelestialBody.PLUTO), seen)
+                    assertEquals(setOf(CelestialBody.EARTH, CelestialBody.MOON, CelestialBody.JUPITER,
+                        CelestialBody.SATURN, CelestialBody.PLUTO), seen)
                     assertEquals("Each planet needs its own visible character", seen.size, hashes.size)
                 } finally { program.close() }
             } catch (error: Throwable) { failure = error }
