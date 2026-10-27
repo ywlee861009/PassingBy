@@ -8,6 +8,6 @@ import com.kero.passingby.PassingByApp
 /** Reconciles persisted deadlines even when no Activity or ViewModel has been created. */
 class TripAlarmReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        (context.applicationContext as PassingByApp).graph.refreshAlarm()
+        (context.applicationContext as PassingByApp).graph.refreshSessionEffects()
     }
 }

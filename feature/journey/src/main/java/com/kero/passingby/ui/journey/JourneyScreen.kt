@@ -102,7 +102,7 @@ enum class FormFactor { PORTRAIT, LANDSCAPE, EXPANDED, TABLETOP }
  * - 반접기(테이블탑): 위쪽 반은 창, 아래쪽 반은 늘 보이는 정보판.
  */
 @Composable
-fun JourneyScreen(vm: JourneyViewModel) {
+fun JourneyScreen(vm: JourneyViewModel, onNotificationPermissionGranted: () -> Unit = {}) {
     val view = LocalView.current
     DisposableEffect(view) {
         view.keepScreenOn = true
@@ -141,6 +141,7 @@ fun JourneyScreen(vm: JourneyViewModel) {
     // 첫 출발 때 한 번만 알림 권한을 묻는다(Android 13 이상). 거절해도 여행은 그대로 출발한다.
     val notificationLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         Telemetry.event("notification_permission", "granted" to granted)
+        if (granted) onNotificationPermissionGranted()
     }
     val depart = {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !vm.notificationAsked &&

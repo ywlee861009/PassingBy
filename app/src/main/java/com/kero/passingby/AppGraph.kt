@@ -53,7 +53,8 @@ class AppGraph(app: Application) {
         app, JourneyOptions(developerTools = BuildConfig.DEV_TOOLS, modeAccess = modeAccess), store, { session }, experiences,
     )
 
-    fun refreshAlarm() { session.refresh(); effects?.syncTimer(); effects?.flushPending() }
+    /** Retry notification delivery after permission or visibility changes, even without a new checkpoint. */
+    fun refreshSessionEffects() { session.refresh(); effects?.syncTimer(); effects?.flushPending() }
     fun closeSession() { session.close(); session.program.let { (it as? AutoCloseable)?.close() } }
 
     init {

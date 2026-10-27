@@ -52,7 +52,9 @@ class MainActivity : ComponentActivity() {
         }
         val showLaunchArtwork = (application as PassingByApp).claimLaunchArtwork()
         setContent {
-            LaunchScreen(showOnLaunch = showLaunchArtwork) { JourneyScreen(journeyViewModel) }
+            LaunchScreen(showOnLaunch = showLaunchArtwork) {
+                JourneyScreen(journeyViewModel, onNotificationPermissionGranted = ::refreshSessionEffects)
+            }
         }
     }
 
@@ -98,13 +100,17 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         journeyViewModel.onResume()
+        refreshSessionEffects()
     }
 
     override fun onStop() {
         AppVisibility.foreground = false
         journeyViewModel.setVisible(false)
+        refreshSessionEffects()
         super.onStop()
     }
+
+    private fun refreshSessionEffects() = (application as PassingByApp).graph.refreshSessionEffects()
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
