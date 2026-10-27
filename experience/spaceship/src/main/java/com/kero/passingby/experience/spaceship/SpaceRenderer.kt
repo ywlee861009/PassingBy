@@ -1,15 +1,14 @@
 package com.kero.passingby.experience.spaceship
 
-import android.content.res.AssetManager
 import android.graphics.*
 import com.kero.passingby.experience.voyage.*
 import kotlin.math.*
 import kotlin.random.Random
 
 /** Ground launch, vertical climb, gravity turn and deep-space flybys sampled from one clock. */
-class SpaceRenderer(scene: VoyageScene, assets: AssetManager) : VoyageRenderer(scene) {
-    private val images = PlanetImages(assets)
-    private val landscape = EarthLaunchLandscape(assets)
+class SpaceRenderer(scene: VoyageScene) : VoyageRenderer(scene) {
+    private val images = PlanetGlobes()
+    private val landscape = EarthLaunchLandscape()
     private val starData = FloatArray(180 * 4).apply {
         val random = Random(108)
         for (i in indices step 4) {
@@ -19,7 +18,7 @@ class SpaceRenderer(scene: VoyageScene, assets: AssetManager) : VoyageRenderer(s
     }
     private val ring = RectF()
     override val roundness = .12f
-    override val bitmapBytes: Long get() = images.bytes + landscape.bytes
+    override val bitmapBytes: Long get() = images.bytes
 
     override fun drawWorld(canvas: Canvas, width: Float, height: Float) {
         val course = scene.course as SpaceCourse
@@ -32,7 +31,7 @@ class SpaceRenderer(scene: VoyageScene, assets: AssetManager) : VoyageRenderer(s
         stars(canvas, width, height, view)
 
         if (view.turn < 1f) {
-            // A seek back to the launch must not retain three cruise globes plus the coast photo.
+            // Retain only the globe needed for the launch, including after a seek back.
             images.retain(CelestialBody.EARTH)
             // Before launch completes there is deliberately no horizontal camera movement.
             val radius = unit * lerp(3f, .42f, view.turn)
@@ -43,7 +42,6 @@ class SpaceRenderer(scene: VoyageScene, assets: AssetManager) : VoyageRenderer(s
             landscape.draw(canvas, width, height, view.ascent)
             landscape.clouds(canvas, width, height, view.ascent)
         } else {
-            landscape.releaseGround()
             val position = view.trackPosition
             val interstellar = course.bodies[1].ordinal >= CelestialBody.PROXIMA_B.ordinal
             course.bodies.forEachIndexed { index, body ->
@@ -154,7 +152,7 @@ class SpaceRenderer(scene: VoyageScene, assets: AssetManager) : VoyageRenderer(s
         }
     }
 
-    override fun release() { super.release(); images.close(); landscape.close() }
+    override fun release() { super.release(); images.close() }
     private fun lerp(a: Float, b: Float, amount: Float) = a + (b - a) * amount
     private fun mix(a: Int, b: Int, amount: Float) = Color.rgb(
         lerp(Color.red(a).toFloat(), Color.red(b).toFloat(), amount).toInt(),

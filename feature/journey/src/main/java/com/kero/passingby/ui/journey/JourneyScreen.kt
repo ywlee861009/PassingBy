@@ -482,7 +482,6 @@ fun JourneyScreen(vm: JourneyViewModel) {
                 listOf(
                     "Pretendard — SIL Open Font License 1.1" to read("pretendard.txt"),
                     "Gowun Batang(고운바탕) — SIL Open Font License 1.1" to read("gowun-batang.txt"),
-                    "Planet imagery — NASA / Solar System Scope (CC BY 4.0)" to read("planet-imagery.txt"),
                 )
             }
             if (sheet != SheetKind.NONE) shown.value = sheet

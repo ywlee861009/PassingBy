@@ -25,7 +25,7 @@ import com.kero.passingby.ui.journey.JourneyViewModel
 class AppGraph(app: Application) {
     val store = TripStore(app)
     private val modeAccess = PreviewModeAccess(app)
-    val experiences = ExperienceRegistry(listOf(TrainExperienceProvider(), AirplaneExperienceProvider(), ShipExperienceProvider(), SpaceExperienceProvider(app)))
+    val experiences = ExperienceRegistry(listOf(TrainExperienceProvider(), AirplaneExperienceProvider(), ShipExperienceProvider(), SpaceExperienceProvider()))
     init {
         val allowed = if (modeAccess.unlocked) experiences.courses else experiences.courses.filter { experiences.modeFor(it.id) in modeAccess.publicModes }
         store.resetUnavailableCourse(allowed.map { it.id }.toSet())

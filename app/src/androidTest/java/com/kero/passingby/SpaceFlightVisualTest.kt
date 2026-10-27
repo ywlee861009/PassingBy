@@ -5,6 +5,8 @@ import android.graphics.Canvas
 import androidx.test.platform.app.InstrumentationRegistry
 import com.kero.passingby.journey.SessionPhase
 import com.kero.passingby.session.TripStore
+import com.kero.passingby.experience.JourneyMode
+import com.kero.passingby.experience.spaceship.CelestialBody
 import java.io.File
 import org.junit.Assert.*
 import org.junit.Test
@@ -12,7 +14,7 @@ import org.junit.Test
 class SpaceFlightVisualTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
 
-    @Test fun launchAndRealGlobeViewsRenderDeterministicallyWithinTheBitmapBudget() {
+    @Test fun launchAndCanvasGlobesRenderDeterministicallyWithinTheBitmapBudget() {
         val context = instrumentation.targetContext
         val output = File(context.cacheDir, "space-flight-validation").apply { mkdirs() }
         var failure: Throwable? = null
@@ -50,7 +52,7 @@ class SpaceFlightVisualTest {
                             assertEquals("Restoring the clock must restore the exact camera", rising, hash(bitmap))
                             program.frame(30.0, 1.0, SessionPhase.RUNNING, .016f)
                             program.renderer.render(canvas, w, h)
-                            assertTrue("Seeking back to the coast must evict unused cruise images",
+                            assertTrue("Seeking back to the coast must evict unused cruise globes",
                                 program.renderer.bitmapBytes <= 3L * 1024 * 1024 * 4)
                         } finally { bitmap.recycle() }
                     }
@@ -64,6 +66,45 @@ class SpaceFlightVisualTest {
                 } finally { program.close() }
             } catch (error: Throwable) { failure = error }
             finally { graph.closeSession() }
+        }
+        failure?.let { throw it }
+    }
+
+    @Test fun everyCanvasPlanetRendersDistinctlyAcrossCourseChangesWithoutImageAssets() {
+        val context = instrumentation.targetContext
+        val output = File(context.cacheDir, "space-flight-validation").apply { mkdirs() }
+        var failure: Throwable? = null
+        instrumentation.runOnMainSync {
+            val graph = AppGraph(context.applicationContext as PassingByApp)
+            val store = TripStore(context)
+            val bitmap = Bitmap.createBitmap(1200, 1200, Bitmap.Config.ARGB_8888)
+            try {
+                assertTrue("Space artwork must not load photos or pre-rendered texture files",
+                    context.assets.list("space").isNullOrEmpty())
+                val seen = mutableSetOf<CelestialBody>()
+                val hashes = mutableSetOf<String>()
+                val program = graph.experiences.providerFor("space_jupiter_pluto").create(store)
+                try {
+                    for (course in graph.experiences.coursesFor(JourneyMode.SPACESHIP)) {
+                        program.selectCourse(course.id, 25)
+                        course.stations.forEachIndexed { index, station ->
+                            val body = CelestialBody.entries.single { it.nameResource == station.name }
+                            if (!seen.add(body)) return@forEachIndexed
+                            val seconds = if (index == 0) 110.0 else index * 1500.0 / course.stations.lastIndex
+                            program.frame(seconds, 1.0, SessionPhase.RUNNING, .016f)
+                            program.renderer.render(Canvas(bitmap), 1200, 1200)
+                            hashes += hash(bitmap)
+                            File(output, "planet-${body.name.lowercase()}.png").outputStream().use {
+                                assertTrue(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it))
+                            }
+                            assertTrue(program.renderer.bitmapBytes in 1..3L * 1024 * 1024 * 4)
+                        }
+                    }
+                    assertEquals(CelestialBody.entries.size, seen.size)
+                    assertEquals("Each planet needs its own visible character", seen.size, hashes.size)
+                } finally { program.close() }
+            } catch (error: Throwable) { failure = error }
+            finally { bitmap.recycle(); graph.closeSession() }
         }
         failure?.let { throw it }
     }
