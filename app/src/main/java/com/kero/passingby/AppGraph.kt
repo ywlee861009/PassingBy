@@ -27,6 +27,8 @@ class AppGraph(app: Application) {
     private val modeAccess = PreviewModeAccess(app)
     val experiences = ExperienceRegistry(listOf(TrainExperienceProvider(), AirplaneExperienceProvider(), ShipExperienceProvider(), SpaceExperienceProvider()))
     init {
+        val courseId = experiences.canonicalCourseId(store.courseId)
+        if (courseId != store.courseId) store.courseId = courseId
         val allowed = if (modeAccess.unlocked) experiences.courses else experiences.courses.filter { experiences.modeFor(it.id) in modeAccess.publicModes }
         store.resetUnavailableCourse(allowed.map { it.id }.toSet())
     }

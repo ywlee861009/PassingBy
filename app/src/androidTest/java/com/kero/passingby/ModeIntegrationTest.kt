@@ -22,14 +22,14 @@ class ModeIntegrationTest {
 
     @Test fun flybysUseTheSameTimetableAsTheMapAndNeverStopInEitherDirection() = isolated {
         val graph = AppGraph(app)
-        val program = graph.experiences.providerFor("space_grand_tour").create(TripStore(app))
+        val program = graph.experiences.providerFor("space_solar_escape").create(TripStore(app))
         try {
-            program.selectCourse("space_grand_tour", 25)
+            program.selectCourse("space_solar_escape", 25)
             val course = program.course
             assertTrue(course.flyby)
             assertTrue(course.stations.size >= 4)
             val outbound = program.stationMarks.copyOf()
-            assertEquals(55.0, program.arrivalAt(1), .001)
+            assertEquals(12.0, program.arrivalAt(1), .001)
             for (direction in listOf(1, -1)) {
                 if (direction < 0) program.onSessionEvent(SessionEvent.GotOff(SessionPhase.ARRIVED), SessionState(tripMinutes = 25))
                 val ordered = course.ordered(direction)
@@ -45,6 +45,30 @@ class ModeIntegrationTest {
             }
             for (i in outbound.indices) assertEquals(1f - outbound[outbound.lastIndex - i], program.stationMarks[i], .00001f)
         } finally { program.close(); graph.closeSession() }
+    }
+
+    @Test fun anOldSpaceCourseRestoresTheSamePausedClockOnTheEscapeRoute() = isolated {
+        org.junit.Assume.assumeTrue(BuildConfig.PREVIEW_CODE_SHA256.isNotEmpty())
+        File(app.noBackupFilesDir, "preview-mode-grant").writeText(BuildConfig.PREVIEW_CODE_SHA256)
+        var graph = AppGraph(app)
+        var models = ViewModelStore()
+        try {
+            var vm = ViewModelProvider(models, graph.journeyViewModelFactory)[JourneyViewModel::class.java]
+            assertTrue(vm.selectJourneyMode(JourneyMode.SPACESHIP))
+            vm.depart(); vm.seekFraction(.4f); vm.pause()
+            val remaining = vm.remainingSec
+            val sessionId = graph.store.loadActive()!!.sessionId
+            models.clear(); graph.closeSession()
+            graph.store.courseId = "space_trappist"
+            graph = AppGraph(app); models = ViewModelStore()
+            vm = ViewModelProvider(models, graph.journeyViewModelFactory)[JourneyViewModel::class.java]
+            assertEquals("space_solar_escape", vm.course.id)
+            assertEquals(JourneyMode.SPACESHIP, vm.journeyMode)
+            assertEquals(SessionPhase.PAUSED, vm.phase)
+            assertEquals(remaining, vm.remainingSec)
+            assertEquals(sessionId, graph.store.loadActive()!!.sessionId)
+            assertEquals(1, vm.courses.size)
+        } finally { models.clear(); graph.closeSession() }
     }
 
     @Test fun publicLaunchUsesTheSamePickerWithoutASecretCode() = isolated {
@@ -116,8 +140,8 @@ class ModeIntegrationTest {
             assertTrue(vm.unlockModes(code!!))
             assertEquals(JourneyMode.entries.toSet(), vm.availableModes.toSet())
             assertTrue(vm.selectJourneyMode(JourneyMode.SPACESHIP))
-            assertEquals(11, vm.courses.size)
-            assertEquals("The first flyby countdown is ready before departure", 55, vm.nextStopSec)
+            assertEquals(1, vm.courses.size)
+            assertEquals("The first flyby countdown is ready before departure", 12, vm.nextStopSec)
             vm.depart()
             assertFalse(vm.selectJourneyMode(JourneyMode.SHIP))
             vm.seekFraction(.6f)

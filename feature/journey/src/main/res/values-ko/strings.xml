@@ -123,7 +123,7 @@
     <string name="voyage_ledge_desc">창 아래에 다음 경유 지점까지 남은 분을 표시해요.</string>
     <string name="next_waypoint_clock">다음 경유 %1$s · %2$s</string>
     <string name="next_flyby_clock">다음 스윙바이 %1$s · %2$s</string>
-    <string name="final_flyby_clock">마지막 근접 통과 %1$s · %2$s</string>
+    <string name="final_flyby_clock">%1$s까지 · %2$s</string>
     <string name="route_flyby">%1$s 스윙바이 중</string>
     <string name="space_ambient_desc">이륙 엔진음·기동 추진기·선내 기계음이 들려요. 다른 음악을 멈추지 않고 앱이 보일 때만 재생해요.</string>
     <string name="end_voyage_body">%1$s(으)로 돌아가요. 이번 여행은 기록되지 않아요.</string>

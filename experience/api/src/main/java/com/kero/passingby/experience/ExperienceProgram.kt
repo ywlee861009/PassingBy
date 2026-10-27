@@ -86,6 +86,7 @@ interface ExperienceProgram : JourneyProgram, AutoCloseable {
 interface ExperienceProvider {
     val id: String
     val courses: List<JourneyCourse>
+    val courseAliases: Map<String, String> get() = emptyMap()
     val mode: JourneyMode get() = JourneyMode.TRAIN
     fun create(store: JourneyStore): ExperienceProgram
 }
@@ -93,16 +94,21 @@ interface ExperienceProvider {
 class ExperienceRegistry(providers: List<ExperienceProvider>) {
     private val providers = providers.toList()
     val courses = this.providers.flatMap { it.courses }
+    private val aliases = this.providers.flatMap { it.courseAliases.entries }.associate { it.toPair() }
     init {
         require(this.providers.isNotEmpty())
         require(this.providers.all { it.courses.isNotEmpty() })
         require(this.providers.map { it.id }.distinct().size == this.providers.size)
         require(courses.isNotEmpty() && courses.map { it.id }.distinct().size == courses.size)
+        require(aliases.keys.none { old -> courses.any { it.id == old } })
+        require(this.providers.all { p -> p.courseAliases.values.all { target -> p.courses.any { it.id == target } } })
+        require(this.providers.sumOf { it.courseAliases.size } == aliases.size)
     }
     val modes: List<JourneyMode> get() = providers.map { it.mode }.distinct()
     fun coursesFor(mode: JourneyMode): List<JourneyCourse> = providers.filter { it.mode == mode }.flatMap { it.courses }
     fun modeFor(courseId: String?): JourneyMode = providerFor(courseId).mode
-    fun providerFor(courseId: String?): ExperienceProvider = providers.firstOrNull { p -> p.courses.any { it.id == courseId } } ?: providers.first()
-    fun courseById(id: String?): JourneyCourse = courses.firstOrNull { it.id == id } ?: courses.first()
+    fun canonicalCourseId(id: String?): String? = aliases[id] ?: id
+    fun providerFor(courseId: String?): ExperienceProvider = providers.firstOrNull { p -> p.courses.any { it.id == canonicalCourseId(courseId) } } ?: providers.first()
+    fun courseById(id: String?): JourneyCourse = courses.firstOrNull { it.id == canonicalCourseId(id) } ?: courses.first()
     fun create(courseId: String?, store: JourneyStore): ExperienceProgram = providerFor(courseId).create(store)
 }

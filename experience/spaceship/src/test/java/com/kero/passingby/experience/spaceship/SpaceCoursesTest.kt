@@ -4,31 +4,32 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class SpaceCoursesTest {
-    @Test fun everyRouteDepartsEarthAndContainsOnlyItsRealCelestialWaypoints() {
-        val courses = SpaceCourses.all
-        assertEquals(11, courses.size)
-        assertEquals(courses.size, courses.map { it.id }.distinct().size)
-        for (course in courses) {
-            assertEquals(CelestialBody.EARTH, course.bodies.first())
-            assertTrue("Every itinerary needs multiple flybys", course.bodies.size >= 4)
-            assertEquals(CelestialBody.MOON, course.bodies[1])
-            assertTrue(course.flyby)
-            assertEquals(course.bodies.map { it.nameResource }, course.stations.map { it.name })
-            assertFalse(course.supportsSeasons)
-            assertFalse(course.supportsTimeOfDay)
-            assertFalse(course.stopsEnRoute)
-            assertTrue(course.references.isNotEmpty())
-            assertTrue(course.references.all { it.url.startsWith("https://") })
+    @Test fun oneEscapeRoutePassesTheOuterPlanetsBeforeLeavingThemBehind() {
+        val course = SpaceCourses.all.single()
+        assertEquals("space_solar_escape", course.id)
+        assertEquals(listOf(CelestialBody.EARTH, CelestialBody.MOON, CelestialBody.MARS, CelestialBody.JUPITER,
+            CelestialBody.SATURN, CelestialBody.URANUS, CelestialBody.NEPTUNE, CelestialBody.PLUTO), course.bodies)
+        assertEquals(course.bodies.map { it.nameResource }, course.stations.dropLast(1).map { it.name })
+        assertEquals(R.string.space_exit, course.stations.last().name)
+        assertTrue(course.flyby)
+        assertFalse(course.supportsSeasons)
+        assertFalse(course.supportsTimeOfDay)
+        assertFalse(course.stopsEnRoute)
+        assertTrue(course.references.isNotEmpty())
+        val marks = course.waypointMarks(1500.0)
+        assertEquals(9, marks.size)
+        assertEquals(1f, marks.last(), 0f)
+        assertTrue("Pluto is a flyby before the destination", marks[course.bodies.lastIndex] < 1f)
+        marks.forEachIndexed { index, progress ->
+            assertEquals(index.toFloat(), course.positionAt(progress, 1500.0), .0001f)
         }
-        assertEquals(CelestialBody.entries.toSet(), courses.flatMap { it.bodies }.toSet())
     }
 
-    @Test fun requestedMarsUranusAndJupiterPlutoRoutesAreSeparateItineraries() {
-        val uranus = SpaceCourses.all.first { it.id == "space_mars_uranus" }
-        assertTrue(CelestialBody.MARS in uranus.bodies)
-        assertEquals(CelestialBody.URANUS, uranus.bodies.last())
-        val pluto = SpaceCourses.all.first { it.id == "space_jupiter_pluto" }
-        assertTrue(CelestialBody.JUPITER in pluto.bodies)
-        assertEquals(CelestialBody.PLUTO, pluto.bodies.last())
+    @Test fun allPreviousRoutesResolveToTheSingleEscapeCourseWithoutAddingPickerEntries() {
+        val provider = SpaceExperienceProvider()
+        assertEquals(1, provider.courses.size)
+        assertEquals(11, provider.courseAliases.size)
+        assertEquals(setOf("space_solar_escape"), provider.courseAliases.values.toSet())
+        assertFalse(provider.courses.single().id in provider.courseAliases)
     }
 }

@@ -13,7 +13,7 @@ internal data class SpaceSoundProfile(val engine: Double, val air: Double, val m
             val view = SpaceFlightPath.sample(p, duration, count)
             val launch = 1.0 - view.turn
             val closest = round(view.trackPosition).toInt()
-            val near = if (closest in 1 until count) exp(-((view.trackPosition - closest) / .09).pow(2)) else 0.0
+            val near = if (closest in 1 until count - 1) exp(-((view.trackPosition - closest) / .09).pow(2)) else 0.0
             return SpaceSoundProfile(
                 engine = .10 + launch * (.76 + view.ascent * .24),
                 air = sin(view.ascent * PI) * launch * .85,

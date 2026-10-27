@@ -22,16 +22,16 @@ class SpaceFlightVisualTest {
             val graph = AppGraph(context.applicationContext as PassingByApp)
             val store = TripStore(context)
             try {
-                val provider = graph.experiences.providerFor("space_jupiter_pluto")
+                val provider = graph.experiences.providerFor("space_solar_escape")
                 val program = provider.create(store)
                 try {
-                    program.selectCourse("space_jupiter_pluto", 25)
+                    program.selectCourse("space_solar_escape", 25)
                     for ((w, h) in listOf(960 to 1600, 1600 to 960)) {
                         val bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
                         try {
                             val canvas = Canvas(bitmap)
                             val hashes = mutableSetOf<String>()
-                            val times = listOf(0, 2, 4, 7, 10, 12, 14, 25, 55, 240, 750, 1500)
+                            val times = listOf(0, 1, 2, 3, 4, 6, 10, 12, 14, 20, 240, 750, 1500)
                             for (seconds in times) {
                                 program.frame(seconds.toDouble(), 1.0, SessionPhase.RUNNING, .016f)
                                 program.renderer.render(canvas, w, h)
@@ -63,9 +63,49 @@ class SpaceFlightVisualTest {
                     program.frame(750.0, 1.0, SessionPhase.RUNNING, .016f)
                     val recreated = Bitmap.createBitmap(960, 1600, Bitmap.Config.ARGB_8888)
                     try { program.renderer.render(Canvas(recreated), 960, 1600) } finally { recreated.recycle() }
+                    if (InstrumentationRegistry.getArguments().getString("renderPreview") == "true") {
+                        program.configure(25)
+                        val preview = Bitmap.createBitmap(800, 480, Bitmap.Config.ARGB_8888)
+                        try {
+                            val previewDir = File(output, "launch-preview").apply { mkdirs() }
+                            for (frame in 0..200) {
+                                program.frame(frame / 10.0, 1.0, SessionPhase.RUNNING, .1f)
+                                program.renderer.render(Canvas(preview), 800, 480)
+                                File(previewDir, "%04d.png".format(frame)).outputStream().use {
+                                    preview.compress(Bitmap.CompressFormat.PNG, 100, it)
+                                }
+                            }
+                        } finally { preview.recycle() }
+                    }
                 } finally { program.close() }
             } catch (error: Throwable) { failure = error }
             finally { graph.closeSession() }
+        }
+        failure?.let { throw it }
+    }
+
+    @Test fun starsMoveAtTheSameSpeedInShortAndLongSessionsAndFreezeWhenPaused() {
+        var failure: Throwable? = null
+        instrumentation.runOnMainSync {
+            val graph = AppGraph(instrumentation.targetContext.applicationContext as PassingByApp)
+            val program = graph.experiences.providerFor("space_solar_escape").create(TripStore(instrumentation.targetContext))
+            val bitmap = Bitmap.createBitmap(800, 480, Bitmap.Config.ARGB_8888)
+            try {
+                val sequences = listOf(25, 90).map { minutes ->
+                    program.selectCourse("space_solar_escape", minutes)
+                    listOf(30.0, 30.25).map { seconds ->
+                        program.frame(seconds, 1.0, SessionPhase.RUNNING, .016f)
+                        program.renderer.render(Canvas(bitmap), 800, 480)
+                        hash(bitmap)
+                    }
+                }
+                assertEquals("Session length must not slow down the starfield", sequences[0], sequences[1])
+                assertNotEquals("Stars should visibly advance within a quarter second", sequences[0][0], sequences[0][1])
+                program.frame(30.25, 0.0, SessionPhase.PAUSED, .016f)
+                program.renderer.render(Canvas(bitmap), 800, 480)
+                assertEquals(sequences[1][1], hash(bitmap))
+            } catch (error: Throwable) { failure = error }
+            finally { bitmap.recycle(); program.close(); graph.closeSession() }
         }
         failure?.let { throw it }
     }
@@ -83,14 +123,14 @@ class SpaceFlightVisualTest {
                     context.assets.list("space").isNullOrEmpty())
                 val seen = mutableSetOf<CelestialBody>()
                 val hashes = mutableSetOf<String>()
-                val program = graph.experiences.providerFor("space_jupiter_pluto").create(store)
+                val program = graph.experiences.providerFor("space_solar_escape").create(store)
                 try {
                     for (course in graph.experiences.coursesFor(JourneyMode.SPACESHIP)) {
                         program.selectCourse(course.id, 25)
                         course.stations.forEachIndexed { index, station ->
-                            val body = CelestialBody.entries.single { it.nameResource == station.name }
+                            val body = CelestialBody.entries.singleOrNull { it.nameResource == station.name } ?: return@forEachIndexed
                             if (!seen.add(body)) return@forEachIndexed
-                            val seconds = if (index == 0) 14.0 else program.arrivalAt(index)
+                            val seconds = if (index == 0) 4.0 else program.arrivalAt(index)
                             program.frame(seconds, 1.0, SessionPhase.RUNNING, .016f)
                             program.renderer.render(Canvas(bitmap), 1200, 1200)
                             hashes += hash(bitmap)
@@ -100,7 +140,8 @@ class SpaceFlightVisualTest {
                             assertTrue(program.renderer.bitmapBytes in 1..3L * 1024 * 1024 * 4)
                         }
                     }
-                    assertEquals(CelestialBody.entries.size, seen.size)
+                    assertEquals(setOf(CelestialBody.EARTH, CelestialBody.MOON, CelestialBody.MARS, CelestialBody.JUPITER,
+                        CelestialBody.SATURN, CelestialBody.URANUS, CelestialBody.NEPTUNE, CelestialBody.PLUTO), seen)
                     assertEquals("Each planet needs its own visible character", seen.size, hashes.size)
                 } finally { program.close() }
             } catch (error: Throwable) { failure = error }

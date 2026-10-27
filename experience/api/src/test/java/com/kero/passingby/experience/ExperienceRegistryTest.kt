@@ -5,8 +5,9 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class ExperienceRegistryTest {
-    private fun provider(id: String, vararg routes: String) = object : ExperienceProvider {
+    private fun provider(id: String, vararg routes: String, aliases: Map<String, String> = emptyMap()) = object : ExperienceProvider {
         override val id = id
+        override val courseAliases = aliases
         override val courses = routes.map { route -> object : JourneyCourse {
             override val id = route
             override val number = 1
@@ -34,6 +35,19 @@ class ExperienceRegistryTest {
         assertSame(first, registry.providerFor(null))
         assertSame(first, registry.providerFor("removed"))
         assertEquals("a", registry.courseById("removed").id)
+    }
+
+    @Test fun removedCourseAliasesRestoreTheOwningModeAndResolvePendingCompletions() {
+        val first = provider("first", "a")
+        val space = provider("space", "escape", aliases = mapOf("old-moon" to "escape", "old-mars" to "escape"))
+        val registry = ExperienceRegistry(listOf(first, space))
+        assertEquals(listOf("a", "escape"), registry.courses.map { it.id })
+        assertEquals("escape", registry.canonicalCourseId("old-moon"))
+        assertSame(space, registry.providerFor("old-mars"))
+        assertEquals("escape", registry.courseById("old-mars").id)
+        assertThrows(IllegalArgumentException::class.java) {
+            ExperienceRegistry(listOf(first, provider("invalid", "b", aliases = mapOf("old" to "a"))))
+        }
     }
 
     @Test fun ambiguousOrEmptyRegistriesAreRejected() {

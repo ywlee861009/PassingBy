@@ -3,6 +3,7 @@ package com.kero.passingby.experience.voyage
 import com.kero.passingby.experience.*
 import com.kero.passingby.journey.*
 import com.kero.passingby.session.JourneyStore
+import kotlin.math.roundToLong
 import kotlin.random.Random
 
 data class VoyageStop(override val name: Int, override val local: String, override val roman: String) : JourneyStation
@@ -19,6 +20,12 @@ open class VoyageCourse(
     override val stopsEnRoute = false
     open fun positionAt(progress: Float, durationSeconds: Double) = progress * stations.lastIndex
     open fun waypointMarks(durationSeconds: Double) = FloatArray(stations.size) { it.toFloat() / stations.lastIndex }
+    open fun progressAtPosition(position: Double, durationSeconds: Double): Double {
+        val segment = position.toInt().coerceIn(0, stations.lastIndex - 1)
+        val fraction = (position - segment).coerceIn(0.0, 1.0)
+        val marks = waypointMarks(durationSeconds)
+        return marks[segment] + (marks[segment + 1] - marks[segment]) * fraction
+    }
     override fun stopsLine(res: android.content.res.Resources, direction: Int): String {
         val middle = ordered(direction).drop(1).dropLast(1)
         return res.getString(com.kero.passingby.experience.api.R.string.voyage_waypoints, middle.joinToString(" · ") { res.getString(it.name) })
@@ -123,14 +130,13 @@ class VoyageProgram(
         }
     }
     override fun stoppedAt(seconds: Double) = -1
-    override fun nextStop(seconds: Double) = (stationMarks.indexOfFirst { seconds < it * duration }
-        .takeIf { it >= 0 } ?: stationMarks.lastIndex).coerceAtLeast(1)
-    override fun arrivalAt(station: Int) = stationMarks[station.coerceIn(0, stationMarks.lastIndex)] * duration
+    override fun nextStop(seconds: Double) = (stationMarks.indices.firstOrNull { seconds < arrivalAt(it) }
+        ?: stationMarks.lastIndex).coerceAtLeast(1)
+    // Float progress marks must not turn an exact 12-second countdown into 13 after ceiling.
+    override fun arrivalAt(station: Int) =
+        (stationMarks[station.coerceIn(0, stationMarks.lastIndex)] * duration * 1000).roundToLong() / 1000.0
     override fun secondsAtPosition(position: Double): Double {
-        val segment = position.toInt().coerceIn(0, course.stations.lastIndex - 1)
-        val f = (position - segment).coerceIn(0.0, 1.0)
-        val marks = course.waypointMarks(duration)
-        val p = marks[segment] + (marks[segment + 1] - marks[segment]) * f
+        val p = course.progressAtPosition(position, duration)
         return (if (direction < 0) 1.0 - p else p) * duration
     }
     override fun setVisible(visible: Boolean, sound: Boolean) {

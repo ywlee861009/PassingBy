@@ -14,16 +14,25 @@ internal object SpaceFlightPath {
         val p = routeProgress.coerceIn(0f, 1f)
         val duration = durationSeconds.coerceAtLeast(60.0)
         val firstWaypoint = markAt(1, duration, waypoints)
-        val launchEnd = (minOf(10.0, duration * .05) / duration).toFloat().coerceAtMost(firstWaypoint * .35f)
-        val turnEnd = (launchEnd + (minOf(4.0, duration * .025) / duration).toFloat())
+        val launchEnd = (minOf(3.0, duration * .05) / duration).toFloat().coerceAtMost(firstWaypoint * .35f)
+        val turnEnd = (launchEnd + (minOf(1.0, duration * .025) / duration).toFloat())
             .coerceAtMost(firstWaypoint * .65f)
         val ascent = smooth(p / launchEnd)
         val turn = smooth((p - launchEnd) / (turnEnd - launchEnd))
-        // The nearby Moon is reached early; the remaining focus time is split across deep-space legs.
-        val position = if (p <= turnEnd) 0f
-            else if (p < firstWaypoint) (p - turnEnd) / (firstWaypoint - turnEnd)
-            else if (waypoints == 2) p
-            else 1f + (p - firstWaypoint) / (1f - firstWaypoint) * (waypoints - 2)
+        // Clear each planet in seconds, then cruise between encounters for the selected focus time.
+        var position = 0f
+        if (p > turnEnd) {
+            val leg = (0 until waypoints - 1).firstOrNull { p < markAt(it + 1, duration, waypoints) } ?: waypoints - 2
+            val start = if (leg == 0) turnEnd else markAt(leg, duration, waypoints)
+            val end = markAt(leg + 1, duration, waypoints)
+            val f = ((p - start) / (end - start)).coerceIn(0f, 1f)
+            val edge = (8.0 / (duration * (end - start))).toFloat().coerceAtMost(.25f)
+            position = leg + when {
+                f < edge -> .4f * smooth(f / edge)
+                f > 1f - edge -> .6f + .4f * smooth((f - 1f + edge) / edge)
+                else -> .4f + .2f * smooth((f - edge) / (1f - 2f * edge))
+            }
+        }
         return View(ascent, turn, position, smooth((ascent - .72f) / .28f))
     }
 
@@ -31,8 +40,19 @@ internal object SpaceFlightPath {
         require(waypoints >= 2 && index in 0 until waypoints)
         if (index == 0) return 0f
         if (waypoints == 2) return 1f
-        val first = (minOf(55.0, durationSeconds.coerceAtLeast(60.0) * .16) / durationSeconds.coerceAtLeast(60.0)).toFloat()
+        val first = (minOf(12.0, durationSeconds.coerceAtLeast(60.0) * .16) / durationSeconds.coerceAtLeast(60.0)).toFloat()
         return first + (1f - first) * (index - 1) / (waypoints - 2)
+    }
+
+    fun progressAtPosition(position: Double, durationSeconds: Double, waypoints: Int): Double {
+        val target = position.coerceIn(0.0, (waypoints - 1).toDouble())
+        if (target == target.toInt().toDouble()) return markAt(target.toInt(), durationSeconds, waypoints).toDouble()
+        var low = 0f; var high = 1f
+        repeat(25) {
+            val mid = (low + high) / 2f
+            if (sample(mid, durationSeconds, waypoints).trackPosition < target) low = mid else high = mid
+        }
+        return ((low + high) / 2f).toDouble()
     }
 
     fun smooth(value: Float): Float = value.coerceIn(0f, 1f).let { it * it * (3f - 2f * it) }

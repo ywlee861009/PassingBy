@@ -22,7 +22,7 @@ class SpaceRenderer(scene: VoyageScene) : VoyageRenderer(scene) {
 
     override fun drawWorld(canvas: Canvas, width: Float, height: Float) {
         val course = scene.course as SpaceCourse
-        val view = SpaceFlightPath.sample(scene.routePosition, scene.durationSeconds, course.bodies.size)
+        val view = SpaceFlightPath.sample(scene.routePosition, scene.durationSeconds, course.stations.size)
         val unit = min(width, height)
         val darkness = SpaceFlightPath.smooth((view.ascent - .12f) / .88f)
         fill(canvas, width, height,
@@ -43,27 +43,19 @@ class SpaceRenderer(scene: VoyageScene) : VoyageRenderer(scene) {
             landscape.clouds(canvas, width, height, view.ascent)
         } else {
             val position = view.trackPosition
-            val interstellarLeg = course.bodies.zipWithNext().indexOfFirst { (a, b) ->
-                a.ordinal < CelestialBody.PROXIMA_B.ordinal && b.ordinal >= CelestialBody.PROXIMA_B.ordinal
-            }
             course.bodies.forEachIndexed { index, body ->
                 val offset = index - position
-                if (offset in -1.35f..1.5f) {
-                    val visibility = if (interstellarLeg >= 0 && position >= interstellarLeg && position < interstellarLeg + 1f) when (index) {
-                        interstellarLeg -> (1f - (position - interstellarLeg) / .28f).coerceIn(0f, 1f)
-                        interstellarLeg + 1 -> SpaceFlightPath.smooth((position - interstellarLeg - .7f) / .3f)
-                        else -> 0f
-                    } else 1f
+                if (offset in -.6f.. .6f) {
                     val scale = when (body) {
                         CelestialBody.JUPITER -> 1.13f
                         CelestialBody.SATURN -> .88f
                         else -> 1f
                     }
-                    val radius = unit * (.045f + .375f * exp(-abs(offset) * 2.15f)) * scale
+                    val radius = unit * (.045f + .375f * exp(-abs(offset) * 4.6f)) * scale
                     // Changing apparent size and vertical position conveys a three-dimensional flyby.
-                    val x = width * (.4f + offset * .94f)
+                    val x = width * (.4f + offset * 2.4f)
                     val y = height * (.55f + offset * .075f + sin(index * 1.7f) * .045f)
-                    globe(canvas, body, x, y, radius, visibility)
+                    globe(canvas, body, x, y, radius, 1f)
                 }
             }
             val leg = position.toInt().coerceIn(0, course.bodies.lastIndex - 1)
@@ -79,15 +71,21 @@ class SpaceRenderer(scene: VoyageScene) : VoyageRenderer(scene) {
 
     private fun stars(canvas: Canvas, width: Float, height: Float, view: SpaceFlightPath.View) {
         val unit = min(width, height)
+        // Seconds keep the apparent cruise speed brisk even during a 90-minute focus session.
+        val seconds = scene.progress * scene.durationSeconds
         for (i in starData.indices step 4) {
             val depth = starData[i + 2]
-            val driftX = (scene.distance * (.008 + depth * .018)).toFloat() * view.turn
-            val driftY = view.ascent * .018f + (scene.distance * (.004 + depth * .007)).toFloat() * view.turn
+            val driftX = (seconds * (.035 + depth * .085)).toFloat() * view.turn
+            val driftY = view.ascent * .018f + (seconds * (.006 + depth * .014)).toFloat() * view.turn
             val x = ((starData[i] - driftX) % 1f + 1f) % 1f * width
             val y = ((starData[i + 1] + driftY) % 1f + 1f) % 1f * height
             val alpha = ((35 + starData[i + 3] * 110) * view.stars).toInt()
             paint.color = Color.argb(alpha, 220 + (depth * 30).toInt(), 225 + (depth * 25).toInt(), 248)
-            canvas.drawCircle(x, y, (unit * (.0006f + depth * .001f)).coerceAtLeast(.55f), paint)
+            val radius = (unit * (.0006f + depth * .001f)).coerceAtLeast(.55f)
+            val trail = unit * (.003f + depth * .014f) * view.turn
+            paint.strokeWidth = radius
+            canvas.drawLine(x, y, x + trail, y - trail * .16f, paint)
+            canvas.drawCircle(x, y, radius, paint)
         }
     }
 
