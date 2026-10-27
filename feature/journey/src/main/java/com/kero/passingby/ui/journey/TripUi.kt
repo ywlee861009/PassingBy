@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -287,6 +288,7 @@ class RideInfo(
     val soundOn: Boolean,
     val locationText: String? = null,
     val stopsEnRoute: Boolean = true,
+    val flyby: Boolean = false,
 ) {
     val last: Boolean get() = nextStop == stations.size - 1
 }
@@ -417,13 +419,22 @@ fun CourseProgress(info: RideInfo, modifier: Modifier = Modifier, labelColor: Co
             drawCircle(Pb.Marker, r, Offset(xp, y))
             drawCircle(Color.White, r, Offset(xp, y), style = Stroke(1.5.dp.toPx()))
         }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            val labels = if (info.stopsEnRoute) info.stations else listOf(info.stations.first(), info.stations.last())
-            for ((index, name) in labels.withIndex()) {
-                BasicText(name, style = PbType.body.copy(color = labelColor,
-                    textAlign = if (index == 0) TextAlign.Start else TextAlign.End),
-                    modifier = if (info.stopsEnRoute) Modifier else Modifier.weight(1f),
-                    maxLines = 1, overflow = TextOverflow.Ellipsis)
+        if (info.stopsEnRoute) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                for ((index, name) in info.stations.withIndex()) {
+                    BasicText(name, style = PbType.body.copy(color = labelColor,
+                        textAlign = if (index == 0) TextAlign.Start else TextAlign.End),
+                        maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+            }
+        } else {
+            // All flyby names stay visible, including on a narrow screen and with long exoplanet names.
+            FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                for ((index, name) in info.stations.withIndex()) {
+                    BasicText((if (index > 0) "→ " else "") + name, style = PbType.body.copy(
+                        color = if (info.marks.getOrElse(index) { 1f } <= info.progress) Pb.OnScrim else labelColor))
+                }
             }
         }
     }
@@ -436,6 +447,7 @@ fun NextStopLine(info: RideInfo, color: Color = Pb.OnScrimSoft) {
     val line = when {
         info.paused -> stringResource(if (info.stopsEnRoute) R.string.waiting_signal else R.string.voyage_paused)
         info.stoppedAt >= 0 -> stringResource(R.string.stopped_leaving_soon, info.stations[info.stoppedAt])
+        info.flyby -> stringResource(if (info.last) R.string.final_flyby_clock else R.string.next_flyby_clock, next, clock(info.nextStopSec))
         info.last -> stringResource(R.string.final_stop_clock, next, clock(info.nextStopSec))
         else -> stringResource(if (info.stopsEnRoute) R.string.next_stop_clock else R.string.next_waypoint_clock, next, clock(info.nextStopSec))
     }

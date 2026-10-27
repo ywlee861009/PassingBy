@@ -8,10 +8,10 @@ import kotlin.math.sin
 import kotlin.random.Random
 
 /** Quiet procedural cabin loops. Playback is foreground-only and does not request audio focus. */
-class AmbientLoop(private val kind: Kind) : AutoCloseable {
+class AmbientLoop(private val kind: Kind) : VoyageAudio {
     enum class Kind { AIRPLANE, SHIP, SPACE }
     private var track: AudioTrack? = null
-    fun start(level: Int) {
+    override fun start(level: Int) {
         runCatching {
             if (track == null) {
                 val sampleRate = 22050
@@ -42,7 +42,7 @@ class AmbientLoop(private val kind: Kind) : AutoCloseable {
             track?.play()
         }.onFailure { close() }
     }
-    fun setLevel(level: Int) { runCatching { track?.setVolume(floatArrayOf(.2f, .4f, .65f)[level.coerceIn(0, 2)]) } }
-    fun pause() { runCatching { track?.pause() } }
+    override fun setLevel(level: Int) { runCatching { track?.setVolume(floatArrayOf(.2f, .4f, .65f)[level.coerceIn(0, 2)]) } }
+    override fun pause() { runCatching { track?.pause() } }
     override fun close() { runCatching { track?.release() }; track = null }
 }

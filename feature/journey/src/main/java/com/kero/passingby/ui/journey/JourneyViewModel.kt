@@ -419,6 +419,7 @@ class JourneyViewModel(
                 progress = if (phase == SessionPhase.ARRIVED) 1f else 0f
                 stoppedAt = -1
                 nextStop = 1
+                nextStopSec = ceil(experience.arrivalAt(nextStop)).toInt().coerceAtLeast(0)
             }
         }
     }

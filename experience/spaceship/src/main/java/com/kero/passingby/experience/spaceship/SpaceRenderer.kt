@@ -43,13 +43,15 @@ class SpaceRenderer(scene: VoyageScene) : VoyageRenderer(scene) {
             landscape.clouds(canvas, width, height, view.ascent)
         } else {
             val position = view.trackPosition
-            val interstellar = course.bodies[1].ordinal >= CelestialBody.PROXIMA_B.ordinal
+            val interstellarLeg = course.bodies.zipWithNext().indexOfFirst { (a, b) ->
+                a.ordinal < CelestialBody.PROXIMA_B.ordinal && b.ordinal >= CelestialBody.PROXIMA_B.ordinal
+            }
             course.bodies.forEachIndexed { index, body ->
                 val offset = index - position
                 if (offset in -1.35f..1.5f) {
-                    val visibility = if (interstellar && position < 1f) when (index) {
-                        0 -> (1f - position / .28f).coerceIn(0f, 1f)
-                        1 -> SpaceFlightPath.smooth((position - .7f) / .3f)
+                    val visibility = if (interstellarLeg >= 0 && position >= interstellarLeg && position < interstellarLeg + 1f) when (index) {
+                        interstellarLeg -> (1f - (position - interstellarLeg) / .28f).coerceIn(0f, 1f)
+                        interstellarLeg + 1 -> SpaceFlightPath.smooth((position - interstellarLeg - .7f) / .3f)
                         else -> 0f
                     } else 1f
                     val scale = when (body) {

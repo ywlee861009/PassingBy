@@ -36,45 +36,50 @@ class SpaceCourse(
 ) : VoyageCourse(id, number, region, R.string.space_vehicle,
     bodies.map { VoyageStop(it.nameResource, it.roman, it.roman) }, supportsTimeOfDay = false) {
     init { require(bodies.first() == CelestialBody.EARTH); require(bodies.distinct().size == bodies.size) }
+    override val flyby = true
+    override fun positionAt(progress: Float, durationSeconds: Double) =
+        SpaceFlightPath.sample(progress, durationSeconds, bodies.size).trackPosition
+    override fun waypointMarks(durationSeconds: Double) =
+        FloatArray(bodies.size) { SpaceFlightPath.markAt(it, durationSeconds, bodies.size) }
 }
 
 object SpaceCourses {
     val all = listOf(
         SpaceCourse("space_earth_moon", 101, R.string.space_lunar_route,
-            listOf(CelestialBody.EARTH, CelestialBody.MOON), 0xff467c9a.toInt(), R.string.route_lunar),
+            listOf(CelestialBody.EARTH, CelestialBody.MOON, CelestialBody.MARS, CelestialBody.JUPITER), 0xff467c9a.toInt(), R.string.route_lunar),
         SpaceCourse("space_inner_planets", 102, R.string.space_inner_route,
-            listOf(CelestialBody.EARTH, CelestialBody.VENUS, CelestialBody.MERCURY), 0xff9a8466.toInt(), R.string.route_inner),
+            listOf(CelestialBody.EARTH, CelestialBody.MOON, CelestialBody.VENUS, CelestialBody.MERCURY), 0xff9a8466.toInt(), R.string.route_inner),
         SpaceCourse("space_earth_mars", 103, R.string.space_mars_route,
-            listOf(CelestialBody.EARTH, CelestialBody.MARS), 0xff95616e.toInt(), R.string.route_mars),
+            listOf(CelestialBody.EARTH, CelestialBody.MOON, CelestialBody.VENUS, CelestialBody.MARS), 0xff95616e.toInt(), R.string.route_mars),
         SpaceCourse("space_mars_uranus", 104, R.string.space_uranus_route,
-            listOf(CelestialBody.EARTH, CelestialBody.MARS, CelestialBody.SATURN, CelestialBody.URANUS), 0xff477b8a.toInt(), R.string.route_uranus),
+            listOf(CelestialBody.EARTH, CelestialBody.MOON, CelestialBody.MARS, CelestialBody.JUPITER, CelestialBody.SATURN, CelestialBody.URANUS), 0xff477b8a.toInt(), R.string.route_uranus),
         SpaceCourse("space_jupiter_pluto", 105, R.string.space_pluto_route,
-            listOf(CelestialBody.EARTH, CelestialBody.JUPITER, CelestialBody.PLUTO), 0xff756d91.toInt(), R.string.route_pluto,
+            listOf(CelestialBody.EARTH, CelestialBody.MOON, CelestialBody.MARS, CelestialBody.JUPITER, CelestialBody.PLUTO), 0xff756d91.toInt(), R.string.route_pluto,
             references = listOf(CourseReference("Stern et al. · Science (2015)", "https://arxiv.org/abs/1510.07704"),
                 CourseReference("NASA · New Horizons", "https://science.nasa.gov/mission/new-horizons/"))),
         SpaceCourse("space_grand_tour", 106, R.string.space_grand_route,
-            listOf(CelestialBody.EARTH, CelestialBody.JUPITER, CelestialBody.SATURN, CelestialBody.URANUS, CelestialBody.NEPTUNE),
+            listOf(CelestialBody.EARTH, CelestialBody.MOON, CelestialBody.JUPITER, CelestialBody.SATURN, CelestialBody.URANUS, CelestialBody.NEPTUNE),
             0xff6b7794.toInt(), R.string.route_grand,
             references = listOf(CourseReference("Stone & Miner · Science (1989)", "https://pds-rings.seti.org/voyager/reference/science_v2n/overview/overview.html"),
                 CourseReference("NASA · Voyager 2", "https://science.nasa.gov/mission/voyager/voyager-2/"))),
         SpaceCourse("space_proxima", 107, R.string.space_proxima_route,
-            listOf(CelestialBody.EARTH, CelestialBody.PROXIMA_B), 0xff806974.toInt(), R.string.route_proxima,
+            listOf(CelestialBody.EARTH, CelestialBody.MOON, CelestialBody.JUPITER, CelestialBody.PROXIMA_B), 0xff806974.toInt(), R.string.route_proxima,
             R.string.space_proxima_note, 4.2439,
             listOf(CourseReference("Anglada-Escudé et al. · Nature (2016)", "https://arxiv.org/abs/1609.03449"))),
         SpaceCourse("space_trappist", 108, R.string.space_trappist_route,
-            listOf(CelestialBody.EARTH, CelestialBody.TRAPPIST_E, CelestialBody.TRAPPIST_F, CelestialBody.TRAPPIST_G),
+            listOf(CelestialBody.EARTH, CelestialBody.MOON, CelestialBody.JUPITER, CelestialBody.TRAPPIST_E, CelestialBody.TRAPPIST_F, CelestialBody.TRAPPIST_G),
             0xff786b86.toInt(), R.string.route_trappist, R.string.space_trappist_note, 40.5409,
             listOf(CourseReference("Gillon et al. · Nature (2017)", "https://www.nature.com/articles/nature21360"))),
         SpaceCourse("space_lhs1140", 109, R.string.space_lhs_route,
-            listOf(CelestialBody.EARTH, CelestialBody.LHS1140_B), 0xff5d7d8a.toInt(), R.string.route_lhs,
+            listOf(CelestialBody.EARTH, CelestialBody.MOON, CelestialBody.JUPITER, CelestialBody.LHS1140_B), 0xff5d7d8a.toInt(), R.string.route_lhs,
             R.string.space_lhs_note, 48.8779,
             listOf(CourseReference("Cadieux et al. · ApJL (2024)", "https://arxiv.org/abs/2406.15136"))),
         SpaceCourse("space_toi700", 110, R.string.space_toi_route,
-            listOf(CelestialBody.EARTH, CelestialBody.TOI700_E, CelestialBody.TOI700_D), 0xff876a78.toInt(), R.string.route_toi,
+            listOf(CelestialBody.EARTH, CelestialBody.MOON, CelestialBody.JUPITER, CelestialBody.TOI700_E, CelestialBody.TOI700_D), 0xff876a78.toInt(), R.string.route_toi,
             R.string.space_toi_note, 101.5188,
             listOf(CourseReference("Gilbert et al. · ApJL (2023)", "https://arxiv.org/abs/2301.03617"))),
         SpaceCourse("space_55cancri", 111, R.string.space_cancri_route,
-            listOf(CelestialBody.EARTH, CelestialBody.CANCRI_E), 0xffa16b53.toInt(), R.string.route_cancri,
+            listOf(CelestialBody.EARTH, CelestialBody.MOON, CelestialBody.VENUS, CelestialBody.CANCRI_E), 0xffa16b53.toInt(), R.string.route_cancri,
             R.string.space_cancri_note, 41.0476,
             listOf(CourseReference("Hu et al. · Nature (2024)", "https://arxiv.org/abs/2405.04744"))),
     )
@@ -84,5 +89,5 @@ class SpaceExperienceProvider : ExperienceProvider {
     override val id = "spaceship"
     override val mode = JourneyMode.SPACESHIP
     override val courses: List<JourneyCourse> = SpaceCourses.all
-    override fun create(store: JourneyStore) = VoyageProgram(store, SpaceCourses.all, { scene -> SpaceRenderer(scene) }, AmbientLoop.Kind.SPACE)
+    override fun create(store: JourneyStore) = VoyageProgram(store, SpaceCourses.all, { scene -> SpaceRenderer(scene) }, AmbientLoop.Kind.SPACE, ::SpaceAudio)
 }

@@ -34,6 +34,7 @@ internal fun routeCaptionText(caption: RouteCaption?): String? {
         RouteCaption.Kind.PASSING -> R.string.route_passing
         RouteCaption.Kind.APPROACHING -> R.string.route_approaching
         RouteCaption.Kind.STOPPED -> R.string.stopped_at
+        RouteCaption.Kind.FLYBY -> R.string.route_flyby
     }
     return stringResource(template, stringResource(caption.name))
 }

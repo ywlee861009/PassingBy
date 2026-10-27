@@ -25,6 +25,7 @@ interface JourneyCourse {
     val supportsSeasons: Boolean get() = true
     val supportsTimeOfDay: Boolean get() = true
     val stopsEnRoute: Boolean get() = true
+    val flyby: Boolean get() = false
     val free: Boolean get() = productId == null
     fun ordered(direction: Int): List<JourneyStation> = if (direction < 0) stations.asReversed() else stations
     fun title(res: Resources, direction: Int): String {

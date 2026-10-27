@@ -31,7 +31,7 @@ class SpaceFlightVisualTest {
                         try {
                             val canvas = Canvas(bitmap)
                             val hashes = mutableSetOf<String>()
-                            val times = listOf(0, 15, 30, 55, 75, 90, 110, 240, 750, 1500)
+                            val times = listOf(0, 2, 4, 7, 10, 12, 14, 25, 55, 240, 750, 1500)
                             for (seconds in times) {
                                 program.frame(seconds.toDouble(), 1.0, SessionPhase.RUNNING, .016f)
                                 program.renderer.render(canvas, w, h)
@@ -42,15 +42,15 @@ class SpaceFlightVisualTest {
                                 assertTrue(program.renderer.bitmapBytes <= 3L * 1024 * 1024 * 4)
                             }
                             assertEquals("Every launch stage must have its own visible scene", times.size, hashes.size)
-                            program.frame(55.0, 1.0, SessionPhase.RUNNING, .016f)
+                            program.frame(4.0, 1.0, SessionPhase.RUNNING, .016f)
                             program.renderer.render(canvas, w, h)
                             val rising = hash(bitmap)
                             program.frame(900.0, 1.0, SessionPhase.RUNNING, .016f)
                             program.renderer.render(canvas, w, h)
-                            program.frame(55.0, 1.0, SessionPhase.RUNNING, .016f)
+                            program.frame(4.0, 1.0, SessionPhase.RUNNING, .016f)
                             program.renderer.render(canvas, w, h)
                             assertEquals("Restoring the clock must restore the exact camera", rising, hash(bitmap))
-                            program.frame(30.0, 1.0, SessionPhase.RUNNING, .016f)
+                            program.frame(7.0, 1.0, SessionPhase.RUNNING, .016f)
                             program.renderer.render(canvas, w, h)
                             assertTrue("Seeking back to the coast must evict unused cruise globes",
                                 program.renderer.bitmapBytes <= 3L * 1024 * 1024 * 4)
@@ -90,7 +90,7 @@ class SpaceFlightVisualTest {
                         course.stations.forEachIndexed { index, station ->
                             val body = CelestialBody.entries.single { it.nameResource == station.name }
                             if (!seen.add(body)) return@forEachIndexed
-                            val seconds = if (index == 0) 110.0 else index * 1500.0 / course.stations.lastIndex
+                            val seconds = if (index == 0) 14.0 else program.arrivalAt(index)
                             program.frame(seconds, 1.0, SessionPhase.RUNNING, .016f)
                             program.renderer.render(Canvas(bitmap), 1200, 1200)
                             hashes += hash(bitmap)

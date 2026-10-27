@@ -38,11 +38,16 @@ class ModeEntryUiTest {
         val code = InstrumentationRegistry.getArguments().getString("previewCode")
         org.junit.Assume.assumeNotNull(code)
         val context = instrumentation.targetContext
+        // Departing for the first time opens a system dialog above the journey on Android 13+.
+        if (android.os.Build.VERSION.SDK_INT >= 33) {
+            automation.grantRuntimePermission(context.packageName, android.Manifest.permission.POST_NOTIFICATIONS)
+        }
         val prefs = context.getSharedPreferences("trip", 0)
         val saved = prefs.all
         val grant = File(context.noBackupFilesDir, "preview-mode-grant")
         val savedGrant = grant.takeIf { it.exists() }?.readBytes()
         prefs.edit().clear().commit(); grant.delete()
+        com.kero.passingby.session.TripStore(context).apply { overlayAlways = true; hintShown = true }
         val monitor = instrumentation.addMonitor(MainActivity::class.java.name, null, false)
         instrumentation.runOnMainSync {
             context.startActivity(Intent(context, MainActivity::class.java)
@@ -71,9 +76,29 @@ class ModeEntryUiTest {
             awaitText(context.getString(R.string.travel_modes))
             click(awaitText(context.getString(com.kero.passingby.experience.api.R.string.mode_spaceship)))
             awaitText(context.getString(com.kero.passingby.experience.spaceship.R.string.body_earth) + " → " +
-                context.getString(com.kero.passingby.experience.spaceship.R.string.body_moon))
+                context.getString(com.kero.passingby.experience.spaceship.R.string.body_jupiter))
+            click(awaitText(context.getString(R.string.depart_minutes, 25)))
+            try {
+                for (name in listOf(com.kero.passingby.experience.spaceship.R.string.body_moon,
+                    com.kero.passingby.experience.spaceship.R.string.body_mars,
+                    com.kero.passingby.experience.spaceship.R.string.body_jupiter)) {
+                    awaitText("→ " + context.getString(name))
+                }
+                // Let the overlay entrance settle before saving a reviewable screen capture.
+                Thread.sleep(600)
+            } finally {
+                val bitmap = automation.takeScreenshot() ?: error("No flyby UI screenshot")
+                try {
+                    File(context.cacheDir, "flyby-route-ui.png").outputStream().use {
+                        bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
+                    }
+                } finally { bitmap.recycle() }
+                val labels = mutableListOf<String>()
+                find { labels += "text=${it.text}; description=${it.contentDescription}"; false }
+                File(context.cacheDir, "flyby-route-ui-labels.txt").writeText(labels.joinToString("\n"))
+            }
         } finally {
-            instrumentation.runOnMainSync { activity.finish() }
+            instrumentation.runOnMainSync { activity.finish(); com.kero.passingby.session.TripTimer.stop(context) }
             val editor = prefs.edit().clear()
             for ((key, value) in saved) when (value) {
                 is String -> editor.putString(key, value)

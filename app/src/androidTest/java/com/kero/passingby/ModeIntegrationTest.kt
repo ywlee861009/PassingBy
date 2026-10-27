@@ -7,6 +7,8 @@ import androidx.lifecycle.ViewModelStore
 import androidx.test.platform.app.InstrumentationRegistry
 import com.kero.passingby.experience.*
 import com.kero.passingby.journey.SessionPhase
+import com.kero.passingby.journey.SessionEvent
+import com.kero.passingby.journey.SessionState
 import com.kero.passingby.session.TripStore
 import com.kero.passingby.session.TripTimer
 import com.kero.passingby.ui.journey.JourneyViewModel
@@ -17,6 +19,33 @@ import org.junit.Test
 class ModeIntegrationTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val app get() = instrumentation.targetContext.applicationContext as PassingByApp
+
+    @Test fun flybysUseTheSameTimetableAsTheMapAndNeverStopInEitherDirection() = isolated {
+        val graph = AppGraph(app)
+        val program = graph.experiences.providerFor("space_grand_tour").create(TripStore(app))
+        try {
+            program.selectCourse("space_grand_tour", 25)
+            val course = program.course
+            assertTrue(course.flyby)
+            assertTrue(course.stations.size >= 4)
+            val outbound = program.stationMarks.copyOf()
+            assertEquals(55.0, program.arrivalAt(1), .001)
+            for (direction in listOf(1, -1)) {
+                if (direction < 0) program.onSessionEvent(SessionEvent.GotOff(SessionPhase.ARRIVED), SessionState(tripMinutes = 25))
+                val ordered = course.ordered(direction)
+                for (i in 1 until ordered.lastIndex) {
+                    val t = program.arrivalAt(i)
+                    val original = if (direction > 0) i else ordered.lastIndex - i
+                    assertEquals(t, program.secondsAtPosition(original.toDouble()), .001)
+                    assertEquals(-1, program.stoppedAt(t))
+                    assertEquals(RouteCaption(ordered[i].name, RouteCaption.Kind.FLYBY), program.routeCaptionAt(t))
+                    assertEquals(i + 1, program.nextStop(t + .01))
+                    assertEquals((0..i).map { if (direction > 0) it else ordered.lastIndex - it }.toSet(), program.reachedStations(t + .01))
+                }
+            }
+            for (i in outbound.indices) assertEquals(1f - outbound[outbound.lastIndex - i], program.stationMarks[i], .00001f)
+        } finally { program.close(); graph.closeSession() }
+    }
 
     @Test fun publicLaunchUsesTheSamePickerWithoutASecretCode() = isolated {
         val graph = AppGraph(app)
@@ -88,6 +117,7 @@ class ModeIntegrationTest {
             assertEquals(JourneyMode.entries.toSet(), vm.availableModes.toSet())
             assertTrue(vm.selectJourneyMode(JourneyMode.SPACESHIP))
             assertEquals(11, vm.courses.size)
+            assertEquals("The first flyby countdown is ready before departure", 55, vm.nextStopSec)
             vm.depart()
             assertFalse(vm.selectJourneyMode(JourneyMode.SHIP))
             vm.seekFraction(.6f)

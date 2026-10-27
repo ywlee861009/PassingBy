@@ -10,6 +10,9 @@ class SpaceCoursesTest {
         assertEquals(courses.size, courses.map { it.id }.distinct().size)
         for (course in courses) {
             assertEquals(CelestialBody.EARTH, course.bodies.first())
+            assertTrue("Every itinerary needs multiple flybys", course.bodies.size >= 4)
+            assertEquals(CelestialBody.MOON, course.bodies[1])
+            assertTrue(course.flyby)
             assertEquals(course.bodies.map { it.nameResource }, course.stations.map { it.name })
             assertFalse(course.supportsSeasons)
             assertFalse(course.supportsTimeOfDay)

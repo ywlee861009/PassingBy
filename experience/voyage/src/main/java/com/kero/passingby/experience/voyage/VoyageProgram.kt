@@ -17,6 +17,8 @@ open class VoyageCourse(
     override val productId: String? = null
     override val supportsSeasons = false
     override val stopsEnRoute = false
+    open fun positionAt(progress: Float, durationSeconds: Double) = progress * stations.lastIndex
+    open fun waypointMarks(durationSeconds: Double) = FloatArray(stations.size) { it.toFloat() / stations.lastIndex }
     override fun stopsLine(res: android.content.res.Resources, direction: Int): String {
         val middle = ordered(direction).drop(1).dropLast(1)
         return res.getString(com.kero.passingby.experience.api.R.string.voyage_waypoints, middle.joinToString(" · ") { res.getString(it.name) })
@@ -28,6 +30,7 @@ class VoyageProgram(
     private val catalog: List<VoyageCourse>,
     private val makeRenderer: (VoyageScene) -> ExperienceRenderer,
     private val soundKind: AmbientLoop.Kind,
+    private val makeAudio: () -> VoyageAudio = { AmbientLoop(soundKind) },
 ) : ExperienceProgram {
     override var course = catalog.firstOrNull { it.id == store.courseId } ?: catalog.first()
         private set
@@ -37,7 +40,8 @@ class VoyageProgram(
     override val scene = VoyageScene(course)
     private var drawing: ExperienceRenderer? = null
     override val renderer get() = drawing ?: makeRenderer(scene).also { drawing = it }
-    private var audio: AmbientLoop? = null
+    private var audio: VoyageAudio? = null
+    private var running = false
     private var level = store.soundLevel.coerceIn(0, 2)
     private var duration = store.minutes * 60.0
     private var base = 0.0
@@ -52,7 +56,8 @@ class VoyageProgram(
         scene.durationSeconds = duration
         scene.course = course
         scene.direction = direction
-        stationMarks = FloatArray(course.stations.size) { it.toFloat() / course.stations.lastIndex }
+        val marks = course.waypointMarks(duration)
+        stationMarks = if (direction > 0) marks else FloatArray(marks.size) { 1f - marks[marks.lastIndex - it] }
     }
     override fun selectCourse(id: String, minutes: Int) {
         course = catalog.first { it.id == id }
@@ -90,13 +95,27 @@ class VoyageProgram(
         scene.direction = direction
         scene.travelSpeed = if (phase == SessionPhase.RUNNING) rate.coerceAtLeast(0.0) else 0.0
         scene.resolveTime()
+        running = phase == SessionPhase.RUNNING
+        audio?.update(scene, running)
     }
     override fun reachedStations(seconds: Double) = stationMarks.indices
         .filter { seconds >= arrivalAt(it) }
         .map { if (direction > 0) it else course.stations.lastIndex - it }.toSet()
-    override fun routeCaptionAt(seconds: Double): RouteCaption {
+    override fun routeCaptionAt(seconds: Double): RouteCaption? {
         val p = (seconds / duration).toFloat().coerceIn(0f, 1f)
         val ordered = course.ordered(direction)
+        if (course.flyby) {
+            val position = if (direction > 0) course.positionAt(p, duration)
+                else ordered.lastIndex - course.positionAt(1f - p, duration)
+            val closest = kotlin.math.round(position).toInt().coerceIn(ordered.indices)
+            return when {
+                position < .12f -> RouteCaption(ordered.first().name, RouteCaption.Kind.DEPARTING)
+                position > ordered.lastIndex - .15f -> RouteCaption(ordered.last().name, RouteCaption.Kind.APPROACHING)
+                closest in 1 until ordered.lastIndex && kotlin.math.abs(position - closest) < .12f ->
+                    RouteCaption(ordered[closest].name, RouteCaption.Kind.FLYBY)
+                else -> null
+            }
+        }
         return when {
             p < .08f -> RouteCaption(ordered.first().name, RouteCaption.Kind.DEPARTING)
             p > .9f -> RouteCaption(ordered.last().name, RouteCaption.Kind.APPROACHING)
@@ -108,11 +127,14 @@ class VoyageProgram(
         .takeIf { it >= 0 } ?: stationMarks.lastIndex).coerceAtLeast(1)
     override fun arrivalAt(station: Int) = stationMarks[station.coerceIn(0, stationMarks.lastIndex)] * duration
     override fun secondsAtPosition(position: Double): Double {
-        val p = (position / course.stations.lastIndex).coerceIn(0.0, 1.0)
+        val segment = position.toInt().coerceIn(0, course.stations.lastIndex - 1)
+        val f = (position - segment).coerceIn(0.0, 1.0)
+        val marks = course.waypointMarks(duration)
+        val p = marks[segment] + (marks[segment + 1] - marks[segment]) * f
         return (if (direction < 0) 1.0 - p else p) * duration
     }
     override fun setVisible(visible: Boolean, sound: Boolean) {
-        if (visible && sound) (audio ?: AmbientLoop(soundKind).also { audio = it }).start(level)
+        if (visible && sound) (audio ?: makeAudio().also { audio = it; it.update(scene, running) }).start(level)
         else audio?.pause()
     }
     override fun setSoundLevel(level: Int) { this.level = level.coerceIn(0, 2); audio?.setLevel(this.level) }

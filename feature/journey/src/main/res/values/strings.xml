@@ -126,6 +126,10 @@
     <string name="voyage_ambient_desc">A quiet cabin sound, only while the app is visible. Keeps other music playing.</string>
     <string name="voyage_ledge_desc">Shows the minutes to the next waypoint below the window.</string>
     <string name="next_waypoint_clock">Next waypoint %1$s · %2$s</string>
+    <string name="next_flyby_clock">Next flyby %1$s · %2$s</string>
+    <string name="final_flyby_clock">Final flyby %1$s · %2$s</string>
+    <string name="route_flyby">Flying past %1$s</string>
+    <string name="space_ambient_desc">Launch engines, maneuvering jets and cabin machinery. Plays only while the app is visible and keeps other music playing.</string>
     <string name="end_voyage_body">Return to %1$s. This journey will not be recorded.</string>
     <string name="voyage_paused">Paused · Your journey is waiting</string>
     <string name="system_distance">Host system about %1$s light-years from Earth</string>

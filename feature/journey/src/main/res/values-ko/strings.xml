@@ -122,6 +122,10 @@
     <string name="voyage_ambient_desc">조용한 실내 환경음이에요. 다른 앱 음악을 멈추지 않고, 앱이 화면에 있을 때만 나요.</string>
     <string name="voyage_ledge_desc">창 아래에 다음 경유 지점까지 남은 분을 표시해요.</string>
     <string name="next_waypoint_clock">다음 경유 %1$s · %2$s</string>
+    <string name="next_flyby_clock">다음 스윙바이 %1$s · %2$s</string>
+    <string name="final_flyby_clock">마지막 근접 통과 %1$s · %2$s</string>
+    <string name="route_flyby">%1$s 스윙바이 중</string>
+    <string name="space_ambient_desc">이륙 엔진음·기동 추진기·선내 기계음이 들려요. 다른 음악을 멈추지 않고 앱이 보일 때만 재생해요.</string>
     <string name="end_voyage_body">%1$s(으)로 돌아가요. 이번 여행은 기록되지 않아요.</string>
     <string name="voyage_paused">일시정지 · 잠시 쉬어 가요</string>
     <string name="system_distance">지구에서 항성계까지 약 %1$s광년</string>

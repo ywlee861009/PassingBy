@@ -322,6 +322,7 @@ fun SettingsSheetContent(
     onModes: () -> Unit = {},
     onLockPreview: () -> Unit = {},
     onSecretEntry: (() -> Unit)? = null,
+    flyby: Boolean = false,
 ) {
     BasicText(stringResource(R.string.settings), style = PbType.title.copy(color = Pb.Ink))
 
@@ -356,7 +357,11 @@ fun SettingsSheetContent(
 
     }
     SectionTitle(stringResource(R.string.sound))
-    Toggle(stringResource(R.string.ambient), stringResource(if (supportsSeasons) R.string.ambient_desc else R.string.voyage_ambient_desc), sound, onSound)
+    Toggle(stringResource(R.string.ambient), stringResource(when {
+        flyby -> R.string.space_ambient_desc
+        supportsSeasons -> R.string.ambient_desc
+        else -> R.string.voyage_ambient_desc
+    }), sound, onSound)
     if (sound) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             for ((i, label) in listOf(R.string.volume_low, R.string.volume_mid, R.string.volume_high).withIndex()) {

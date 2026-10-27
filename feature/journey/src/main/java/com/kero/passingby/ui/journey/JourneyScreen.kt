@@ -348,6 +348,7 @@ fun JourneyScreen(vm: JourneyViewModel) {
             vm.stations.map { stringResource(it.name) }, vm.stationMarks, vm.progress, vm.remainingSec,
             vm.stoppedAt, vm.nextStop, vm.nextStopSec, paused, vm.soundOn,
             stopsEnRoute = vm.course.stopsEnRoute,
+            flyby = vm.course.flyby,
             locationText = if (paused) null else routeCaptionText(vm.routeCaption),
         )
         val toggleSound = {
@@ -506,6 +507,7 @@ fun JourneyScreen(vm: JourneyViewModel) {
                         season = vm.season, seasonChoice = vm.seasonChoice, onSeason = vm::selectSeasonChoice,
                         supportsSeasons = vm.course.supportsSeasons,
                         supportsTimeOfDay = vm.course.supportsTimeOfDay,
+                        flyby = vm.course.flyby,
                         modeMenu = vm.showModeMenu,
                         previewUnlocked = vm.previewUnlocked,
                         canSwitch = vm.phase == SessionPhase.DOCKED,

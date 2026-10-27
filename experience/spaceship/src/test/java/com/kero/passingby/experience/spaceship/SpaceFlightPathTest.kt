@@ -8,25 +8,35 @@ class SpaceFlightPathTest {
         val ground = SpaceFlightPath.sample(0f, 1500.0, 5)
         assertEquals(0f, ground.ascent, 0f)
         assertEquals(0f, ground.stars, 0f)
-        val rising = SpaceFlightPath.sample(30f / 1500, 1500.0, 5)
+        val rising = SpaceFlightPath.sample(4f / 1500, 1500.0, 5)
         assertTrue(rising.ascent > 0f)
         assertEquals(0f, rising.turn, 0f)
         assertEquals(0f, rising.trackPosition, 0f)
-        val turning = SpaceFlightPath.sample(90f / 1500, 1500.0, 5)
+        val turning = SpaceFlightPath.sample(12f / 1500, 1500.0, 5)
         assertEquals(1f, turning.ascent, 0f)
         assertTrue(turning.turn in .01f.. .99f)
     }
 
-    @Test fun takeoffDoesNotShiftWaypointTimesAndIsIndependentOfFrameHistory() {
+    @Test fun cameraMatchesTheFlybyTimetableAndIsIndependentOfFrameHistory() {
         for (count in 2..7) for (minutes in listOf(25, 50, 90)) {
             val duration = minutes * 60.0
             for (i in 1 until count) {
-                val p = i.toFloat() / (count - 1)
+                val p = SpaceFlightPath.markAt(i, duration, count)
                 assertEquals(i.toFloat(), SpaceFlightPath.sample(p, duration, count).trackPosition, .00001f)
             }
             val before = SpaceFlightPath.sample(.031f, duration, count)
             SpaceFlightPath.sample(.9f, duration, count)
             assertEquals(before, SpaceFlightPath.sample(.031f, duration, count))
+        }
+    }
+
+    @Test fun launchIsFourteenSecondsAndTheFirstMoonFlybyIsFiftyFiveSeconds() {
+        for (minutes in listOf(25, 50, 90)) for (count in 4..8) {
+            val duration = minutes * 60.0
+            assertEquals(1f, SpaceFlightPath.sample(10f / duration.toFloat(), duration, count).ascent, .0001f)
+            assertEquals(1f, SpaceFlightPath.sample(14f / duration.toFloat(), duration, count).turn, .0001f)
+            assertEquals(55.0, SpaceFlightPath.markAt(1, duration, count) * duration, .0001)
+            assertEquals(1f, SpaceFlightPath.sample(55f / duration.toFloat(), duration, count).trackPosition, .0001f)
         }
     }
 
