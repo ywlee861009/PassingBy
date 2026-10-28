@@ -11,6 +11,7 @@ class SpaceRenderer(scene: VoyageScene) : VoyageRenderer(scene) {
     private val distantImages = PlanetGlobes(size = 192, capacity = 3)
     private val passingWorld = SpaceScenery.World()
     private val meteor = SpaceScenery.Meteor()
+    private val ufo = SpaceUfo.View()
     private val landscape = EarthLaunchLandscape()
     private val starData = FloatArray(180 * 4).apply {
         val random = Random(108)
@@ -68,6 +69,7 @@ class SpaceRenderer(scene: VoyageScene) : VoyageRenderer(scene) {
             val leg = position.toInt().coerceIn(0, course.bodies.lastIndex - 1)
             if (course.bodies[leg] == CelestialBody.MOON && course.bodies[leg + 1] == CelestialBody.JUPITER)
                 asteroids(canvas, width, height, (position - leg).coerceIn(0f, 1f))
+            flyingSaucer(canvas, width, height)
         }
         // Very faint window reflections; they do not obscure surface details.
         paint.shader = null; paint.style = Paint.Style.FILL; paint.color = 0x04d3e8f7
@@ -76,10 +78,46 @@ class SpaceRenderer(scene: VoyageScene) : VoyageRenderer(scene) {
         canvas.drawPath(path, paint)
     }
 
+    private fun flyingSaucer(canvas: Canvas, width: Float, height: Float) {
+        SpaceUfo.sample(scene.progress.toDouble() * scene.durationSeconds, scene.durationSeconds,
+            scene.course.stations.size, scene.direction, scene.eventSeed, scene.course.id, ufo)
+        if (ufo.opacity <= 0f) return
+        val r = ufo.radius * min(width, height)
+        val x = ufo.x * width
+        val y = ufo.y * height
+        val saved = canvas.save()
+        canvas.rotate(ufo.bank, x, y)
+        paint.style = Paint.Style.FILL
+        paint.shader = RadialGradient(x, y + r * .12f, r * 1.8f,
+            intArrayOf(Color.argb((ufo.opacity * 55).toInt(), 111, 231, 216), Color.TRANSPARENT),
+            null, Shader.TileMode.CLAMP)
+        canvas.drawOval(x - r * 1.8f, y - r * .5f, x + r * 1.8f, y + r * .75f, paint)
+        paint.shader = null
+        paint.color = Color.argb((ufo.opacity * 255).toInt(), 45, 72, 86)
+        canvas.drawOval(x - r * .53f, y - r * .68f, x + r * .53f, y + r * .08f, paint)
+        paint.color = Color.argb((ufo.opacity * 220).toInt(), 143, 218, 226)
+        canvas.drawOval(x - r * .41f, y - r * .59f, x + r * .34f, y - r * .06f, paint)
+        paint.color = Color.argb((ufo.opacity * 180).toInt(), 218, 249, 248)
+        canvas.drawOval(x - r * .28f, y - r * .51f, x - r * .10f, y - r * .25f, paint)
+        paint.color = Color.argb((ufo.opacity * 255).toInt(), 62, 85, 101)
+        canvas.drawOval(x - r * 1.25f, y - r * .17f, x + r * 1.25f, y + r * .43f, paint)
+        paint.color = Color.argb((ufo.opacity * 255).toInt(), 178, 199, 207)
+        canvas.drawOval(x - r * 1.25f, y - r * .23f, x + r * 1.25f, y + r * .20f, paint)
+        paint.color = Color.argb((ufo.opacity * 200).toInt(), 223, 237, 236)
+        canvas.drawOval(x - r * 1.05f, y - r * .16f, x + r * .85f, y - r * .04f, paint)
+        // Steady teal portholes instead of flashing lights or a full-screen beam.
+        paint.color = Color.argb((ufo.opacity * 235).toInt(), 121, 231, 203)
+        for (i in 0..4) {
+            val dx = (i - 2) * r * .35f
+            canvas.drawCircle(x + dx, y + r * (.23f - abs(i - 2) * .025f), r * .055f, paint)
+        }
+        canvas.restoreToCount(saved)
+    }
+
     private fun passingWorlds(canvas: Canvas, width: Float, height: Float, position: Float) {
         val course = scene.course as SpaceCourse
         val leg = position.toInt().coerceIn(course.bodies.indices)
-        // These are scenery between the four visits, so they add no map markers or countdowns.
+        // Cruise scenery adds no destinations or countdowns to the course.
         if (leg == 0 || leg >= course.bodies.lastIndex) return
         val visibility = SpaceFlightPath.smooth((abs(position - round(position)) - .18f) / .18f)
         if (visibility <= 0f) return

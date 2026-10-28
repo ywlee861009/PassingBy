@@ -323,8 +323,16 @@ fun SettingsSheetContent(
     onLockPreview: () -> Unit = {},
     onSecretEntry: (() -> Unit)? = null,
     flyby: Boolean = false,
+    notificationsEnabled: Boolean = true,
+    onNotifications: () -> Unit = {},
 ) {
     BasicText(stringResource(R.string.settings), style = PbType.title.copy(color = Pb.Ink))
+
+    SectionTitle(stringResource(R.string.notifications))
+    BasicText(stringResource(if (notificationsEnabled) R.string.notifications_enabled else R.string.notifications_desc),
+        style = PbType.kicker.copy(color = Pb.InkSoft))
+    QuietButton(stringResource(if (notificationsEnabled) R.string.notifications_settings else R.string.notifications_enable),
+        onNotifications, Modifier.fillMaxWidth(), color = Pb.Ink)
 
     if (modeMenu) QuietButton(stringResource(R.string.travel_modes), onModes, Modifier.fillMaxWidth())
     if (supportsTimeOfDay) {

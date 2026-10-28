@@ -133,4 +133,11 @@
     <string name="end_voyage_body">Return to %1$s. This journey will not be recorded.</string>
     <string name="voyage_paused">Paused · Your journey is waiting</string>
     <string name="system_distance">Host system about %1$s light-years from Earth</string>
+    <string name="notifications">Travel notifications</string>
+    <string name="notifications_disabled">Notifications are off</string>
+    <string name="notifications_desc">Enable notifications for time remaining and arrival reminders.</string>
+    <string name="notifications_hint">See time left and get arrival reminders.</string>
+    <string name="notifications_enabled">Time remaining and arrival notifications are enabled.</string>
+    <string name="notifications_enable">Enable alerts</string>
+    <string name="notifications_settings">Notification settings</string>
 </resources>

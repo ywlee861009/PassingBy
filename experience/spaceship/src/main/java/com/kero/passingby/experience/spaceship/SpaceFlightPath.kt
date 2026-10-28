@@ -39,7 +39,7 @@ internal object SpaceFlightPath {
     fun markAt(index: Int, durationSeconds: Double, waypoints: Int): Float {
         require(waypoints >= 2 && index in 0 until waypoints)
         if (index == 0) return 0f
-        if (waypoints == 2) return 1f
+        if (index == waypoints - 1) return 1f
         val first = (minOf(12.0, durationSeconds.coerceAtLeast(60.0) * .16) / durationSeconds.coerceAtLeast(60.0)).toFloat()
         return first + (1f - first) * (index - 1) / (waypoints - 2)
     }

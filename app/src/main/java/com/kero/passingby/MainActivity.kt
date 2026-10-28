@@ -8,6 +8,9 @@ import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -17,6 +20,7 @@ import com.kero.passingby.experience.SceneKind
 import com.kero.passingby.experience.SeasonChoice
 import com.kero.passingby.experience.RenderMode
 import com.kero.passingby.session.AppVisibility
+import com.kero.passingby.session.TripNotifications
 import com.kero.passingby.experience.TimeOfDay
 import com.kero.passingby.experience.Weather
 import com.kero.passingby.ui.journey.JourneyViewModel
@@ -24,6 +28,7 @@ import com.kero.passingby.ui.journey.JourneyScreen
 import com.kero.passingby.ui.startup.LaunchScreen
 
 class MainActivity : ComponentActivity() {
+    private var notificationsEnabled by mutableStateOf(false)
     private val journeyViewModel: JourneyViewModel by lazy {
         ViewModelProvider(this, (application as PassingByApp).graph.journeyViewModelFactory)[JourneyViewModel::class.java]
     }
@@ -51,9 +56,15 @@ class MainActivity : ComponentActivity() {
             applyDebugExtras(intent)
         }
         val showLaunchArtwork = (application as PassingByApp).claimLaunchArtwork()
+        notificationsEnabled = TripNotifications.areEnabled(this)
         setContent {
             LaunchScreen(showOnLaunch = showLaunchArtwork) {
-                JourneyScreen(journeyViewModel, onNotificationPermissionGranted = ::refreshSessionEffects)
+                JourneyScreen(
+                    journeyViewModel,
+                    onNotificationPermissionGranted = ::refreshSessionEffects,
+                    notificationsEnabled = notificationsEnabled,
+                    onNotificationSettings = { startActivity(TripNotifications.settingsIntent(this)) },
+                )
             }
         }
     }
@@ -110,7 +121,10 @@ class MainActivity : ComponentActivity() {
         super.onStop()
     }
 
-    private fun refreshSessionEffects() = (application as PassingByApp).graph.refreshSessionEffects()
+    private fun refreshSessionEffects() {
+        notificationsEnabled = TripNotifications.areEnabled(this)
+        (application as PassingByApp).graph.refreshSessionEffects()
+    }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)

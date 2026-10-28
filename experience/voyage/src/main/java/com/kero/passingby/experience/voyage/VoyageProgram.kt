@@ -63,6 +63,7 @@ class VoyageProgram(
         scene.durationSeconds = duration
         scene.course = course
         scene.direction = direction
+        scene.eventSeed = seed
         val marks = course.waypointMarks(duration)
         stationMarks = if (direction > 0) marks else FloatArray(marks.size) { 1f - marks[marks.lastIndex - it] }
     }
@@ -77,6 +78,7 @@ class VoyageProgram(
         require(active.base.isFinite() && active.base >= 0)
         base = active.base
         seed = active.weatherSeed
+        scene.eventSeed = seed
     }
     override fun onSessionEvent(event: SessionEvent, state: SessionState) {
         when (event) {

@@ -30,7 +30,7 @@ internal class SpaceAudio : VoyageAudio {
     override fun setLevel(level: Int) { volume = doubleArrayOf(.48, .72, 1.0)[level.coerceIn(0, 2)] }
     override fun update(scene: VoyageScene, running: Boolean) {
         profile = SpaceSoundProfile.at(scene.progress, scene.durationSeconds,
-            scene.course.stations.size, scene.direction, running)
+            scene.course.stations.size, scene.direction, running, scene.eventSeed, scene.course.id)
     }
     override fun pause() { enabled = false }
     override fun close() {

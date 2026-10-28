@@ -5,10 +5,13 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
 import android.os.SystemClock
+import android.provider.Settings
 import android.view.View
 import android.widget.RemoteViews
 import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
 import com.kero.passingby.telemetry.Telemetry
 import java.util.Locale
 import kotlin.math.ceil
@@ -27,6 +30,24 @@ object TripNotifications {
     private const val ALERT_ID = 2
     private const val CH_TRIP = "trip"
     private const val CH_ALERT = "alert"
+
+    /** App-wide permission and both user-controlled travel channels must be available. */
+    fun areEnabled(ctx: Context): Boolean =
+        NotificationManagerCompat.from(ctx).areNotificationsEnabled() && blockedChannel(ctx) == null
+
+    fun settingsIntent(ctx: Context): Intent {
+        val channel = if (NotificationManagerCompat.from(ctx).areNotificationsEnabled()) blockedChannel(ctx) else null
+        return Intent(if (channel == null) Settings.ACTION_APP_NOTIFICATION_SETTINGS else Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
+            .putExtra(Settings.EXTRA_APP_PACKAGE, ctx.packageName)
+            .apply { if (channel != null) putExtra(Settings.EXTRA_CHANNEL_ID, channel) }
+    }
+
+    private fun blockedChannel(ctx: Context): String? {
+        val manager = ctx.getSystemService(NotificationManager::class.java) ?: return null
+        return listOf(CH_TRIP, CH_ALERT).firstOrNull {
+            manager.getNotificationChannel(it)?.importance == NotificationManager.IMPORTANCE_NONE
+        }
+    }
 
     fun ensureChannels(ctx: Context) {
         val nm = ctx.getSystemService(NotificationManager::class.java) ?: return

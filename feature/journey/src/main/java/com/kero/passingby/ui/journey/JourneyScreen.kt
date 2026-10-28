@@ -60,6 +60,7 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.graphicsLayer
@@ -88,6 +89,7 @@ import com.kero.passingby.locale.AppLanguage
 import com.kero.passingby.telemetry.Telemetry
 import com.kero.passingby.ui.debug.DevPanel
 import com.kero.passingby.ui.theme.PbType
+import com.kero.passingby.ui.theme.Pb
 import kotlinx.coroutines.delay
 import kotlin.math.abs
 
@@ -102,7 +104,12 @@ enum class FormFactor { PORTRAIT, LANDSCAPE, EXPANDED, TABLETOP }
  * - 반접기(테이블탑): 위쪽 반은 창, 아래쪽 반은 늘 보이는 정보판.
  */
 @Composable
-fun JourneyScreen(vm: JourneyViewModel, onNotificationPermissionGranted: () -> Unit = {}) {
+fun JourneyScreen(
+    vm: JourneyViewModel,
+    onNotificationPermissionGranted: () -> Unit = {},
+    notificationsEnabled: Boolean = true,
+    onNotificationSettings: () -> Unit = {},
+) {
     val view = LocalView.current
     DisposableEffect(view) {
         view.keepScreenOn = true
@@ -151,6 +158,20 @@ fun JourneyScreen(vm: JourneyViewModel, onNotificationPermissionGranted: () -> U
             notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
         vm.depart()
+    }
+    val enableNotifications = {
+        when (notificationRecoveryAction(
+            Build.VERSION.SDK_INT,
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED,
+            vm.notificationAsked,
+            activity?.shouldShowRequestPermissionRationale(Manifest.permission.POST_NOTIFICATIONS) == true,
+        )) {
+            NotificationRecoveryAction.REQUEST_PERMISSION -> {
+                vm.markNotificationAsked()
+                notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+            NotificationRecoveryAction.OPEN_SETTINGS -> onNotificationSettings()
+        }
     }
 
     val fold = rememberFold(activity)
@@ -335,6 +356,8 @@ fun JourneyScreen(vm: JourneyViewModel, onNotificationPermissionGranted: () -> U
                     onCourses = { sheet = SheetKind.COURSES },
                     onSettings = { sheet = SheetKind.SETTINGS },
                     onJournal = { sheet = SheetKind.JOURNAL },
+                    notificationsEnabled = notificationsEnabled,
+                    onEnableNotifications = enableNotifications,
                 )
             }
         }
@@ -411,6 +434,23 @@ fun JourneyScreen(vm: JourneyViewModel, onNotificationPermissionGranted: () -> U
                     }
                 }
             }
+        }
+
+        if (moving && !notificationsEnabled &&
+            (overlay || vm.overlayAlways || screenReader || form == FormFactor.TABLETOP)) {
+            NotificationPermissionPrompt(
+                onEnable = { interactions++; enableNotifications() },
+                color = Pb.OnScrim, detailColor = Pb.OnScrimSoft,
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .windowInsetsPadding(insets)
+                    .padding(horizontal = CARD_MARGIN)
+                    .padding(top = CARD_MARGIN + 64.dp)
+                    .widthIn(max = 480.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(Pb.Scrim)
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
+            )
         }
 
         // ── 실제 노선 위 현재 지역. 조작 UI·창턱 안내와 겹치지 않는 작은 안내. ──
@@ -526,6 +566,8 @@ fun JourneyScreen(vm: JourneyViewModel, onNotificationPermissionGranted: () -> U
                             }
                         },
                         onTelemetry = vm::setTelemetry,
+                        notificationsEnabled = notificationsEnabled,
+                        onNotifications = enableNotifications,
                         onRestore = vm::restorePurchases, onDevUnlock = vm::toggleDevUnlock,
                         onShare = { shareApp(context, "settings") },
                         onPlayStore = { openPlayStore(context, uriHandler) },

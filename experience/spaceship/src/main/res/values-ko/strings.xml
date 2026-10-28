@@ -19,7 +19,6 @@
     <string name="body_toi700_d">TOI-700 d</string>
     <string name="body_cancri_e">55 Cancri e</string>
     <string name="space_solar_note">실제 천체를 따라 떠나는 상상 속 여행이에요. 크기·시간·궤적은 집중 시간에 맞춰 연출했어요.</string>
-    <string name="space_escape_route">태양계 탈출</string>
-    <string name="space_exit">태양계 밖</string>
-    <string name="route_escape">지구 → 달 → 목성 → 토성 → 명왕성 → 태양계 밖. 네 정착지를 여행하고, 작은 행성과 별똥별을 만나며 별들 사이로 나아가요.</string>
+    <string name="space_pluto_route">명왕성으로 가는 여행</string>
+    <string name="route_pluto">지구 → 달 → 목성 → 토성 → 명왕성. 달과 거대한 행성들을 지나 명왕성까지 여행해요. 작은 천체와 별똥별도 만나 보세요.</string>
 </resources>

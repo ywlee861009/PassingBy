@@ -76,15 +76,15 @@ class ModeEntryUiTest {
             awaitText(context.getString(R.string.travel_modes))
             click(awaitText(context.getString(com.kero.passingby.experience.api.R.string.mode_spaceship)))
             awaitText(context.getString(com.kero.passingby.experience.spaceship.R.string.body_earth) + " → " +
-                context.getString(com.kero.passingby.experience.spaceship.R.string.space_exit))
+                context.getString(com.kero.passingby.experience.spaceship.R.string.body_pluto))
             click(awaitText(context.getString(R.string.depart_minutes, 25)))
             try {
-                for (name in listOf(com.kero.passingby.experience.spaceship.R.string.body_moon,
+                for (name in listOf(com.kero.passingby.experience.spaceship.R.string.body_earth,
+                    com.kero.passingby.experience.spaceship.R.string.body_moon,
                     com.kero.passingby.experience.spaceship.R.string.body_jupiter,
                     com.kero.passingby.experience.spaceship.R.string.body_saturn,
-                    com.kero.passingby.experience.spaceship.R.string.body_pluto,
-                    com.kero.passingby.experience.spaceship.R.string.space_exit)) {
-                    awaitText("→ " + context.getString(name))
+                    com.kero.passingby.experience.spaceship.R.string.body_pluto)) {
+                    awaitText(context.getString(name))
                 }
                 // Let the overlay entrance settle before saving a reviewable screen capture.
                 Thread.sleep(600)

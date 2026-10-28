@@ -6,6 +6,7 @@ class VoyageScene(var course: VoyageCourse) : ExperienceScene {
     var progress = 0f
     var durationSeconds = 1500.0
     var direction = 1
+    var eventSeed = 0
     val routePosition get() = if (direction > 0) progress else 1f - progress
     var distance = 0.0
     var travelSpeed = 0.0

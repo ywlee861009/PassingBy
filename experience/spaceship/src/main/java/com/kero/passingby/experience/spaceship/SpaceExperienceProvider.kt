@@ -34,9 +34,12 @@ class SpaceCourse(
     override val distanceLightYears: Double? = null,
     override val references: List<CourseReference> = listOf(CourseReference("NASA · Solar system", "https://science.nasa.gov/solar-system/planets/")),
 ) : VoyageCourse(id, number, region, R.string.space_vehicle,
-    bodies.map { VoyageStop(it.nameResource, it.roman, it.roman) } +
-        VoyageStop(R.string.space_exit, "Interstellar space", "Interstellar space"), supportsTimeOfDay = false) {
-    init { require(bodies.first() == CelestialBody.EARTH); require(bodies.distinct().size == bodies.size) }
+    bodies.map { VoyageStop(it.nameResource, it.roman, it.roman) }, supportsTimeOfDay = false) {
+    init {
+        require(bodies.size >= 2)
+        require(bodies.first() == CelestialBody.EARTH)
+        require(bodies.distinct().size == bodies.size)
+    }
     override val flyby = true
     override fun positionAt(progress: Float, durationSeconds: Double) =
         SpaceFlightPath.sample(progress, durationSeconds, stations.size).trackPosition
@@ -48,10 +51,11 @@ class SpaceCourse(
 
 object SpaceCourses {
     val all = listOf(
-        SpaceCourse("space_solar_escape", 101, R.string.space_escape_route,
+        // Keep the saved course ID stable; the final listed body is the destination.
+        SpaceCourse("space_solar_escape", 101, R.string.space_pluto_route,
             listOf(CelestialBody.EARTH, CelestialBody.MOON, CelestialBody.JUPITER,
                 CelestialBody.SATURN, CelestialBody.PLUTO),
-            0xff6b7794.toInt(), R.string.route_escape),
+            0xff6b7794.toInt(), R.string.route_pluto),
     )
     val legacyIds = setOf("space_earth_moon", "space_inner_planets", "space_earth_mars", "space_mars_uranus",
         "space_jupiter_pluto", "space_grand_tour", "space_proxima", "space_trappist", "space_lhs1140", "space_toi700", "space_55cancri")

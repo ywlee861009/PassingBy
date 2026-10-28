@@ -126,8 +126,58 @@ class TimerNotificationTest {
         }
     }
 
+    @Test fun deniedSpaceNotificationsCanBeRetriedFromTheJourneyControls() {
+        Assume.assumeTrue(Build.VERSION.SDK_INT >= 33)
+        Assume.assumeTrue(context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED)
+        withFlight { _, vm ->
+            click(awaitNode { it.text?.toString() == context.getString(R.string.depart_minutes, 25) })
+            click(awaitNode { it.viewIdResourceName?.endsWith(":id/permission_deny_button") == true })
+            val sessionId = TripStore(context).loadActive()!!.sessionId
+            val retry = awaitNode { it.text?.toString() == context.getString(R.string.notifications_enable) }
+            saveScreenshot("notification-enable-space.png")
+            click(retry)
+            click(awaitNode { it.viewIdResourceName?.endsWith(":id/permission_allow_button") == true })
+            awaitCondition { context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED }
+            assertCountdown()
+            assertEquals(sessionId, TripStore(context).loadActive()!!.sessionId)
+            assertEquals(SessionPhase.RUNNING, vm.phase)
+            home()
+            assertCountdown()
+        }
+    }
+
+    @Test fun permanentlyDeniedTrainNotificationsOpenSettingsAndRecoverOnReturn() {
+        Assume.assumeTrue(Build.VERSION.SDK_INT >= 33)
+        Assume.assumeTrue(context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED)
+        // Run with POST_NOTIFICATIONS denied and the user-fixed permission flag set.
+        withFlight("korea") { activity, vm ->
+            assertFalse(activity.shouldShowRequestPermissionRationale(Manifest.permission.POST_NOTIFICATIONS))
+            instrumentation.runOnMainSync { vm.markNotificationAsked(); vm.depart(); vm.seekFraction(.02f) }
+            val sessionId = TripStore(context).loadActive()!!.sessionId
+            val retry = awaitNode { it.text?.toString() == context.getString(R.string.notifications_enable) }
+            saveScreenshot("notification-enable-train.png")
+            click(retry)
+            awaitNode { it.packageName?.toString() == "com.android.settings" }
+            grantPermission()
+            assertTrue(automation.performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK))
+            awaitCondition { AppVisibility.foreground }
+            assertCountdown()
+            assertEquals(SessionPhase.RUNNING, vm.phase)
+            assertEquals(sessionId, TripStore(context).loadActive()!!.sessionId)
+        }
+    }
+
     private fun grantPermission() {
         if (Build.VERSION.SDK_INT >= 33) automation.grantRuntimePermission(context.packageName, Manifest.permission.POST_NOTIFICATIONS)
+    }
+
+    private fun saveScreenshot(name: String) {
+        val bitmap = automation.takeScreenshot() ?: error("No notification recovery screenshot")
+        try {
+            File(context.cacheDir, name).outputStream().use {
+                assertTrue(bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it))
+            }
+        } finally { bitmap.recycle() }
     }
 
     private fun home() {

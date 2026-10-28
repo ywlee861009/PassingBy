@@ -14,6 +14,9 @@ internal class SpaceSynth(seed: Int = 901) {
     private var air = 0.0
     private var maneuver = 0.0
     private var cabin = 0.0
+    private var ufo = 0.0
+    private var ufoPitch = 640.0
+    private var ufoPhase = 0.0
     private var gain = 0.0
 
     fun render(out: ShortArray, target: SpaceSoundProfile, volume: Double) {
@@ -23,6 +26,9 @@ internal class SpaceSynth(seed: Int = 901) {
             air += (target.air - air) * follow
             maneuver += (target.maneuver - maneuver) * follow
             cabin += (target.cabin - cabin) * follow
+            ufo += (target.ufo - ufo) * follow
+            ufoPitch += (target.ufoPitch - ufoPitch) / (RATE * .012)
+            ufoPhase = (ufoPhase + ufoPitch / RATE) % 1.0
             gain += (volume - gain) / (RATE * .045)
             val t = sample++.toDouble() / RATE
             val white = random.nextDouble() * 2 - 1
@@ -39,7 +45,9 @@ internal class SpaceSynth(seed: Int = 901) {
             val fans = (band * .12 + sin(2 * PI * 196 * t) * .022 +
                 sin(2 * PI * 392 * t) * .019 + sin(2 * PI * 588 * t) * .009) * cabin
             val jets = (band * .32 + (high - mid) * .09) * maneuver
-            val value = tanh((roar + atmosphere + fans + jets) * gain * 1.5) * .88
+            val hover = if (ufo > .00001) (sin(2 * PI * ufoPhase) * .048 + sin(4 * PI * ufoPhase) * .009) *
+                (.82 + .18 * sin(2 * PI * 3.1 * t)) * ufo else 0.0
+            val value = tanh((roar + atmosphere + fans + jets + hover) * gain * 1.5) * .88
             out[i] = (value * Short.MAX_VALUE).roundToInt().toShort()
         }
     }

@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -32,6 +31,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -43,11 +43,14 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.constrainHeight
 import androidx.compose.ui.unit.dp
 import com.kero.passingby.experience.JourneyCourse as Course
 import com.kero.passingby.ui.theme.Pb
 import com.kero.passingby.ui.theme.PbType
 import java.util.Locale
+import kotlin.math.roundToInt
 
 // ── 정차 카드 ──
 
@@ -73,6 +76,8 @@ fun TicketCard(
     onSettings: () -> Unit,
     onJournal: () -> Unit,
     modifier: Modifier = Modifier,
+    notificationsEnabled: Boolean = true,
+    onEnableNotifications: () -> Unit = {},
 ) {
     val res = LocalResources.current
     val first = stringResource(course.ordered(direction).first().name)
@@ -100,8 +105,9 @@ fun TicketCard(
         if (owned) {
             MinuteSelector(minutes, onMinutes)
             PrimaryButton(stringResource(R.string.depart_minutes, minutes), onDepart, Modifier.fillMaxWidth())
+            if (!notificationsEnabled) NotificationPermissionPrompt(onEnableNotifications, compact = true)
             BasicText(
-                todayLine(today) ?: stringResource(R.string.ticket_note),
+                todayLine(today) ?: stringResource(if (notificationsEnabled) R.string.ticket_note else R.string.notifications_desc),
                 style = PbType.body.copy(color = Pb.InkSoft),
             )
         } else {
@@ -390,51 +396,60 @@ fun PauseButton(paused: Boolean, onClick: () -> Unit, modifier: Modifier = Modif
 fun CourseProgress(info: RideInfo, modifier: Modifier = Modifier, labelColor: Color = Pb.OnScrimSoft) {
     val route = stringResource(R.string.progress_desc, info.stations.first(), info.stations.last())
     val state = stringResource(R.string.progress_state, (info.progress * 100).toInt())
-    Column(
-        modifier.semantics {
+    val segments = (info.stations.size - 1).coerceAtLeast(1)
+    Layout(
+        modifier = modifier.fillMaxWidth().semantics {
             contentDescription = route
             stateDescription = state
         },
-    ) {
-        Canvas(
-            Modifier
-                .fillMaxWidth()
-                .height(16.dp),
-        ) {
-            val y = size.height / 2
-            val r = 5.dp.toPx()
-            val x0 = r
-            val x1 = size.width - r
-            val xp = x0 + (x1 - x0) * info.progress.coerceIn(0f, 1f)
-            drawLine(Color.White.copy(alpha = .35f), Offset(x0, y), Offset(x1, y), 2.dp.toPx(), StrokeCap.Round)
-            drawLine(Color.White, Offset(x0, y), Offset(xp, y), 3.dp.toPx(), StrokeCap.Round)
-            for (m in info.marks) {
-                val x = x0 + (x1 - x0) * m
-                if (m <= info.progress) {
-                    drawCircle(Color.White, 3.dp.toPx(), Offset(x, y))
-                } else {
-                    drawCircle(Color.White, 3.dp.toPx(), Offset(x, y), style = Stroke(1.5.dp.toPx()))
+        content = {
+            Canvas(Modifier.height(16.dp)) {
+                val y = size.height / 2
+                val r = 5.dp.toPx()
+                val xp = size.width * courseMarkerPosition(info.marks, info.progress)
+                drawLine(Color.White.copy(alpha = .35f), Offset(0f, y), Offset(size.width, y), 2.dp.toPx(), StrokeCap.Round)
+                drawLine(Color.White, Offset(0f, y), Offset(xp, y), 3.dp.toPx(), StrokeCap.Round)
+                for (index in info.stations.indices) {
+                    val m = info.marks.getOrElse(index) { index.toFloat() / segments }
+                    val x = size.width * index / segments
+                    if (m <= info.progress) {
+                        drawCircle(Color.White, 3.dp.toPx(), Offset(x, y))
+                    } else {
+                        drawCircle(Color.White, 3.dp.toPx(), Offset(x, y), style = Stroke(1.5.dp.toPx()))
+                    }
                 }
+                drawCircle(Pb.Marker, r, Offset(xp, y))
+                drawCircle(Color.White, r, Offset(xp, y), style = Stroke(1.5.dp.toPx()))
             }
-            drawCircle(Pb.Marker, r, Offset(xp, y))
-            drawCircle(Color.White, r, Offset(xp, y), style = Stroke(1.5.dp.toPx()))
-        }
-        if (info.stopsEnRoute) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                for ((index, name) in info.stations.withIndex()) {
-                    BasicText(name, style = PbType.body.copy(color = labelColor,
-                        textAlign = if (index == 0) TextAlign.Start else TextAlign.End),
-                        maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
+            for ((index, name) in info.stations.withIndex()) {
+                val mark = info.marks.getOrElse(index) { index.toFloat() / segments }
+                BasicText(
+                    name,
+                    style = PbType.body.copy(
+                        color = if (mark <= info.progress) Pb.OnScrim else labelColor,
+                        textAlign = TextAlign.Center,
+                    ),
+                    maxLines = 2, overflow = TextOverflow.Ellipsis,
+                )
             }
-        } else {
-            // All flyby names stay visible, including on a narrow screen and with long exoplanet names.
-            FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                for ((index, name) in info.stations.withIndex()) {
-                    BasicText((if (index > 0) "→ " else "") + name, style = PbType.body.copy(
-                        color = if (info.marks.getOrElse(index) { 1f } <= info.progress) Pb.OnScrim else labelColor))
-                }
+        },
+    ) { measurables, constraints ->
+        val width = constraints.maxWidth
+        // Each name owns a bounded slot; endpoint text and marker strokes stay inside the panel.
+        val labelWidth = (width / info.stations.size - 4.dp.roundToPx()).coerceAtLeast(1)
+        val labels = measurables.drop(1).map { it.measure(Constraints(maxWidth = labelWidth)) }
+        val radius = 5.dp.roundToPx()
+        val start = maxOf(radius, (labels.first().width + 1) / 2)
+        val end = maxOf(radius, (labels.last().width + 1) / 2)
+        val track = measurables.first().measure(Constraints.fixed(
+            (width - start - end).coerceAtLeast(0), 16.dp.roundToPx(),
+        ))
+        val height = constraints.constrainHeight(track.height + labels.maxOf { it.height })
+        layout(width, height) {
+            track.place(start, 0)
+            labels.forEachIndexed { index, label ->
+                val center = start + track.width * (index.toFloat() / segments)
+                label.place((center - label.width / 2f).roundToInt(), track.height)
             }
         }
     }

@@ -129,4 +129,11 @@
     <string name="end_voyage_body">%1$s(으)로 돌아가요. 이번 여행은 기록되지 않아요.</string>
     <string name="voyage_paused">일시정지 · 잠시 쉬어 가요</string>
     <string name="system_distance">지구에서 항성계까지 약 %1$s광년</string>
+    <string name="notifications">여행 알림</string>
+    <string name="notifications_disabled">알림이 꺼져 있어요</string>
+    <string name="notifications_desc">남은 시간과 도착 안내를 받으려면 알림을 켜 주세요.</string>
+    <string name="notifications_hint">남은 시간과 도착을 알려드려요.</string>
+    <string name="notifications_enabled">남은 시간과 도착 안내 알림이 켜져 있어요.</string>
+    <string name="notifications_enable">알림 켜기</string>
+    <string name="notifications_settings">알림 설정</string>
 </resources>
