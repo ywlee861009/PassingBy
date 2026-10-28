@@ -102,9 +102,50 @@ class ModeIntegrationTest {
             assertEquals(JourneyMode.TRAIN, vm.journeyMode)
             assertEquals(setOf(JourneyMode.TRAIN), vm.availableModes.toSet())
             assertFalse(vm.showModeMenu)
-            assertFalse(vm.selectJourneyMode(JourneyMode.SPACESHIP))
-            vm.forceCourse(graph.experiences.coursesFor(JourneyMode.SPACESHIP).first())
+            assertTrue(vm.courses.all { graph.experiences.modeFor(it.id) == JourneyMode.TRAIN })
+            assertEquals(graph.experiences.coursesFor(JourneyMode.TRAIN), vm.journalCourses)
+            for (mode in JourneyMode.entries.filter { it != JourneyMode.TRAIN }) {
+                assertFalse(vm.selectJourneyMode(mode))
+                for (course in graph.experiences.coursesFor(mode)) {
+                    vm.forceCourse(course)
+                    assertEquals(JourneyMode.TRAIN, vm.journeyMode)
+                }
+            }
+        } finally { models.clear(); graph.closeSession() }
+    }
+
+    @Test fun savedHiddenCoursesReturnLockedUsersToTheTrain() = isolated {
+        val registry = AppGraph(app).let { graph ->
+            try { graph.experiences } finally { graph.closeSession() }
+        }
+        for (course in registry.courses.filter { registry.modeFor(it.id) != JourneyMode.TRAIN }) {
+            TripStore(app).courseId = course.id
+            val graph = AppGraph(app)
+            val models = ViewModelStore()
+            try {
+                val vm = ViewModelProvider(models, graph.journeyViewModelFactory)[JourneyViewModel::class.java]
+                assertEquals(JourneyMode.TRAIN, vm.journeyMode)
+                assertFalse(vm.showModeMenu)
+                assertEquals(SessionPhase.DOCKED, vm.phase)
+            } finally { models.clear(); graph.closeSession() }
+        }
+    }
+
+    @Test fun aValidPreviewGrantKeepsAllPrivateModesAvailable() = isolated {
+        org.junit.Assume.assumeTrue(BuildConfig.PREVIEW_CODE_SHA256.isNotEmpty())
+        File(app.noBackupFilesDir, "preview-mode-grant").writeText(BuildConfig.PREVIEW_CODE_SHA256)
+        val graph = AppGraph(app)
+        val models = ViewModelStore()
+        try {
+            val vm = ViewModelProvider(models, graph.journeyViewModelFactory)[JourneyViewModel::class.java]
+            assertTrue(vm.previewUnlocked)
+            assertTrue(vm.showModeMenu)
+            assertEquals(JourneyMode.entries.toSet(), vm.availableModes.toSet())
+            for (mode in JourneyMode.entries) assertTrue(vm.selectJourneyMode(mode))
+            vm.lockPreviewModes()
             assertEquals(JourneyMode.TRAIN, vm.journeyMode)
+            assertEquals(listOf(JourneyMode.TRAIN), vm.availableModes)
+            assertFalse(vm.showModeMenu)
         } finally { models.clear(); graph.closeSession() }
     }
 

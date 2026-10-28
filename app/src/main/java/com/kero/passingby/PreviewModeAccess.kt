@@ -10,7 +10,7 @@ internal class PreviewModeAccess(context: Context) : ModeAccess {
     private val grant = java.io.File(context.noBackupFilesDir, "preview-mode-grant")
     private val hash = BuildConfig.PREVIEW_CODE_SHA256
     private val verifier = PreviewCode(hash)
-    override val publicModes = (BuildConfig.PUBLIC_MODES.split(',').mapNotNull(JourneyMode::fromId) + JourneyMode.TRAIN).toSet()
+    override val publicModes = setOf(JourneyMode.TRAIN)
     override val codeEnabled get() = verifier.enabled
     override val unlocked get() = codeEnabled && runCatching { grant.readText() == hash }.getOrDefault(false)
     override fun unlock(code: String): Boolean {
