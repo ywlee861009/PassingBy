@@ -21,4 +21,8 @@
     <string name="space_solar_note">An imagined journey among real worlds. Scale, timing and trajectories are shaped around your focus session.</string>
     <string name="space_pluto_route">Journey to Pluto</string>
     <string name="route_pluto">Earth → Moon → Jupiter → Saturn → Pluto. Travel past the Moon and giant planets to reach Pluto, with little worlds and shooting stars along the way.</string>
+    <string name="body_black_hole">Black hole</string>
+    <string name="space_black_hole_route">Journey to a Black Hole</string>
+    <string name="route_black_hole">Earth → Moon → Saturn → Neptune → Black hole. Leave the planets behind and watch a glowing accretion disk from afar.</string>
+    <string name="space_black_hole_note">An imagined journey to a fictional black hole. Observe from a distance; scale, timing and light are artistic interpretations.</string>
 </resources>

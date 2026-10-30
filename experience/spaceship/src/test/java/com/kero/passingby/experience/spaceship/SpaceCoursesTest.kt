@@ -4,8 +4,19 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class SpaceCoursesTest {
+    @Test fun blackHoleCourseEndsAtItsOwnDestination() {
+        val course = SpaceCourses.all.single { it.id == "space_black_hole" }
+        assertEquals(CelestialBody.EARTH, course.bodies.first())
+        assertEquals(CelestialBody.BLACK_HOLE, course.bodies.last())
+        assertEquals(R.string.body_black_hole, course.stations.last().name)
+        for (duration in listOf(1500.0, 3000.0, 5400.0)) {
+            assertEquals(1f, course.waypointMarks(duration).last(), 0f)
+            assertEquals(course.bodies.lastIndex.toFloat(), course.positionAt(1f, duration), .0001f)
+        }
+    }
+
     @Test fun currentRouteEndsAtPlutoAtTheEndOfTheFocusSession() {
-        val course = SpaceCourses.all.single()
+        val course = SpaceCourses.all.first()
         assertEquals("space_solar_escape", course.id)
         assertEquals(listOf(CelestialBody.EARTH, CelestialBody.MOON, CelestialBody.JUPITER,
             CelestialBody.SATURN, CelestialBody.PLUTO), course.bodies)
@@ -38,9 +49,9 @@ class SpaceCoursesTest {
 
     @Test fun allPreviousRoutesStillResolveWithoutChangingSavedCourseIdsOrAddingPickerEntries() {
         val provider = SpaceExperienceProvider()
-        assertEquals(1, provider.courses.size)
+        assertEquals(2, provider.courses.size)
         assertEquals(11, provider.courseAliases.size)
         assertEquals(setOf("space_solar_escape"), provider.courseAliases.values.toSet())
-        assertFalse(provider.courses.single().id in provider.courseAliases)
+        assertFalse(provider.courses.first().id in provider.courseAliases)
     }
 }

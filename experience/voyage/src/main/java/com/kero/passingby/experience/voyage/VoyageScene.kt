@@ -3,6 +3,7 @@ package com.kero.passingby.experience.voyage
 import com.kero.passingby.experience.*
 
 class VoyageScene(var course: VoyageCourse) : ExperienceScene {
+    var animationSeconds = 0.0
     var progress = 0f
     var durationSeconds = 1500.0
     var direction = 1

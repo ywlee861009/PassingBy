@@ -12,7 +12,7 @@ class SpaceAudioPlaybackTest {
             audio.update(scene, true); audio.start(1)
             await { audio.playing && audio.playedFrames > 6000 }
             audio.pause(); await { !audio.playing }
-            val course = SpaceCourses.all.single()
+            val course = SpaceCourses.all.first()
             val seed = (0..1000).first {
                 !SpaceUfo.startAt(0, 1500.0, course.stations.size, 1, it, course.id).isNaN()
             }

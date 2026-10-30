@@ -98,6 +98,7 @@ class VoyageProgram(
         snapshot.state.restEndElapsedMillis, snapshot.state.restDone, seed, sessionId,
     )
     override fun frame(seconds: Double, rate: Double, phase: SessionPhase, dt: Float) {
+        scene.animationSeconds += dt.coerceIn(0f, .1f).toDouble()
         val p = (seconds / duration).toFloat().coerceIn(0f, 1f)
         scene.progress = if (phase == SessionPhase.ARRIVED || phase == SessionPhase.RESTING) 1f else p
         scene.distance = base + scene.progress

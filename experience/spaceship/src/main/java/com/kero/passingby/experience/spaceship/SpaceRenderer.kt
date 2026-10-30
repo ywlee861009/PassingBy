@@ -21,8 +21,16 @@ class SpaceRenderer(scene: VoyageScene) : VoyageRenderer(scene) {
         }
     }
     private val ring = RectF()
+    // Filtered gas emission is composited separately from the full-resolution shadow.
+    private var gasSurface: Bitmap? = null
+    private var gasCanvas: Canvas? = null
+    private var foregroundGas: Bitmap? = null
+    private var foregroundCanvas: Canvas? = null
+    private val gasBounds = RectF()
+    private val gasPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+
     override val roundness = .12f
-    override val bitmapBytes: Long get() = images.bytes + distantImages.bytes
+    override val bitmapBytes: Long get() = images.bytes + distantImages.bytes + (gasSurface?.allocationByteCount ?: 0) + (foregroundGas?.allocationByteCount ?: 0)
 
     override fun drawWorld(canvas: Canvas, width: Float, height: Float) {
         val course = scene.course as SpaceCourse
@@ -182,6 +190,10 @@ class SpaceRenderer(scene: VoyageScene) : VoyageRenderer(scene) {
     private fun globe(canvas: Canvas, body: CelestialBody, x: Float, y: Float, radius: Float, opacity: Float,
         cache: PlanetGlobes = images) {
         if (opacity <= 0 || radius < .5f || x + radius * 2.5f < 0) return
+        if (body == CelestialBody.BLACK_HOLE) {
+            blackHole(canvas, x, y, radius, opacity)
+            return
+        }
         if (body == CelestialBody.SATURN) rings(canvas, x, y, radius, opacity, false)
         val atmosphere = when (body) {
             CelestialBody.EARTH -> 0xff5eb2f4.toInt()
@@ -207,6 +219,115 @@ class SpaceRenderer(scene: VoyageScene) : VoyageRenderer(scene) {
             ring.set(x - radius * 1.64f, y - radius * .18f, x + radius * 1.64f, y + radius * .18f)
             canvas.drawOval(ring, paint); paint.style = Paint.Style.FILL; canvas.restoreToCount(save)
         }
+    }
+
+    /** Layered lensing approximation: direct disk, rear image, shadow, photon ring, foreground. */
+    private fun blackHole(canvas: Canvas, x: Float, y: Float, radius: Float, opacity: Float) {
+        val surface = gasSurface ?: Bitmap.createBitmap(512, 512, Bitmap.Config.ARGB_8888).also {
+            gasSurface = it
+            gasCanvas = Canvas(it)
+        }
+        val extent = radius * .72f * 2.6f
+        gasBounds.set(x - extent, y - extent, x + extent, y + extent)
+        surface.eraseColor(Color.TRANSPARENT)
+        drawBlackHoleGas(gasCanvas!!, opacity, foreground = false)
+        gasPaint.alpha = 255
+        canvas.drawBitmap(surface, null, gasBounds, gasPaint)
+
+        // Draw the silhouette and photon ring at the viewport resolution, between gas layers.
+        val saved = canvas.save()
+        canvas.translate(x, y)
+        canvas.scale(radius * .72f, radius * .72f)
+        paint.shader = null
+        paint.strokeCap = Paint.Cap.BUTT
+        paint.style = Paint.Style.FILL
+        paint.color = Color.argb((opacity * 255).toInt(), 1, 2, 5)
+        canvas.drawCircle(0f, 0f, .77f, paint)
+        paint.style = Paint.Style.STROKE
+        for (i in 5 downTo 0) {
+            paint.strokeWidth = .006f + i * .006f
+            paint.color = Color.argb((opacity * (if (i == 0) 180 else 12)).toInt(), 255, 225, 173)
+            canvas.drawCircle(0f, 0f, .785f, paint)
+        }
+        canvas.restoreToCount(saved)
+        val front = foregroundGas ?: Bitmap.createBitmap(512, 512, Bitmap.Config.ARGB_8888).also {
+            foregroundGas = it
+            foregroundCanvas = Canvas(it)
+        }
+        front.eraseColor(Color.TRANSPARENT)
+        drawBlackHoleGas(foregroundCanvas!!, opacity, foreground = true)
+        gasPaint.alpha = 255
+        canvas.drawBitmap(front, null, gasBounds, gasPaint)
+    }
+
+    private fun drawBlackHoleGas(canvas: Canvas, opacity: Float, foreground: Boolean) {
+        val saved = canvas.save()
+        canvas.translate(256f, 256f)
+        canvas.scale(512f / 5.2f, 512f / 5.2f)
+        canvas.rotate(-12f)
+        val phase = (scene.animationSeconds * .65).toFloat()
+        if (!foreground) {
+            paint.style = Paint.Style.FILL
+            paint.color = Color.WHITE
+            paint.shader = RadialGradient(0f, 0f, 2.5f,
+                intArrayOf(Color.TRANSPARENT, Color.argb((opacity * 65).toInt(), 239, 151, 65), Color.TRANSPARENT),
+                floatArrayOf(0f, .42f, 1f), Shader.TileMode.CLAMP)
+            canvas.drawCircle(0f, 0f, 2.5f, paint)
+            paint.shader = null
+            paint.style = Paint.Style.STROKE
+            // The rear disk's apparent image bends up and around the central shadow.
+            // A smaller, dimmer secondary image curves beneath it.
+            for (i in 0..56) {
+                val t = i / 56f
+                val r = .81f + t * .48f
+                paint.strokeWidth = .048f
+                paint.strokeCap = Paint.Cap.ROUND
+                for (segment in 0 until 64) {
+                    val angle = segment * 2.8125f
+                    val theta = angle * PI.toFloat() / 180f
+                    val flow = phase / (.65f + t * 1.7f)
+                    val texture = .73f + .18f * sin(theta * 5f + t * 7f - flow * 2f) +
+                        .09f * sin(theta * 11f - t * 13f - flow * 3f)
+                    val fade = (1f - t).pow(.8f)
+                    paint.color = Color.argb((opacity * fade * texture * 85).toInt(), 255,
+                        (235 - t * 100).toInt(), (185 - t * 130).toInt())
+                    ring.set(-r * 1.22f, -r, r * 1.22f, r * .68f)
+                    canvas.drawArc(ring, 180f + angle, 3.6f, false, paint)
+                    paint.color = Color.argb((opacity * fade * texture * 35).toInt(), 255, 190, 115)
+                    ring.set(-r * 1.15f, -r * .65f, r * 1.15f, r * .86f)
+                    canvas.drawArc(ring, angle, 3.6f, false, paint)
+                }
+            }
+        } else {
+            paint.style = Paint.Style.STROKE
+            paint.strokeCap = Paint.Cap.ROUND
+            // Draw the direct disk last so its near edge passes in front of the shadow.
+            // Azimuthal brightness and drifting filaments suggest orbiting hot material.
+            for (i in 0..64) {
+                val t = i / 64f
+                val r = .84f + t * 1.38f
+                paint.strokeWidth = .07f
+                ring.set(-r, -r * .13f, r, r * .13f)
+                for (segment in 0 until 96) {
+                    val angle = segment * 3.75f
+                    val theta = angle * PI.toFloat() / 180f
+                    val near = sin(theta) >= 0f
+                    if (!near) continue
+                    val hotSide = .65f + .35f * -cos(theta)
+                    val flow = phase / (.55f + t * 2.2f)
+                    val filament = .70f + .20f * sin(t * 8f + theta * 5f - flow * 2f) +
+                        .10f * sin(t * 17f - theta * 11f + flow * 3f)
+                    val fade = (1f - t).pow(.65f)
+                    paint.color = Color.argb((opacity * 95 * hotSide * filament * fade).toInt(),
+                        255, (225 - t * 125).toInt(), (160 - t * 125).toInt())
+                    canvas.drawArc(ring, angle, 4.1f, false, paint)
+                }
+            }
+        }
+        paint.shader = null
+        paint.strokeCap = Paint.Cap.BUTT
+        paint.style = Paint.Style.FILL
+        canvas.restoreToCount(saved)
     }
 
     private fun rings(canvas: Canvas, x: Float, y: Float, radius: Float, opacity: Float, front: Boolean) {
@@ -243,7 +364,7 @@ class SpaceRenderer(scene: VoyageScene) : VoyageRenderer(scene) {
         }
     }
 
-    override fun release() { super.release(); images.close(); distantImages.close() }
+    override fun release() { super.release(); images.close(); distantImages.close(); gasCanvas = null; gasSurface?.recycle(); gasSurface = null; foregroundCanvas = null; foregroundGas?.recycle(); foregroundGas = null }
     private fun lerp(a: Float, b: Float, amount: Float) = a + (b - a) * amount
     private fun mix(a: Int, b: Int, amount: Float) = Color.rgb(
         lerp(Color.red(a).toFloat(), Color.red(b).toFloat(), amount).toInt(),

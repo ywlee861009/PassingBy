@@ -11,7 +11,7 @@ import java.io.File
 class SpaceUfoRenderingTest {
     @Test fun saucerRendersInBothOrientationsAndRestoresTheSamePictureAndAudioClock() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
-        val course = SpaceCourses.all.single()
+        val course = SpaceCourses.all.first()
         val seed = (0..1000).first {
             !SpaceUfo.startAt(0, 1500.0, course.stations.size, 1, it, course.id).isNaN()
         }

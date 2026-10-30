@@ -15,6 +15,7 @@ enum class CelestialBody(val nameResource: Int, val roman: String, val color: In
     SATURN(R.string.body_saturn, "Saturn", 0xffe4d5ad.toInt(), 0xff8c827b.toInt()),
     URANUS(R.string.body_uranus, "Uranus", 0xffa3dadb.toInt(), 0xff497b8c.toInt()),
     NEPTUNE(R.string.body_neptune, "Neptune", 0xff6aa5e1.toInt(), 0xff263c85.toInt()),
+    BLACK_HOLE(R.string.body_black_hole, "Black hole", 0xffffb866.toInt(), 0xff050309.toInt()),
     PLUTO(R.string.body_pluto, "Pluto", 0xffc7b7a7.toInt(), 0xff706569.toInt()),
     PROXIMA_B(R.string.body_proxima_b, "Proxima Centauri b", 0xffb7a29a.toInt(), 0xff443c48.toInt()),
     TRAPPIST_E(R.string.body_trappist_e, "TRAPPIST-1 e", 0xffa7a29b.toInt(), 0xff51434c.toInt()),
@@ -56,6 +57,11 @@ object SpaceCourses {
             listOf(CelestialBody.EARTH, CelestialBody.MOON, CelestialBody.JUPITER,
                 CelestialBody.SATURN, CelestialBody.PLUTO),
             0xff6b7794.toInt(), R.string.route_pluto),
+        SpaceCourse("space_black_hole", 102, R.string.space_black_hole_route,
+            listOf(CelestialBody.EARTH, CelestialBody.MOON, CelestialBody.SATURN,
+                CelestialBody.NEPTUNE, CelestialBody.BLACK_HOLE),
+            0xffd89a65.toInt(), R.string.route_black_hole,
+            researchNote = R.string.space_black_hole_note, references = emptyList()),
     )
     val legacyIds = setOf("space_earth_moon", "space_inner_planets", "space_earth_mars", "space_mars_uranus",
         "space_jupiter_pluto", "space_grand_tour", "space_proxima", "space_trappist", "space_lhs1140", "space_toi700", "space_55cancri")
@@ -65,6 +71,6 @@ class SpaceExperienceProvider : ExperienceProvider {
     override val id = "spaceship"
     override val mode = JourneyMode.SPACESHIP
     override val courses: List<JourneyCourse> = SpaceCourses.all
-    override val courseAliases = SpaceCourses.legacyIds.associateWith { SpaceCourses.all.single().id }
+    override val courseAliases = SpaceCourses.legacyIds.associateWith { SpaceCourses.all.first().id }
     override fun create(store: JourneyStore) = VoyageProgram(store, SpaceCourses.all, { scene -> SpaceRenderer(scene) }, AmbientLoop.Kind.SPACE, ::SpaceAudio)
 }

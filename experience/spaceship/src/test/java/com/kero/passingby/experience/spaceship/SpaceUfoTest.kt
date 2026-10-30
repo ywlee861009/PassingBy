@@ -5,7 +5,7 @@ import org.junit.Test
 import kotlin.math.abs
 
 class SpaceUfoTest {
-    private val course = SpaceCourses.all.single()
+    private val course = SpaceCourses.all.first()
     private fun start(slot: Int, duration: Double, direction: Int, seed: Int) =
         SpaceUfo.startAt(slot, duration, course.stations.size, direction, seed, course.id)
 
