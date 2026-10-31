@@ -139,6 +139,11 @@ kotlin {
 }
 
 dependencies {
+    constraints {
+        implementation(libs.androidx.fragment) {
+            because("Google Play flags Fragment 1.1.0 pulled in by Play Services as outdated.")
+        }
+    }
     implementation(project(":journey:domain"))
     implementation(project(":journey:data"))
     implementation(project(":feature:journey"))
