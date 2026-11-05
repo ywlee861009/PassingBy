@@ -74,6 +74,7 @@ import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.UriHandler
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -85,6 +86,7 @@ import androidx.core.content.ContextCompat
 import androidx.window.layout.FoldingFeature
 import androidx.window.layout.WindowInfoTracker
 import com.kero.passingby.journey.SessionPhase
+import com.kero.passingby.experience.JourneyMode
 import com.kero.passingby.locale.AppLanguage
 import com.kero.passingby.telemetry.Telemetry
 import com.kero.passingby.ui.debug.DevPanel
@@ -256,6 +258,9 @@ fun JourneyScreen(
         val density = LocalDensity.current
         val layoutDirection = LocalLayoutDirection.current
         val insets = WindowInsets.safeDrawing
+        val testMode = vm.journeyMode != JourneyMode.TRAIN
+        var testBadgeHeight by remember { mutableIntStateOf(0) }
+        val testHeaderPadding = if (testMode) with(density) { testBadgeHeight.toDp() } + 8.dp else 0.dp
         var cardSize by remember { mutableStateOf(IntSize.Zero) }
         val gap = with(density) { CARD_MARGIN.toPx() }
         val seatTarget = when {
@@ -413,7 +418,7 @@ fun JourneyScreen(
                         .windowInsetsPadding(insets)
                         .padding(CARD_MARGIN),
                 ) {
-                    Row(Modifier.align(Alignment.TopCenter).fillMaxWidth()) {
+                    Row(Modifier.align(Alignment.TopCenter).fillMaxWidth().padding(top = testHeaderPadding)) {
                         Capsule(vm.course.title(res, vm.direction))
                         Spacer(Modifier.weight(1f))
                         CloseButton({
@@ -445,7 +450,7 @@ fun JourneyScreen(
                     .align(Alignment.TopCenter)
                     .windowInsetsPadding(insets)
                     .padding(horizontal = CARD_MARGIN)
-                    .padding(top = CARD_MARGIN + 64.dp)
+                    .padding(top = CARD_MARGIN + 64.dp + testHeaderPadding)
                     .widthIn(max = 480.dp)
                     .clip(RoundedCornerShape(16.dp))
                     .background(Pb.Scrim)
@@ -481,6 +486,22 @@ fun JourneyScreen(
                     .align(Alignment.BottomCenter)
                     .windowInsetsPadding(insets)
                     .padding(bottom = 6.dp),
+            )
+        }
+
+        // 테스트 표시는 조작 UI의 자동 숨김과 무관하게 모든 여행 상태에서 유지한다.
+        if (testMode) {
+            BasicText(
+                stringResource(R.string.preview_test_badge), style = PbType.kicker.copy(color = Pb.Ink),
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .windowInsetsPadding(insets)
+                    .padding(CARD_MARGIN)
+                    .onSizeChanged { testBadgeHeight = it.height }
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Pb.Paper)
+                    .padding(horizontal = 10.dp, vertical = 6.dp)
+                    .testTag("test-mode-badge"),
             )
         }
 

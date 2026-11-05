@@ -115,6 +115,9 @@
     <string name="travel_modes_docked">모드는 출발 전에 바꿀 수 있어요. 지금 여행을 먼저 마쳐 주세요.</string>
     <string name="secret_ticket">비밀 승차권</string>
     <string name="secret_ticket_hint">코드를 입력하면 다른 창가가 열려요.</string>
+    <string name="preview_test_notice">우주·비행기·배는 개발 중인 테스트 모드입니다. 일부 기능이 미완성이거나 오류가 발생할 수 있어요.</string>
+    <string name="preview_test_label">테스트</string>
+    <string name="preview_test_badge">개발 중 · 테스트 모드</string>
     <string name="secret_code_label">비밀 코드</string>
     <string name="secret_code_wrong">코드가 맞지 않아요. 다시 입력해 주세요.</string>
     <string name="secret_open">승차권 열기</string>

@@ -3,13 +3,16 @@ package com.kero.passingby.ui.journey
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
@@ -40,7 +43,17 @@ fun ModeSheetContent(modes: List<JourneyMode>, selected: JourneyMode, canSwitch:
                 .testTag("mode-${mode.id}").padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            BasicText(stringResource(mode.label), style = PbType.label.copy(color = Pb.Ink))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                BasicText(stringResource(mode.label), style = PbType.label.copy(color = Pb.Ink),
+                    modifier = Modifier.weight(1f, fill = false))
+                if (mode != JourneyMode.TRAIN) {
+                    BasicText(
+                        stringResource(R.string.preview_test_label), style = PbType.kicker.copy(color = Pb.Accent),
+                        modifier = Modifier.border(1.dp, Pb.Accent, RoundedCornerShape(6.dp))
+                            .padding(horizontal = 8.dp, vertical = 2.dp),
+                    )
+                }
+            }
             BasicText(stringResource(mode.description), style = PbType.body.copy(color = Pb.InkSoft))
         }
     }
@@ -58,11 +71,13 @@ fun SecretCodeDialog(onSubmit: (String) -> Boolean, onDismiss: () -> Unit) {
         }
     }
     Column(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(Pb.Paper).padding(24.dp),
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(Pb.Paper)
+            .verticalScroll(rememberScrollState()).padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         BasicText(stringResource(R.string.secret_ticket), style = PbType.title.copy(color = Pb.Ink))
         BasicText(stringResource(R.string.secret_ticket_hint), style = PbType.body.copy(color = Pb.InkSoft))
+        BasicText(stringResource(R.string.preview_test_notice), style = PbType.body.copy(color = Pb.Ink))
         BasicTextField(
             value = code, onValueChange = { if (it.length <= 128) { code = it; failed = false } },
             textStyle = PbType.body.copy(color = Pb.Ink), singleLine = true,
