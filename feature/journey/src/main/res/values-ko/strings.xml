@@ -53,6 +53,7 @@
     <string name="back_again_to_end">한 번 더 누르면 여행이 끝나요</string>
     <string name="tap_for_menu">화면을 누르면 메뉴가 보여요</string>
     <string name="purchase_unavailable">지금은 구매할 수 없어요. 잠시 뒤 다시 시도해 주세요.</string>
+    <string name="purchase_play_unavailable">Google Play 결제를 사용할 수 없어요. Play 스토어와 Google 계정 상태를 확인해 주세요.</string>
     <string name="purchases_restored">구매 내역을 확인했어요</string>
     <string name="courses">코스</string>
     <string name="courses_hint">잠긴 코스도 골라서 창밖을 미리 볼 수 있어요.</string>

@@ -114,6 +114,11 @@ class MainActivity : ComponentActivity() {
         refreshSessionEffects()
     }
 
+    override fun onPause() {
+        journeyViewModel.onPause()
+        super.onPause()
+    }
+
     override fun onStop() {
         AppVisibility.foreground = false
         journeyViewModel.setVisible(false)

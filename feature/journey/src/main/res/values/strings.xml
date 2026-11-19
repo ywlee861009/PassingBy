@@ -56,6 +56,7 @@
     <string name="back_again_to_end">Press back again to end the trip</string>
     <string name="tap_for_menu">Tap the screen to show the menu</string>
     <string name="purchase_unavailable">Can\'t make a purchase right now. Please try again shortly.</string>
+    <string name="purchase_play_unavailable">Google Play billing is unavailable. Check the Play Store and your Google account.</string>
     <string name="purchases_restored">Your purchases have been checked</string>
     <string name="courses">Courses</string>
     <string name="courses_hint">You can pick a locked course too and preview the view.</string>

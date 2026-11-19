@@ -18,6 +18,7 @@ import com.kero.passingby.experience.*
 import com.kero.passingby.experience.JourneyCourse as Course
 import com.kero.passingby.experience.JourneyStation as Station
 import com.kero.passingby.billing.Billing
+import com.kero.passingby.billing.PurchaseLaunch
 import com.kero.passingby.billing.RestoreStatus
 import com.kero.passingby.journey.SessionRuntime
 import com.kero.passingby.journey.SessionEvent
@@ -274,9 +275,13 @@ class JourneyViewModel(
     /** 지금 고른(미리 보는) 코스를 산다. 연결·상품 조회가 안 됐으면 재시도 안내를 띄운다. */
     fun buy(activity: Activity, c: Course = course) {
         val id = c.productId ?: return
-        val launched = billing.purchase(activity, id)
-        Telemetry.event("purchase_tap", "course" to c.id, "launched" to launched)
-        if (!launched) notify(R.string.purchase_unavailable)
+        val result = billing.purchase(activity, id)
+        Telemetry.event("purchase_tap", "course" to c.id, "launched" to (result == PurchaseLaunch.LAUNCHED))
+        when (result) {
+            PurchaseLaunch.PLAY_UNAVAILABLE -> notify(R.string.purchase_play_unavailable)
+            PurchaseLaunch.UNAVAILABLE -> notify(R.string.purchase_unavailable)
+            else -> Unit
+        }
     }
 
     fun restorePurchases() {
@@ -287,6 +292,7 @@ class JourneyViewModel(
 
     /** 앱 밖에서 완료된 대기 구매도 복귀할 때 확인한다. 초기 연결 조회와 겹치면 합쳐진다. */
     fun onResume() = billing.onResume()
+    fun onPause() = billing.onPause()
 
     /** 앱 화면이 보이거나 가려질 때 MainActivity가 알린다. */
     fun setVisible(v: Boolean) {

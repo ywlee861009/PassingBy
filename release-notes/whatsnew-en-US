@@ -1,1 +1,1 @@
-Removed secret-code access to test travel modes from Settings. After the update, the app switches any selected test mode back to train travel.
+The app now retries automatically if a temporary error prevents prices from loading. Tapping the purchase button repeatedly opens a single checkout window. The app also lets you know when Google Play billing is unavailable.
