@@ -1,15 +1,22 @@
 package com.kero.passingby
 
+import android.accessibilityservice.AccessibilityService
+import android.content.Context
 import android.content.Intent
-import java.io.File
-import android.os.Bundle
+import android.graphics.Rect
+import android.os.SystemClock
+import android.view.InputDevice
+import android.view.MotionEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import androidx.test.platform.app.InstrumentationRegistry
+import com.kero.passingby.experience.airplane.AirplaneExperienceProvider
+import com.kero.passingby.experience.ship.ShipExperienceProvider
+import com.kero.passingby.experience.spaceship.SpaceExperienceProvider
 import com.kero.passingby.feature.journey.R
 import org.junit.Assert.*
 import org.junit.Test
 
-/** Checks ordinary entry and the private preview gesture using the accessibility tree. */
+/** Checks that the train-only app exposes no entry to private modes. */
 class ModeEntryUiTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val automation get() = instrumentation.uiAutomation
@@ -35,15 +42,14 @@ class ModeEntryUiTest {
     }
 
     @Test fun ordinaryUsersHaveNoModeMenuOrHiddenCourseEntries() = withFreshUser { context ->
-        val registry = (context.applicationContext as PassingByApp).graph.experiences
-        val hiddenText = com.kero.passingby.experience.JourneyMode.entries
-            .filter { it != com.kero.passingby.experience.JourneyMode.TRAIN }
-            .flatMap { mode -> listOf(mode.label, mode.description) + registry.coursesFor(mode).map { it.region } }
+        val hiddenText = listOf(AirplaneExperienceProvider(), ShipExperienceProvider(), SpaceExperienceProvider())
+            .flatMap { listOf(it.mode.label, it.mode.description) + it.courses.map { course -> course.region } }
+            .plus(R.string.travel_modes)
             .map(context::getString)
+            .toSet()
         fun assertPrivateModesAreHidden() {
-            assertNull(text(context.getString(R.string.travel_modes)))
-            assertNull(text(context.getString(R.string.secret_ticket)))
-            for (label in hiddenText) assertNull("Private mode text is visible: $label", text(label))
+            val visible = find { it.isVisibleToUser && it.text?.toString() in hiddenText }
+            assertNull("Private mode text is visible: ${visible?.text}", visible)
         }
         for ((entry, title) in listOf(
             R.string.settings to R.string.settings,
@@ -57,71 +63,56 @@ class ModeEntryUiTest {
                 find { it.isScrollable }?.performAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD)
                 Thread.sleep(100)
             }
-            automation.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_BACK)
+            automation.performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK)
             awaitText(context.getString(R.string.depart_minutes, 25))
         }
     }
 
-    @Test fun sevenTapsThenCodeOpensTheSharedModePicker() {
-        val code = InstrumentationRegistry.getArguments().getString("previewCode")
-        org.junit.Assume.assumeNotNull(code)
-        withFreshUser { context ->
-            click(awaitText(context.getString(R.string.settings)))
-            repeat(12) {
-                if (text("Passing By") == null) {
-                    find { it.isScrollable }?.performAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD)
-                    Thread.sleep(100)
-                }
+    @Test fun repeatedTapsOnTheSettingsFooterKeepTheSettingsOpen() = withFreshUser { context ->
+        click(awaitText(context.getString(R.string.settings)))
+        repeat(12) {
+            if (text("Passing By") == null) {
+                find { it.isScrollable }?.performAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD)
+                Thread.sleep(150)
             }
-            // Six taps do not expose the code input. The seventh does.
-            repeat(6) { click(awaitText("Passing By")) }
-            assertNull(text(context.getString(R.string.secret_ticket)))
-            click(awaitText("Passing By"))
-            awaitText(context.getString(R.string.secret_ticket))
-            val field = find { it.isEditable } ?: error("No password field")
-            assertTrue(field.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, Bundle().apply {
-                putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, code)
-            }))
-            click(awaitText(context.getString(R.string.secret_open)))
-            awaitText(context.getString(R.string.travel_modes))
-            click(awaitText(context.getString(com.kero.passingby.experience.api.R.string.mode_spaceship)))
-            awaitText(context.getString(com.kero.passingby.experience.spaceship.R.string.body_earth) + " → " +
-                context.getString(com.kero.passingby.experience.spaceship.R.string.body_pluto))
-            click(awaitText(context.getString(R.string.depart_minutes, 25)))
+        }
+        val footer = awaitText("Passing By")
+        val bounds = Rect().also(footer::getBoundsInScreen)
+        assertFalse(bounds.isEmpty)
+        assertFalse("The footer must not have a click action", footer.isClickable)
+
+        repeat(8) {
+            tap(bounds.exactCenterX(), bounds.exactCenterY())
+            Thread.sleep(90)
+        }
+        instrumentation.waitForIdleSync()
+
+        assertNotNull(text("Passing By"))
+        assertNull(find { it.isVisibleToUser && it.isEditable })
+        assertNull(text(context.getString(R.string.travel_modes)))
+    }
+
+    private fun tap(x: Float, y: Float) {
+        val down = SystemClock.uptimeMillis()
+        for (action in listOf(MotionEvent.ACTION_DOWN, MotionEvent.ACTION_UP)) {
+            val event = MotionEvent.obtain(down, SystemClock.uptimeMillis(), action, x, y, 0)
+            event.source = InputDevice.SOURCE_TOUCHSCREEN
             try {
-                for (name in listOf(com.kero.passingby.experience.spaceship.R.string.body_earth,
-                    com.kero.passingby.experience.spaceship.R.string.body_moon,
-                    com.kero.passingby.experience.spaceship.R.string.body_jupiter,
-                    com.kero.passingby.experience.spaceship.R.string.body_saturn,
-                    com.kero.passingby.experience.spaceship.R.string.body_pluto)) {
-                    awaitText(context.getString(name))
-                }
-                // Let the overlay entrance settle before saving a reviewable screen capture.
-                Thread.sleep(600)
+                assertTrue(automation.injectInputEvent(event, true))
             } finally {
-                val bitmap = automation.takeScreenshot() ?: error("No flyby UI screenshot")
-                try {
-                    File(context.cacheDir, "flyby-route-ui.png").outputStream().use {
-                        bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
-                    }
-                } finally { bitmap.recycle() }
-                val labels = mutableListOf<String>()
-                find { labels += "text=${it.text}; description=${it.contentDescription}"; false }
-                File(context.cacheDir, "flyby-route-ui-labels.txt").writeText(labels.joinToString("\n"))
+                event.recycle()
             }
         }
     }
 
-    private fun withFreshUser(test: (android.content.Context) -> Unit) {
+    private fun withFreshUser(test: (Context) -> Unit) {
         val context = instrumentation.targetContext
         if (android.os.Build.VERSION.SDK_INT >= 33) {
             automation.grantRuntimePermission(context.packageName, android.Manifest.permission.POST_NOTIFICATIONS)
         }
         val prefs = context.getSharedPreferences("trip", 0)
         val saved = prefs.all
-        val grant = File(context.noBackupFilesDir, "preview-mode-grant")
-        val savedGrant = grant.takeIf { it.exists() }?.readBytes()
-        prefs.edit().clear().commit(); grant.delete()
+        prefs.edit().clear().commit()
         com.kero.passingby.session.TripStore(context).apply { overlayAlways = true; hintShown = true }
         val monitor = instrumentation.addMonitor(MainActivity::class.java.name, null, false)
         instrumentation.runOnMainSync {
@@ -142,7 +133,6 @@ class ModeEntryUiTest {
                 is Set<*> -> editor.putStringSet(key, value.filterIsInstance<String>().toSet())
             }
             editor.commit()
-            if (savedGrant == null) grant.delete() else grant.writeBytes(savedGrant)
         }
     }
 }

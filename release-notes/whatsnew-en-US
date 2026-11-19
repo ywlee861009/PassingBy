@@ -1,1 +1,1 @@
-Improved in-app guidance and on-screen status labels for clarity.
+Removed secret-code access to test travel modes from Settings. After the update, the app switches any selected test mode back to train travel.

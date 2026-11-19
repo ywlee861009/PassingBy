@@ -117,15 +117,8 @@
     <string name="travel_modes">Travel mode</string>
     <string name="travel_modes_hint">Choose a window for your next journey.</string>
     <string name="travel_modes_docked">You can change modes before departure. Finish your current journey first.</string>
-    <string name="secret_ticket">Secret boarding pass</string>
-    <string name="secret_ticket_hint">Enter your code to open the other windows.</string>
-    <string name="preview_test_notice">Space, airplane and ship are test modes under development. Some features may be incomplete or contain errors.</string>
     <string name="preview_test_label">Test</string>
     <string name="preview_test_badge">In development · Test mode</string>
-    <string name="secret_code_label">Secret code</string>
-    <string name="secret_code_wrong">That code did not open the pass. Try again.</string>
-    <string name="secret_open">Open boarding pass</string>
-    <string name="preview_lock">Lock preview modes</string>
     <string name="voyage_ambient_desc">A quiet cabin sound, only while the app is visible. Keeps other music playing.</string>
     <string name="voyage_ledge_desc">Shows the minutes to the next waypoint below the window.</string>
     <string name="next_waypoint_clock">Next waypoint %1$s · %2$s</string>

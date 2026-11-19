@@ -6,9 +6,13 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelStore
 import androidx.test.platform.app.InstrumentationRegistry
 import com.kero.passingby.experience.*
+import com.kero.passingby.experience.airplane.AirplaneExperienceProvider
+import com.kero.passingby.experience.ship.ShipExperienceProvider
+import com.kero.passingby.experience.spaceship.SpaceExperienceProvider
 import com.kero.passingby.journey.SessionPhase
 import com.kero.passingby.journey.SessionEvent
 import com.kero.passingby.journey.SessionState
+import com.kero.passingby.session.CompletionEffect
 import com.kero.passingby.session.TripStore
 import com.kero.passingby.session.TripTimer
 import com.kero.passingby.ui.journey.JourneyViewModel
@@ -19,10 +23,16 @@ import org.junit.Test
 class ModeIntegrationTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val app get() = instrumentation.targetContext.applicationContext as PassingByApp
+    private val spaceProvider: ExperienceProvider = SpaceExperienceProvider()
+    private val testExperiences = ExperienceRegistry(listOf(
+        TrainExperienceProvider(),
+        AirplaneExperienceProvider(),
+        ShipExperienceProvider(),
+        spaceProvider,
+    ))
 
     @Test fun flybysUseTheSameTimetableAsTheMapAndNeverStopInEitherDirection() = isolated {
-        val graph = AppGraph(app)
-        val program = graph.experiences.providerFor("space_solar_escape").create(TripStore(app))
+        val program = spaceProvider.create(TripStore(app))
         try {
             program.selectCourse("space_solar_escape", 25)
             val course = program.course
@@ -46,13 +56,11 @@ class ModeIntegrationTest {
                 }
             }
             for (i in outbound.indices) assertEquals(1f - outbound[outbound.lastIndex - i], program.stationMarks[i], .00001f)
-        } finally { program.close(); graph.closeSession() }
+        } finally { program.close() }
     }
 
     @Test fun anOldSpaceCourseRestoresTheSamePausedClockOnTheEscapeRoute() = isolated {
-        org.junit.Assume.assumeTrue(BuildConfig.PREVIEW_CODE_SHA256.isNotEmpty())
-        File(app.noBackupFilesDir, "preview-mode-grant").writeText(BuildConfig.PREVIEW_CODE_SHA256)
-        var graph = AppGraph(app)
+        var graph = AppGraph(app, testExperiences)
         var models = ViewModelStore()
         try {
             var vm = ViewModelProvider(models, graph.journeyViewModelFactory)[JourneyViewModel::class.java]
@@ -62,39 +70,33 @@ class ModeIntegrationTest {
             val sessionId = graph.store.loadActive()!!.sessionId
             models.clear(); graph.closeSession()
             graph.store.courseId = "space_trappist"
-            graph = AppGraph(app); models = ViewModelStore()
+            graph = AppGraph(app, testExperiences); models = ViewModelStore()
             vm = ViewModelProvider(models, graph.journeyViewModelFactory)[JourneyViewModel::class.java]
             assertEquals("space_solar_escape", vm.course.id)
             assertEquals(JourneyMode.SPACESHIP, vm.journeyMode)
             assertEquals(SessionPhase.PAUSED, vm.phase)
             assertEquals(remaining, vm.remainingSec)
             assertEquals(sessionId, graph.store.loadActive()!!.sessionId)
-            assertEquals(1, vm.courses.size)
+            assertEquals(testExperiences.coursesFor(JourneyMode.SPACESHIP), vm.courses)
         } finally { models.clear(); graph.closeSession() }
     }
 
-    @Test fun publicLaunchUsesTheSamePickerWithoutASecretCode() = isolated {
-        val graph = AppGraph(app)
+    @Test fun thePickerOffersOnlyRegisteredModes() = isolated {
+        val registry = ExperienceRegistry(listOf(TrainExperienceProvider(), SpaceExperienceProvider()))
+        val graph = AppGraph(app, registry)
         val models = ViewModelStore()
-        val publicAccess = object : com.kero.passingby.ui.journey.ModeAccess {
-            override val publicModes = setOf(JourneyMode.TRAIN, JourneyMode.SPACESHIP)
-            override val codeEnabled = false
-            override val unlocked = false
-            override fun unlock(code: String) = false
-            override fun lock() = Unit
-        }
         try {
-            val factory = JourneyViewModel.Factory(app,
-                com.kero.passingby.ui.journey.JourneyOptions(false, publicAccess), graph.store, { graph.session }, graph.experiences)
-            val vm = ViewModelProvider(models, factory)[JourneyViewModel::class.java]
+            val vm = ViewModelProvider(models, graph.journeyViewModelFactory)[JourneyViewModel::class.java]
             assertTrue(vm.showModeMenu)
-            assertFalse(vm.previewUnlocked)
+            assertEquals(listOf(JourneyMode.TRAIN, JourneyMode.SPACESHIP), vm.availableModes)
             assertTrue(vm.selectJourneyMode(JourneyMode.SPACESHIP))
             assertFalse(vm.selectJourneyMode(JourneyMode.SHIP))
         } finally { models.clear(); graph.closeSession() }
     }
 
-    @Test fun lockedUsersSeeOnlyPublicModesAndCannotSelectHiddenCourses() = isolated {
+    @Test fun theAppOffersOnlyTrainAndRejectsUnregisteredCourses() = isolated {
+        val savedTrainCourse = "korea-jeolla"
+        TripStore(app).courseId = savedTrainCourse
         val graph = AppGraph(app)
         val models = ViewModelStore()
         try {
@@ -106,19 +108,16 @@ class ModeIntegrationTest {
             assertEquals(graph.experiences.coursesFor(JourneyMode.TRAIN), vm.journalCourses)
             for (mode in JourneyMode.entries.filter { it != JourneyMode.TRAIN }) {
                 assertFalse(vm.selectJourneyMode(mode))
-                for (course in graph.experiences.coursesFor(mode)) {
+                for (course in testExperiences.coursesFor(mode)) {
                     vm.forceCourse(course)
-                    assertEquals(JourneyMode.TRAIN, vm.journeyMode)
+                    assertEquals(savedTrainCourse, vm.course.id)
                 }
             }
         } finally { models.clear(); graph.closeSession() }
     }
 
-    @Test fun savedHiddenCoursesReturnLockedUsersToTheTrain() = isolated {
-        val registry = AppGraph(app).let { graph ->
-            try { graph.experiences } finally { graph.closeSession() }
-        }
-        for (course in registry.courses.filter { registry.modeFor(it.id) != JourneyMode.TRAIN }) {
+    @Test fun savedPrivateCoursesReturnUsersToTheTrain() = isolated {
+        for (course in testExperiences.courses.filter { testExperiences.modeFor(it.id) != JourneyMode.TRAIN }) {
             TripStore(app).courseId = course.id
             val graph = AppGraph(app)
             val models = ViewModelStore()
@@ -127,63 +126,46 @@ class ModeIntegrationTest {
                 assertEquals(JourneyMode.TRAIN, vm.journeyMode)
                 assertFalse(vm.showModeMenu)
                 assertEquals(SessionPhase.DOCKED, vm.phase)
+                assertNull(graph.store.courseId)
             } finally { models.clear(); graph.closeSession() }
         }
     }
 
-    @Test fun aValidPreviewGrantKeepsAllPrivateModesAvailable() = isolated {
-        org.junit.Assume.assumeTrue(BuildConfig.PREVIEW_CODE_SHA256.isNotEmpty())
-        File(app.noBackupFilesDir, "preview-mode-grant").writeText(BuildConfig.PREVIEW_CODE_SHA256)
-        val graph = AppGraph(app)
-        val models = ViewModelStore()
-        try {
-            val vm = ViewModelProvider(models, graph.journeyViewModelFactory)[JourneyViewModel::class.java]
-            assertTrue(vm.previewUnlocked)
-            assertTrue(vm.showModeMenu)
-            assertEquals(JourneyMode.entries.toSet(), vm.availableModes.toSet())
-            for (mode in JourneyMode.entries) assertTrue(vm.selectJourneyMode(mode))
-            vm.lockPreviewModes()
-            assertEquals(JourneyMode.TRAIN, vm.journeyMode)
-            assertEquals(listOf(JourneyMode.TRAIN), vm.availableModes)
-            assertFalse(vm.showModeMenu)
-        } finally { models.clear(); graph.closeSession() }
-    }
-
-    @Test fun revokedPreviewCannotRestoreItsClockOntoTheDefaultTrain() = isolated {
-        val code = InstrumentationRegistry.getArguments().getString("previewCode")
-        org.junit.Assume.assumeNotNull(code)
-        var graph = AppGraph(app)
+    @Test fun upgradingWithALegacyGrantDiscardsTheSavedPrivateSession() = isolated {
+        File(app.noBackupFilesDir, "preview-mode-grant").writeText("0".repeat(64))
+        var graph = AppGraph(app, testExperiences)
         var models = ViewModelStore()
         try {
             var vm = ViewModelProvider(models, graph.journeyViewModelFactory)[JourneyViewModel::class.java]
-            assertTrue(vm.unlockModes(code!!))
             assertTrue(vm.selectJourneyMode(JourneyMode.SPACESHIP))
             vm.depart(); vm.seekFraction(.4f)
-            assertNotNull(graph.store.loadActive())
+            val active = requireNotNull(graph.store.loadActive())
+            val pendingArrival = CompletionEffect(
+                "previous-private-arrival", CompletionEffect.Kind.ARRIVED, vm.course.id, vm.direction, vm.tripMinutes,
+            )
+            graph.store.saveSession(active, vm.course.id, vm.direction, effect = pendingArrival)
+            assertEquals(listOf(pendingArrival), graph.store.pendingEffects())
             models.clear(); graph.closeSession()
-            PreviewModeAccess(app).lock()
             graph = AppGraph(app); models = ViewModelStore()
             vm = ViewModelProvider(models, graph.journeyViewModelFactory)[JourneyViewModel::class.java]
             assertEquals(JourneyMode.TRAIN, vm.journeyMode)
+            assertEquals(listOf(JourneyMode.TRAIN), vm.availableModes)
+            assertFalse(vm.selectJourneyMode(JourneyMode.SPACESHIP))
             assertEquals(SessionPhase.DOCKED, vm.phase)
             assertNull(graph.store.loadActive())
+            assertTrue(graph.store.pendingEffects().isEmpty())
             assertEquals(0 to 0, graph.store.lifetime())
         } finally { models.clear(); graph.closeSession() }
     }
 
-    @Test fun previewModesRestoreFinishOnceAndReturnWithoutLosingTheirDestination() = isolated {
-        // Supply the private code at test invocation; never embed it in a tracked test source.
-        val code = InstrumentationRegistry.getArguments().getString("previewCode")
-        org.junit.Assume.assumeNotNull(code)
-        var graph = AppGraph(app)
+    @Test fun registeredModesRestoreFinishOnceAndReturnWithoutLosingTheirDestination() = isolated {
+        var graph = AppGraph(app, testExperiences)
         var models = ViewModelStore()
         try {
             var vm = ViewModelProvider(models, graph.journeyViewModelFactory)[JourneyViewModel::class.java]
-            assertFalse(vm.unlockModes("incorrect-test-code"))
-            assertTrue(vm.unlockModes(code!!))
             assertEquals(JourneyMode.entries.toSet(), vm.availableModes.toSet())
             assertTrue(vm.selectJourneyMode(JourneyMode.SPACESHIP))
-            assertEquals(1, vm.courses.size)
+            assertEquals(testExperiences.coursesFor(JourneyMode.SPACESHIP), vm.courses)
             assertEquals("The first flyby countdown is ready before departure", 12, vm.nextStopSec)
             vm.depart()
             assertFalse(vm.selectJourneyMode(JourneyMode.SHIP))
@@ -191,11 +173,10 @@ class ModeIntegrationTest {
             val courseId = vm.course.id
             val left = vm.remainingSec
             models.clear(); graph.closeSession()
-            graph = AppGraph(app); models = ViewModelStore()
+            graph = AppGraph(app, testExperiences); models = ViewModelStore()
             vm = ViewModelProvider(models, graph.journeyViewModelFactory)[JourneyViewModel::class.java]
             assertEquals(courseId, vm.course.id)
             assertEquals(JourneyMode.SPACESHIP, vm.journeyMode)
-            assertTrue(vm.previewUnlocked)
             assertTrue(kotlin.math.abs(left - vm.remainingSec) <= 2)
             vm.seekFraction(1f)
             assertEquals(SessionPhase.ARRIVED, vm.phase)
@@ -207,43 +188,39 @@ class ModeIntegrationTest {
             assertEquals(destination, vm.stations.first().name)
             assertTrue(vm.selectJourneyMode(JourneyMode.SHIP))
             assertTrue(vm.selectJourneyMode(JourneyMode.AIRPLANE))
-            vm.lockPreviewModes()
+            assertTrue(vm.selectJourneyMode(JourneyMode.TRAIN))
             assertEquals(JourneyMode.TRAIN, vm.journeyMode)
-            assertFalse(vm.showModeMenu)
         } finally { models.clear(); graph.closeSession() }
     }
 
     @Test fun everyNewCourseRendersPortraitLandscapeAndArrivalWithoutWritingSessionState() = isolated {
-        val graph = AppGraph(app)
         val output = File(app.getExternalFilesDir(null), "mode-validation").apply { mkdirs() }
-        try {
-            val store = TripStore(app)
-            for (course in graph.experiences.courses.filter { graph.experiences.modeFor(it.id) != JourneyMode.TRAIN }) {
-                val program = graph.experiences.providerFor(course.id).create(store)
-                try {
-                    program.selectCourse(course.id, 25)
-                    for ((w, h) in listOf(1080 to 1920, 1920 to 1080)) {
-                        val bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
-                        try {
-                            val canvas = Canvas(bitmap)
-                            for (p in listOf(0f, .5f, 1f)) {
-                                program.scene.setViewport(w > h, if (p == 0f) minOf(w, h) * .6f else 0f)
-                                program.frame(p * 1500.0, 1.0, if (p == 1f) SessionPhase.ARRIVED else SessionPhase.RUNNING, .016f)
-                                program.renderer.render(canvas, w, h)
-                                assertTrue(program.renderer.lastDrawNanos > 0)
-                                val colors = (1..8).flatMap { x -> (1..8).map { y -> bitmap.getPixel(w * x / 10, h * y / 10) } }.toSet()
-                                assertTrue("Blank landscape: ${course.id}", colors.size > 1)
-                                File(output, "${course.id}-${w}x${h}-${(p * 100).toInt()}.png").outputStream().use {
-                                    assertTrue(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it))
-                                }
+        val store = TripStore(app)
+        for (course in testExperiences.courses.filter { testExperiences.modeFor(it.id) != JourneyMode.TRAIN }) {
+            val program = testExperiences.providerFor(course.id).create(store)
+            try {
+                program.selectCourse(course.id, 25)
+                for ((w, h) in listOf(1080 to 1920, 1920 to 1080)) {
+                    val bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+                    try {
+                        val canvas = Canvas(bitmap)
+                        for (p in listOf(0f, .5f, 1f)) {
+                            program.scene.setViewport(w > h, if (p == 0f) minOf(w, h) * .6f else 0f)
+                            program.frame(p * 1500.0, 1.0, if (p == 1f) SessionPhase.ARRIVED else SessionPhase.RUNNING, .016f)
+                            program.renderer.render(canvas, w, h)
+                            assertTrue(program.renderer.lastDrawNanos > 0)
+                            val colors = (1..8).flatMap { x -> (1..8).map { y -> bitmap.getPixel(w * x / 10, h * y / 10) } }.toSet()
+                            assertTrue("Blank landscape: ${course.id}", colors.size > 1)
+                            File(output, "${course.id}-${w}x${h}-${(p * 100).toInt()}.png").outputStream().use {
+                                assertTrue(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it))
                             }
-                        } finally { bitmap.recycle() }
-                    }
-                } finally { program.close() }
-            }
-            assertNull(store.courseId)
-            assertEquals(0 to 0, store.lifetime())
-        } finally { graph.closeSession() }
+                        }
+                    } finally { bitmap.recycle() }
+                }
+            } finally { program.close() }
+        }
+        assertNull(store.courseId)
+        assertEquals(0 to 0, store.lifetime())
     }
 
     private fun isolated(test: () -> Unit) {

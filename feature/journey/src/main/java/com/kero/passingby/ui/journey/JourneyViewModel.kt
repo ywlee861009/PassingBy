@@ -56,17 +56,9 @@ class JourneyViewModel(
     val renderer: ExperienceRenderer get() = experience.renderer
     val journeyMode: JourneyMode get() = registry.modeFor(course.id)
     val courses: List<Course> get() = registry.coursesFor(journeyMode)
-    var previewUnlocked by mutableStateOf(options.modeAccess.unlocked)
-        private set
-    val availableModes: List<JourneyMode> get() = registry.modes.filter { previewUnlocked || it in options.modeAccess.publicModes }
-    val journalCourses: List<Course> get() = registry.courses.filter { registry.modeFor(it.id) in availableModes }
-    val showModeMenu: Boolean get() = previewUnlocked || availableModes.size > 1
-
-    fun unlockModes(code: String): Boolean {
-        val accepted = options.modeAccess.unlock(code)
-        previewUnlocked = options.modeAccess.unlocked
-        return accepted
-    }
+    val availableModes: List<JourneyMode> = registry.modes
+    val journalCourses: List<Course> = registry.courses
+    val showModeMenu: Boolean get() = availableModes.size > 1
 
     fun selectJourneyMode(mode: JourneyMode): Boolean {
         if (mode !in availableModes || phase != SessionPhase.DOCKED) return false
@@ -74,12 +66,6 @@ class JourneyViewModel(
         return journeyMode == mode
     }
 
-    fun lockPreviewModes() {
-        if (phase != SessionPhase.DOCKED) return
-        if (journeyMode !in options.modeAccess.publicModes) selectJourneyMode(JourneyMode.TRAIN)
-        options.modeAccess.lock()
-        previewUnlocked = false
-    }
     private val stats = FrameStats()
     private var sessionState by mutableStateOf(session.state)
     private val unsubscribe: () -> Unit
@@ -432,7 +418,7 @@ class JourneyViewModel(
         if (sheet != paper) paper = sheet
     }
 
-    fun courseById(id: String?): Course = registry.courseById(id)
+    fun findCourse(id: String): Course? = registry.findCourse(id)
 
     fun selectCourse(c: Course) {
         if (phase != SessionPhase.DOCKED || c.id == course.id) return
@@ -441,11 +427,11 @@ class JourneyViewModel(
     }
 
     private fun changeCourse(c: Course, force: Boolean) {
-        if (registry.modeFor(c.id) !in availableModes) return
+        val courseId = registry.findCourse(c.id)?.id ?: return
         val old = experience
-        val replacement = if (registry.providerFor(c.id).id != registry.providerFor(course.id).id)
-            registry.create(c.id, store) else null
-        if (session.selectCourse(c.id, force, replacement)) {
+        val replacement = if (registry.providerFor(courseId).id != registry.providerFor(course.id).id)
+            registry.create(courseId, store) else null
+        if (session.selectCourse(courseId, force, replacement)) {
             if (replacement != null) {
                 old.releasePresentation()
                 experience.selectTime(fixedTime)

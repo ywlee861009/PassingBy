@@ -4,9 +4,6 @@ import android.app.Application
 import com.kero.passingby.journey.SessionScheduler
 import com.kero.passingby.journey.SessionRuntime
 import com.kero.passingby.experience.TrainExperienceProvider
-import com.kero.passingby.experience.airplane.AirplaneExperienceProvider
-import com.kero.passingby.experience.ship.ShipExperienceProvider
-import com.kero.passingby.experience.spaceship.SpaceExperienceProvider
 import com.kero.passingby.experience.ExperienceRegistry
 import android.os.SystemClock
 import android.os.Looper
@@ -22,15 +19,15 @@ import com.kero.passingby.ui.journey.JourneyOptions
 import com.kero.passingby.ui.journey.JourneyViewModel
 
 /** Application composition root. Android entry-point classes stay in :app. */
-class AppGraph(app: Application) {
+class AppGraph(
+    app: Application,
+    val experiences: ExperienceRegistry = ExperienceRegistry(listOf(TrainExperienceProvider())),
+) {
     val store = TripStore(app)
-    private val modeAccess = PreviewModeAccess(app)
-    val experiences = ExperienceRegistry(listOf(TrainExperienceProvider(), AirplaneExperienceProvider(), ShipExperienceProvider(), SpaceExperienceProvider()))
     init {
         val courseId = experiences.canonicalCourseId(store.courseId)
         if (courseId != store.courseId) store.courseId = courseId
-        val allowed = if (modeAccess.unlocked) experiences.courses else experiences.courses.filter { experiences.modeFor(it.id) in modeAccess.publicModes }
-        store.resetUnavailableCourse(allowed.map { it.id }.toSet())
+        store.resetUnavailableCourse(experiences.courses.map { it.id }.toSet())
     }
     private val handler = Handler(Looper.getMainLooper())
     private var effects: JourneySessionEffects? = null
@@ -50,7 +47,7 @@ class AppGraph(app: Application) {
             }
     }
     val journeyViewModelFactory = JourneyViewModel.Factory(
-        app, JourneyOptions(developerTools = BuildConfig.DEV_TOOLS, modeAccess = modeAccess), store, { session }, experiences,
+        app, JourneyOptions(developerTools = BuildConfig.DEV_TOOLS), store, { session }, experiences,
     )
 
     /** Retry notification delivery after permission or visibility changes, even without a new checkpoint. */

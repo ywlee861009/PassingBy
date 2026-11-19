@@ -3,26 +3,26 @@ package com.kero.passingby
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import androidx.test.platform.app.InstrumentationRegistry
+import com.kero.passingby.experience.ExperienceProvider
+import com.kero.passingby.experience.spaceship.CelestialBody
+import com.kero.passingby.experience.spaceship.SpaceExperienceProvider
 import com.kero.passingby.journey.SessionPhase
 import com.kero.passingby.session.TripStore
-import com.kero.passingby.experience.JourneyMode
-import com.kero.passingby.experience.spaceship.CelestialBody
 import java.io.File
 import org.junit.Assert.*
 import org.junit.Test
 
 class SpaceFlightVisualTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
+    private val provider: ExperienceProvider = SpaceExperienceProvider()
 
     @Test fun launchAndCanvasGlobesRenderDeterministicallyWithinTheBitmapBudget() {
         val context = instrumentation.targetContext
         val output = File(context.cacheDir, "space-flight-validation").apply { mkdirs() }
         var failure: Throwable? = null
         instrumentation.runOnMainSync {
-            val graph = AppGraph(context.applicationContext as PassingByApp)
             val store = TripStore(context)
             try {
-                val provider = graph.experiences.providerFor("space_solar_escape")
                 val program = provider.create(store)
                 try {
                     program.selectCourse("space_solar_escape", 25)
@@ -80,7 +80,6 @@ class SpaceFlightVisualTest {
                     }
                 } finally { program.close() }
             } catch (error: Throwable) { failure = error }
-            finally { graph.closeSession() }
         }
         failure?.let { throw it }
     }
@@ -88,8 +87,7 @@ class SpaceFlightVisualTest {
     @Test fun starsMoveAtTheSameSpeedInShortAndLongSessionsAndFreezeWhenPaused() {
         var failure: Throwable? = null
         instrumentation.runOnMainSync {
-            val graph = AppGraph(instrumentation.targetContext.applicationContext as PassingByApp)
-            val program = graph.experiences.providerFor("space_solar_escape").create(TripStore(instrumentation.targetContext))
+            val program = provider.create(TripStore(instrumentation.targetContext))
             val bitmap = Bitmap.createBitmap(800, 480, Bitmap.Config.ARGB_8888)
             try {
                 val sequences = listOf(25, 90).map { minutes ->
@@ -106,7 +104,7 @@ class SpaceFlightVisualTest {
                 program.renderer.render(Canvas(bitmap), 800, 480)
                 assertEquals(sequences[1][1], hash(bitmap))
             } catch (error: Throwable) { failure = error }
-            finally { bitmap.recycle(); program.close(); graph.closeSession() }
+            finally { bitmap.recycle(); program.close() }
         }
         failure?.let { throw it }
     }
@@ -116,7 +114,6 @@ class SpaceFlightVisualTest {
         val output = File(context.cacheDir, "space-flight-validation").apply { mkdirs() }
         var failure: Throwable? = null
         instrumentation.runOnMainSync {
-            val graph = AppGraph(context.applicationContext as PassingByApp)
             val store = TripStore(context)
             val bitmap = Bitmap.createBitmap(1200, 1200, Bitmap.Config.ARGB_8888)
             try {
@@ -124,9 +121,9 @@ class SpaceFlightVisualTest {
                     context.assets.list("space").isNullOrEmpty())
                 val seen = mutableSetOf<CelestialBody>()
                 val hashes = mutableSetOf<String>()
-                val program = graph.experiences.providerFor("space_solar_escape").create(store)
+                val program = provider.create(store)
                 try {
-                    for (course in graph.experiences.coursesFor(JourneyMode.SPACESHIP)) {
+                    for (course in provider.courses) {
                         program.selectCourse(course.id, 25)
                         course.stations.forEachIndexed { index, station ->
                             val body = CelestialBody.entries.singleOrNull { it.nameResource == station.name } ?: return@forEachIndexed
@@ -142,11 +139,11 @@ class SpaceFlightVisualTest {
                         }
                     }
                     assertEquals(setOf(CelestialBody.EARTH, CelestialBody.MOON, CelestialBody.JUPITER,
-                        CelestialBody.SATURN, CelestialBody.PLUTO), seen)
-                    assertEquals("Each planet needs its own visible character", seen.size, hashes.size)
+                        CelestialBody.SATURN, CelestialBody.PLUTO, CelestialBody.NEPTUNE, CelestialBody.BLACK_HOLE), seen)
+                    assertEquals("Each body needs its own visible character", seen.size, hashes.size)
                 } finally { program.close() }
             } catch (error: Throwable) { failure = error }
-            finally { bitmap.recycle(); graph.closeSession() }
+            finally { bitmap.recycle() }
         }
         failure?.let { throw it }
     }

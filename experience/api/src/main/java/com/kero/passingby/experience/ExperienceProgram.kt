@@ -109,6 +109,7 @@ class ExperienceRegistry(providers: List<ExperienceProvider>) {
     fun modeFor(courseId: String?): JourneyMode = providerFor(courseId).mode
     fun canonicalCourseId(id: String?): String? = aliases[id] ?: id
     fun providerFor(courseId: String?): ExperienceProvider = providers.firstOrNull { p -> p.courses.any { it.id == canonicalCourseId(courseId) } } ?: providers.first()
-    fun courseById(id: String?): JourneyCourse = courses.firstOrNull { it.id == canonicalCourseId(id) } ?: courses.first()
+    fun findCourse(id: String?): JourneyCourse? = courses.firstOrNull { it.id == canonicalCourseId(id) }
+    fun courseById(id: String?): JourneyCourse = findCourse(id) ?: courses.first()
     fun create(courseId: String?, store: JourneyStore): ExperienceProgram = providerFor(courseId).create(store)
 }

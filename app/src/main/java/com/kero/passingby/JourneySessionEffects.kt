@@ -85,7 +85,11 @@ internal class JourneySessionEffects(private val app: Application, private val r
     fun flushPending(late: Boolean = true) {
         val res = AppLanguage.localized(app).resources
         for (effect in runtime.pendingEffects) {
-            val course = registry.courseById(effect.courseId)
+            val course = registry.findCourse(effect.courseId)
+            if (course == null) {
+                runtime.acknowledgeEffect(effect.id)
+                continue
+            }
             val arrived = effect.kind == CompletionEffect.Kind.ARRIVED
             val title = if (arrived) res.getString(R.string.arrived_at, res.getString(course.ordered(effect.direction).last().name))
                 else res.getString(R.string.rest_over)

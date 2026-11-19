@@ -42,7 +42,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -58,8 +57,6 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.onSizeChanged
-import android.os.SystemClock
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalUriHandler
 import java.util.Locale
@@ -317,11 +314,7 @@ fun SettingsSheetContent(
     supportsSeasons: Boolean = true,
     supportsTimeOfDay: Boolean = true,
     modeMenu: Boolean = false,
-    previewUnlocked: Boolean = false,
-    canSwitch: Boolean = true,
     onModes: () -> Unit = {},
-    onLockPreview: () -> Unit = {},
-    onSecretEntry: (() -> Unit)? = null,
     flyby: Boolean = false,
     notificationsEnabled: Boolean = true,
     onNotifications: () -> Unit = {},
@@ -413,19 +406,9 @@ fun SettingsSheetContent(
     if (developerTools) {
         Toggle("개발용: 모든 코스 열기", "결제 상품 등록 전 확인용. 출시 빌드에는 나오지 않아요.", devUnlock) { onDevUnlock() }
     }
-    if (previewUnlocked) QuietButton(stringResource(R.string.preview_lock), onLockPreview, Modifier.fillMaxWidth(), enabled = canSwitch)
-    var taps by remember { mutableStateOf(0) }
-    var lastTap by remember { mutableStateOf(0L) }
     BasicText(
         "Passing By", style = PbType.kicker.copy(color = Pb.InkSoft),
-        modifier = Modifier.fillMaxWidth().testTag("secret-entry").then(
-            if (onSecretEntry != null) Modifier.clickable {
-                val now = SystemClock.elapsedRealtime()
-                taps = if (now - lastTap <= 1_200L) taps + 1 else 1
-                lastTap = now
-                if (taps >= 7) { taps = 0; onSecretEntry() }
-            } else Modifier,
-        ).padding(vertical = 16.dp),
+        modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
     )
     Spacer(Modifier.height(4.dp))
 }

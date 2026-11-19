@@ -34,16 +34,16 @@ class TimerNotificationTest {
     private val app get() = context.applicationContext as PassingByApp
     private val manager get() = context.getSystemService(NotificationManager::class.java)
 
-    @Test fun grantingPermissionDuringSpaceFlightImmediatelyPublishesTheCountdown() {
+    @Test fun grantingPermissionDuringATrainJourneyImmediatelyPublishesTheCountdown() {
         // Run this test after `adb shell pm revoke <package> android.permission.POST_NOTIFICATIONS`.
         Assume.assumeTrue(Build.VERSION.SDK_INT >= 33)
         Assume.assumeTrue(context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED)
-        withFlight { _, vm ->
+        withTrain { _, vm ->
             click(awaitNode { it.text?.toString() == context.getString(R.string.depart_minutes, 25) })
             awaitNode { it.viewIdResourceName?.endsWith(":id/permission_allow_button") == true }
             instrumentation.runOnMainSync {
                 assertEquals(SessionPhase.RUNNING, vm.phase)
-                vm.seekFraction(.02f) // Keep the next flyby far away so a waypoint cannot mask the missing retry.
+                vm.seekFraction(.02f) // Keep the next stop far away so it cannot mask a missed retry.
             }
             assertNull(ongoing())
             click(awaitNode { it.viewIdResourceName?.endsWith(":id/permission_allow_button") == true })
@@ -54,9 +54,9 @@ class TimerNotificationTest {
         }
     }
 
-    @Test fun homeRestoresAMissingSpaceCountdownWithoutWaitingForAnotherPlanet() {
+    @Test fun homeRestoresAMissingCountdownWithoutWaitingForTheNextStop() {
         grantPermission()
-        withFlight { _, vm ->
+        withTrain { _, vm ->
             instrumentation.runOnMainSync { vm.depart(); vm.seekFraction(.02f) }
             assertCountdown()
             TripNotifications.cancelOngoing(context)
@@ -66,9 +66,9 @@ class TimerNotificationTest {
         }
     }
 
-    @Test fun backgroundCountdownTicksAndPauseResumeKeepTheSameSpaceSession() {
+    @Test fun backgroundCountdownTicksAndPauseResumeKeepTheSameTrainSession() {
         grantPermission()
-        withFlight { activity, vm ->
+        withTrain { activity, vm ->
             instrumentation.runOnMainSync { vm.depart(); vm.seekFraction(.02f) }
             val sessionId = TripStore(context).loadActive()!!.sessionId
             home()
@@ -102,7 +102,7 @@ class TimerNotificationTest {
             awaitNode { it.viewIdResourceName?.endsWith(":id/notification_countdown") == true && it.text.toString() != displayed }
             val bitmap = automation.takeScreenshot() ?: error("No timer notification screenshot")
             try {
-                File(context.cacheDir, "space-timer-notification.png").outputStream().use {
+                File(context.cacheDir, "train-timer-notification.png").outputStream().use {
                     assertTrue(bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it))
                 }
             } finally { bitmap.recycle() }
@@ -114,27 +114,15 @@ class TimerNotificationTest {
         }
     }
 
-    @Test fun trainCountdownAlsoSurvivesHomeAndReturn() {
-        grantPermission()
-        withFlight("korea") { _, vm ->
-            instrumentation.runOnMainSync { vm.depart() }
-            home()
-            assertCountdown()
-            context.startActivity(Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP))
-            awaitCondition { AppVisibility.foreground }
-            assertCountdown()
-        }
-    }
-
-    @Test fun deniedSpaceNotificationsCanBeRetriedFromTheJourneyControls() {
+    @Test fun deniedNotificationsCanBeRetriedFromTheJourneyControls() {
         Assume.assumeTrue(Build.VERSION.SDK_INT >= 33)
         Assume.assumeTrue(context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED)
-        withFlight { _, vm ->
+        withTrain { _, vm ->
             click(awaitNode { it.text?.toString() == context.getString(R.string.depart_minutes, 25) })
             click(awaitNode { it.viewIdResourceName?.endsWith(":id/permission_deny_button") == true })
             val sessionId = TripStore(context).loadActive()!!.sessionId
             val retry = awaitNode { it.text?.toString() == context.getString(R.string.notifications_enable) }
-            saveScreenshot("notification-enable-space.png")
+            saveScreenshot("notification-enable-train.png")
             click(retry)
             click(awaitNode { it.viewIdResourceName?.endsWith(":id/permission_allow_button") == true })
             awaitCondition { context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED }
@@ -150,12 +138,12 @@ class TimerNotificationTest {
         Assume.assumeTrue(Build.VERSION.SDK_INT >= 33)
         Assume.assumeTrue(context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED)
         // Run with POST_NOTIFICATIONS denied and the user-fixed permission flag set.
-        withFlight("korea") { activity, vm ->
+        withTrain { activity, vm ->
             assertFalse(activity.shouldShowRequestPermissionRationale(Manifest.permission.POST_NOTIFICATIONS))
             instrumentation.runOnMainSync { vm.markNotificationAsked(); vm.depart(); vm.seekFraction(.02f) }
             val sessionId = TripStore(context).loadActive()!!.sessionId
             val retry = awaitNode { it.text?.toString() == context.getString(R.string.notifications_enable) }
-            saveScreenshot("notification-enable-train.png")
+            saveScreenshot("notification-settings-train.png")
             click(retry)
             awaitNode { it.packageName?.toString() == "com.android.settings" }
             grantPermission()
@@ -236,14 +224,11 @@ class TimerNotificationTest {
         assertTrue(target?.performAction(AccessibilityNodeInfo.ACTION_CLICK) == true)
     }
 
-    private fun withFlight(courseId: String = "space_solar_escape", test: (MainActivity, JourneyViewModel) -> Unit) {
-        Assume.assumeTrue(BuildConfig.PREVIEW_CODE_SHA256.isNotEmpty())
+    private fun withTrain(test: (MainActivity, JourneyViewModel) -> Unit) {
+        val courseId = "korea"
         val prefs = context.getSharedPreferences("trip", 0)
         val saved = prefs.all
-        val grant = File(context.noBackupFilesDir, "preview-mode-grant")
-        val savedGrant = grant.takeIf { it.exists() }?.readBytes()
         prefs.edit().clear().commit()
-        grant.writeText(BuildConfig.PREVIEW_CODE_SHA256)
         TripStore(context).apply { this.courseId = courseId; hintShown = true; soundOn = false; overlayAlways = true }
         val monitor = instrumentation.addMonitor(MainActivity::class.java.name, null, false)
         context.startActivity(Intent(context, MainActivity::class.java)
@@ -269,7 +254,6 @@ class TimerNotificationTest {
                 is Set<*> -> editor.putStringSet(key, value.filterIsInstance<String>().toSet())
             }
             editor.commit()
-            if (savedGrant == null) grant.delete() else grant.writeBytes(savedGrant)
         }
     }
 }

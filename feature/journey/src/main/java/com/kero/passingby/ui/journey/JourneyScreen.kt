@@ -185,7 +185,6 @@ fun JourneyScreen(
     var overlay by remember { mutableStateOf(false) }
     var interactions by remember { mutableIntStateOf(0) }
     var devPanel by remember { mutableStateOf(false) }
-    var secretCode by remember { mutableStateOf(false) }
     var confirmEnd by remember { mutableStateOf(false) }
     var backArmed by remember { mutableStateOf(false) }
     var hint by remember { mutableStateOf(false) }
@@ -571,11 +570,7 @@ fun JourneyScreen(
                         supportsTimeOfDay = vm.course.supportsTimeOfDay,
                         flyby = vm.course.flyby,
                         modeMenu = vm.showModeMenu,
-                        previewUnlocked = vm.previewUnlocked,
-                        canSwitch = vm.phase == SessionPhase.DOCKED,
                         onModes = { sheet = SheetKind.MODES },
-                        onLockPreview = vm::lockPreviewModes,
-                        onSecretEntry = if (vm.options.modeAccess.codeEnabled) ({ secretCode = true }) else null,
                         onTime = vm::selectTime,
                         onSound = { vm.toggleSound() }, onSoundLevel = vm::selectSoundLevel,
                         onLedge = vm::setLedge, onOverlay = vm::setOverlay, onPower = vm::setPower,
@@ -611,18 +606,6 @@ fun JourneyScreen(
         }
     }
 
-    if (secretCode) {
-        Dialog(onDismissRequest = { secretCode = false }) {
-            SecretCodeDialog(
-                onSubmit = { code ->
-                    vm.unlockModes(code).also { success ->
-                        if (success) { secretCode = false; sheet = SheetKind.MODES }
-                    }
-                },
-                onDismiss = { secretCode = false },
-            )
-        }
-    }
     if (confirmEnd) {
         Dialog(onDismissRequest = { confirmEnd = false }) {
             EndTripDialog(

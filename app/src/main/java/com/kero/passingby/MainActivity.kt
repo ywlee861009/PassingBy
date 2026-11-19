@@ -84,7 +84,7 @@ class MainActivity : ComponentActivity() {
      */
     private fun applyDebugExtras(i: Intent) {
         val vm = journeyViewModel
-        i.getStringExtra("course")?.let { id -> vm.forceCourse(vm.courseById(id)) }
+        i.getStringExtra("course")?.let(vm::findCourse)?.let(vm::forceCourse)
         i.getStringExtra("scene")?.let { n -> SceneKind.entries.firstOrNull { it.name == n }?.let(vm::selectLand) }
         i.getStringExtra("time")?.let { n -> TimeOfDay.entries.firstOrNull { it.name == n }?.let(vm::selectTime) }
         i.getStringExtra("season")?.let { vm.selectSeasonChoice(SeasonChoice.fromId(it)) }
