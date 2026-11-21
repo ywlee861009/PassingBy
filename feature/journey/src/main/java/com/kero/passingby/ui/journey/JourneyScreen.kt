@@ -17,6 +17,7 @@ import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.Animatable
@@ -111,6 +112,7 @@ fun JourneyScreen(
     onNotificationPermissionGranted: () -> Unit = {},
     notificationsEnabled: Boolean = true,
     onNotificationSettings: () -> Unit = {},
+    onArrivalCardReady: (suspend () -> Unit)? = null,
 ) {
     val view = LocalView.current
     DisposableEffect(view) {
@@ -335,8 +337,15 @@ fun JourneyScreen(
                 .widthIn(max = if (form == FormFactor.PORTRAIT) 480.dp else 420.dp)
                 .fillMaxWidth()
         }
+        val cardVisibility = remember { MutableTransitionState(!moving) }
+        cardVisibility.targetState = !moving
+        if (phase == SessionPhase.ARRIVED && cardVisibility.currentState && cardVisibility.isIdle &&
+            sheet == SheetKind.NONE && onArrivalCardReady != null
+        ) {
+            LaunchedEffect(onArrivalCardReady) { onArrivalCardReady() }
+        }
         AnimatedVisibility(
-            visible = !moving,
+            visibleState = cardVisibility,
             enter = fadeIn(tween(400, delayMillis = 250)),
             exit = fadeOut(tween(200)),
             modifier = cardModifier.onSizeChanged { cardSize = it },

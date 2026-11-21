@@ -15,6 +15,8 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.ViewModelProvider
+import com.google.android.play.core.review.ReviewInfo
+import com.google.android.play.core.review.ReviewManagerFactory
 import com.kero.passingby.locale.AppLanguage
 import com.kero.passingby.experience.SceneKind
 import com.kero.passingby.experience.SeasonChoice
@@ -23,12 +25,19 @@ import com.kero.passingby.session.AppVisibility
 import com.kero.passingby.session.TripNotifications
 import com.kero.passingby.experience.TimeOfDay
 import com.kero.passingby.experience.Weather
+import com.kero.passingby.journey.SessionPhase
 import com.kero.passingby.ui.journey.JourneyViewModel
 import com.kero.passingby.ui.journey.JourneyScreen
 import com.kero.passingby.ui.startup.LaunchScreen
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlin.coroutines.resume
+
+private const val ARRIVAL_REVIEW_REQUESTED = "arrival_review_requested"
 
 class MainActivity : ComponentActivity() {
     private var notificationsEnabled by mutableStateOf(false)
+    private var resumed by mutableStateOf(false)
+    private var windowFocused by mutableStateOf(false)
     private val journeyViewModel: JourneyViewModel by lazy {
         ViewModelProvider(this, (application as PassingByApp).graph.journeyViewModelFactory)[JourneyViewModel::class.java]
     }
@@ -58,12 +67,13 @@ class MainActivity : ComponentActivity() {
         val showLaunchArtwork = (application as PassingByApp).claimLaunchArtwork()
         notificationsEnabled = TripNotifications.areEnabled(this)
         setContent {
-            LaunchScreen(showOnLaunch = showLaunchArtwork) {
+            LaunchScreen(showOnLaunch = showLaunchArtwork) { artworkPresent ->
                 JourneyScreen(
                     journeyViewModel,
                     onNotificationPermissionGranted = ::refreshSessionEffects,
                     notificationsEnabled = notificationsEnabled,
                     onNotificationSettings = { startActivity(TripNotifications.settingsIntent(this)) },
+                    onArrivalCardReady = if (!artworkPresent && canRequestArrivalReview()) ::requestArrivalReview else null,
                 )
             }
         }
@@ -112,9 +122,11 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         journeyViewModel.onResume()
         refreshSessionEffects()
+        resumed = true
     }
 
     override fun onPause() {
+        resumed = false
         journeyViewModel.onPause()
         super.onPause()
     }
@@ -133,7 +145,28 @@ class MainActivity : ComponentActivity() {
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
+        windowFocused = hasFocus
         if (hasFocus) hideSystemBars()
+    }
+
+    private fun canRequestArrivalReview(): Boolean = resumed && windowFocused &&
+        journeyViewModel.phase == SessionPhase.ARRIVED && journeyViewModel.lifetime.first == 2
+
+    private suspend fun requestArrivalReview() {
+        val preferences = getPreferences(MODE_PRIVATE)
+        if (preferences.getBoolean(ARRIVAL_REVIEW_REQUESTED, false) || !canRequestArrivalReview()) return
+
+        val manager = ReviewManagerFactory.create(applicationContext)
+        val reviewInfo = suspendCancellableCoroutine<ReviewInfo?> { continuation ->
+            manager.requestReviewFlow().addOnCompleteListener { request ->
+                continuation.resume(if (request.isSuccessful) request.result else null)
+            }
+        } ?: return
+        if (!canRequestArrivalReview()) return
+
+        // Play does not report whether its review card actually appeared.
+        preferences.edit().putBoolean(ARRIVAL_REVIEW_REQUESTED, true).apply()
+        manager.launchReviewFlow(this, reviewInfo)
     }
 
     private fun hideSystemBars() {

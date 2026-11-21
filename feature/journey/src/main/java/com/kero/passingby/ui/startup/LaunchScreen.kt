@@ -41,12 +41,12 @@ import kotlinx.coroutines.delay
 
 /** 실제 여행 화면은 뒤에서 바로 준비하고, 프로세스의 첫 실행에만 짧게 그림을 겹친다. */
 @Composable
-fun LaunchScreen(showOnLaunch: Boolean, content: @Composable () -> Unit) {
+fun LaunchScreen(showOnLaunch: Boolean, content: @Composable (artworkPresent: Boolean) -> Unit) {
     val visibility = remember { MutableTransitionState(showOnLaunch) }
     val artworkPresent = visibility.currentState || visibility.targetState
     Box(Modifier.fillMaxSize()) {
         // 그림이 사라질 때까지 뒤쪽 승차권이 접근성 탐색에 끼어들지 않게 한다.
-        Box(if (artworkPresent) Modifier.clearAndSetSemantics {} else Modifier) { content() }
+        Box(if (artworkPresent) Modifier.clearAndSetSemantics {} else Modifier) { content(artworkPresent) }
         AnimatedVisibility(
             visibleState = visibility,
             enter = EnterTransition.None,
