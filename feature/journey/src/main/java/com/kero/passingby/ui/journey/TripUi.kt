@@ -35,8 +35,10 @@ import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.TextStyle
@@ -46,6 +48,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.constrainHeight
 import androidx.compose.ui.unit.dp
+import com.kero.passingby.billing.CheckoutPriceCheckStatus
 import com.kero.passingby.experience.JourneyCourse as Course
 import com.kero.passingby.ui.theme.Pb
 import com.kero.passingby.ui.theme.PbType
@@ -67,6 +70,7 @@ fun TicketCard(
     restDone: Boolean,
     owned: Boolean,
     price: String?,
+    priceStatus: CheckoutPriceCheckStatus?,
     paper: Color,
     panel: Color,
     onMinutes: (Int) -> Unit,
@@ -111,12 +115,30 @@ fun TicketCard(
                 style = PbType.body.copy(color = Pb.InkSoft),
             )
         } else {
+            val checking = priceStatus == CheckoutPriceCheckStatus.CHECKING
+            val buttonLabel = when {
+                checking -> stringResource(R.string.purchase_price_checking)
+                price != null -> stringResource(R.string.unlock_course_price, price)
+                priceStatus == CheckoutPriceCheckStatus.RETRY_NEEDED ||
+                    priceStatus == CheckoutPriceCheckStatus.PLAY_UNAVAILABLE -> stringResource(R.string.purchase_price_retry)
+                else -> stringResource(R.string.purchase_price_check)
+            }
+            val note = if (price != null) R.string.unlock_once else when (priceStatus) {
+                CheckoutPriceCheckStatus.RETRY_NEEDED -> R.string.purchase_price_failed
+                CheckoutPriceCheckStatus.PLAY_UNAVAILABLE -> R.string.purchase_play_unavailable
+                else -> R.string.unlock_once
+            }
             PrimaryButton(
-                stringResource(R.string.unlock_course_price, price ?: stringResource(R.string.price_pending)),
+                buttonLabel,
                 onBuy,
-                Modifier.fillMaxWidth(),
+                Modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite },
+                enabled = !checking,
             )
-            BasicText(stringResource(R.string.unlock_once), style = PbType.body.copy(color = Pb.InkSoft))
+            BasicText(
+                stringResource(note),
+                modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+                style = PbType.body.copy(color = Pb.InkSoft),
+            )
         }
     }
 }
@@ -252,13 +274,13 @@ private fun MinuteSelector(selected: Int, onSelect: (Int) -> Unit) {
 }
 
 @Composable
-fun PrimaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun PrimaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) {
     Box(
         modifier
             .heightIn(min = 52.dp)
             .clip(CircleShape)
-            .background(Pb.Accent)
-            .clickable(role = Role.Button, onClick = onClick)
+            .background(if (enabled) Pb.Accent else Pb.InkSoft)
+            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
             .padding(horizontal = 20.dp),
         contentAlignment = Alignment.Center,
     ) {

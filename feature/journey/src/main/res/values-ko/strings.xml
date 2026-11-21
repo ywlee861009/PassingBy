@@ -21,7 +21,11 @@
     <string name="depart_minutes">%1$d분 출발하기</string>
     <string name="ticket_note">남은 시간은 알림에 띄워 둘게요. 그동안 창밖만 보셔도 괜찮아요.</string>
     <string name="unlock_course_price">코스 열기 · %1$s</string>
-    <string name="price_pending">가격 준비 중</string>
+    <string name="price_pending">승차권에서 가격 확인</string>
+    <string name="purchase_price_check">가격 확인</string>
+    <string name="purchase_price_checking">가격 확인 중…</string>
+    <string name="purchase_price_retry">가격 다시 확인</string>
+    <string name="purchase_price_failed">Google Play에서 가격을 불러오지 못했어요. 연결을 확인한 뒤 다시 시도해 주세요.</string>
     <string name="unlock_once">한 번 열면 계속 탈 수 있어요.</string>
     <string name="arrived_at">%1$s에 도착했어요</string>
     <string name="trip_minutes">%1$d분 동안 함께 달렸어요</string>

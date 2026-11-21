@@ -19,6 +19,7 @@ import com.android.billingclient.api.Purchase
 import com.android.billingclient.api.PurchasesResponseListener
 import com.android.billingclient.api.PurchasesUpdatedListener
 import com.android.billingclient.api.QueryPurchasesParams
+import com.android.billingclient.api.UnfetchedProduct
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
@@ -137,10 +138,77 @@ class BillingFlowTest {
 
         assertNull("Automatic retries should stop after the third retry", play.productRequests.poll(9, TimeUnit.SECONDS))
         onMain {
-            assertEquals(PurchaseLaunch.UNAVAILABLE, purchase(FIRST))
+            assertEquals(PurchaseLaunch.CHECKING_PRICE, purchase(FIRST))
             assertEquals(0, play.launches)
         }
-        assertTrue(FIRST in play.nextProductRequest().productIds)
+        assertEquals(listOf(FIRST), play.nextProductRequest().productIds)
+    }
+
+    @Test fun checkingPriceTakesPriorityOverBackgroundBackoffAndWaitsForAnotherTap() = withFlow {
+        onMain { billing.connect() }
+        repeat(3) { play.nextProductRequest().respond(NETWORK_ERROR) }
+        instrumentation.waitForIdleSync()
+
+        onMain {
+            billing.checkPrice(SECOND)
+            billing.checkPrice(SECOND)
+            assertEquals(listOf(SECOND to CheckoutPriceCheckStatus.CHECKING), priceChecks)
+        }
+        play.nextProductRequest().apply {
+            assertEquals(listOf(SECOND), productIds)
+            respond(OK, detail(SECOND, SECOND_PRICE, 1_500_000_000L))
+        }
+
+        instrumentation.waitForIdleSync()
+        onMain {
+            assertEquals(listOf(SECOND to CheckoutPriceCheckStatus.CHECKING, SECOND to CheckoutPriceCheckStatus.READY), priceChecks)
+            assertEquals(mapOf(SECOND to SECOND_PRICE), prices)
+            assertEquals(0, play.launches)
+            assertEquals(PurchaseLaunch.LAUNCHED, purchase(SECOND))
+            assertEquals(1, play.launches)
+        }
+    }
+
+    @Test fun pausingClearsForegroundPriceFeedbackEvenIfThePriceArrives() = withFlow {
+        onMain {
+            assertEquals(PurchaseLaunch.CHECKING_PRICE, purchase(FIRST))
+            billing.onPause()
+        }
+        play.nextProductRequest().respond(OK, detail(FIRST, FIRST_PRICE, 900_000_000L))
+
+        instrumentation.waitForIdleSync()
+        onMain {
+            assertEquals(listOf(FIRST to CheckoutPriceCheckStatus.CHECKING, FIRST to CheckoutPriceCheckStatus.CANCELED), priceChecks)
+            assertEquals(0, play.launches)
+        }
+    }
+
+    @Test fun noEligibleOfferEndsForegroundPriceFeedbackWithoutOpeningCheckout() = withFlow {
+        onMain { assertEquals(PurchaseLaunch.CHECKING_PRICE, purchase(FIRST)) }
+        play.nextProductRequest().respond(OK, unfetched = mapOf(FIRST to UnfetchedProduct.StatusCode.NO_ELIGIBLE_OFFER))
+
+        instrumentation.waitForIdleSync()
+        onMain {
+            assertEquals(listOf(FIRST to CheckoutPriceCheckStatus.CHECKING, FIRST to CheckoutPriceCheckStatus.RETRY_NEEDED), priceChecks)
+            assertEquals(0, play.launches)
+        }
+    }
+
+    @Test fun aLaunchWithoutAPlayWindowOrCallbackDoesNotBlockCheckoutIndefinitely() = withFlow {
+        loadPrices()
+        val elapsed = CountDownLatch(1)
+        onMain {
+            assertEquals(PurchaseLaunch.LAUNCHED, purchase(FIRST))
+            assertEquals(PurchaseLaunch.IN_PROGRESS, purchase(SECOND))
+            Handler(Looper.getMainLooper()).postDelayed({ elapsed.countDown() }, 10_100)
+        }
+
+        assertTrue(elapsed.await(14, TimeUnit.SECONDS))
+        onMain {
+            assertEquals(1, purchaseFailures)
+            assertEquals(PurchaseLaunch.LAUNCHED, purchase(SECOND))
+            assertEquals(2, play.launches)
+        }
     }
 
     @Test fun returningWithoutACallbackAllowsCheckoutAgain() = withFlow {
@@ -198,6 +266,7 @@ class BillingFlowTest {
             private set
         var purchaseFailures = 0
             private set
+        val priceChecks = mutableListOf<Pair<String, CheckoutPriceCheckStatus>>()
         val billing = Billing(
             productIds = listOf(FIRST, SECOND),
             onPrices = { prices = it },
@@ -206,6 +275,7 @@ class BillingFlowTest {
             onPending = {},
             onPurchaseFailed = { purchaseFailures++ },
             createClient = { listener -> play.apply { purchasesUpdated = listener } },
+            onCheckoutPriceCheck = { id, status -> priceChecks += id to status },
         )
 
         fun purchase(id: String) = billing.purchase(activity, id)
@@ -235,7 +305,10 @@ class BillingFlowTest {
             listener.onQueryPurchasesResponse(result(OK), emptyList())
         }
 
-        override fun queryProducts(productIds: List<String>, callback: (BillingResult, List<ProductDetails>) -> Unit) {
+        override fun queryProducts(
+            productIds: List<String>,
+            callback: (BillingResult, List<ProductDetails>, Map<String, Int>) -> Unit,
+        ) {
             productRequests.add(ProductRequest(productIds.toList(), callback))
         }
 
@@ -266,10 +339,10 @@ class BillingFlowTest {
 
     private class ProductRequest(
         val productIds: List<String>,
-        private val callback: (BillingResult, List<ProductDetails>) -> Unit,
+        private val callback: (BillingResult, List<ProductDetails>, Map<String, Int>) -> Unit,
     ) {
-        fun respond(code: Int, vararg details: ProductDetails) {
-            callback(result(code), details.toList())
+        fun respond(code: Int, vararg details: ProductDetails, unfetched: Map<String, Int> = emptyMap()) {
+            callback(result(code), details.toList(), unfetched)
         }
     }
 

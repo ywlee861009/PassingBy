@@ -38,6 +38,7 @@ class MainActivity : ComponentActivity() {
     private var notificationsEnabled by mutableStateOf(false)
     private var resumed by mutableStateOf(false)
     private var windowFocused by mutableStateOf(false)
+    private lateinit var appUpdates: PlayAppUpdates
     private val journeyViewModel: JourneyViewModel by lazy {
         ViewModelProvider(this, (application as PassingByApp).graph.journeyViewModelFactory)[JourneyViewModel::class.java]
     }
@@ -50,6 +51,9 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+        appUpdates = PlayAppUpdates(this, savedInstanceState) {
+            resumed && windowFocused && journeyViewModel.phase == SessionPhase.DOCKED
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             // 첫 프레임부터 전체 여행 그림을 보여 준다. 시스템 아이콘 화면을 더 붙잡아 두지 않는다.
             splashScreen.setOnExitAnimationListener { it.remove() }
@@ -74,6 +78,11 @@ class MainActivity : ComponentActivity() {
                     notificationsEnabled = notificationsEnabled,
                     onNotificationSettings = { startActivity(TripNotifications.settingsIntent(this)) },
                     onArrivalCardReady = if (!artworkPresent && canRequestArrivalReview()) ::requestArrivalReview else null,
+                    appUpdate = if (artworkPresent) null else appUpdates.uiState,
+                    onAppUpdate = appUpdates::act,
+                    onAppUpdateLater = appUpdates::dismissPrompt,
+                    onPurchaseInteraction = appUpdates::cancelRequest,
+                    purchaseScreenVisible = !artworkPresent && resumed && windowFocused,
                 )
             }
         }
@@ -114,6 +123,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
+        appUpdates.onStart()
         AppVisibility.foreground = true
         journeyViewModel.setVisible(true)
     }
@@ -123,6 +133,7 @@ class MainActivity : ComponentActivity() {
         journeyViewModel.onResume()
         refreshSessionEffects()
         resumed = true
+        appUpdates.refresh()
     }
 
     override fun onPause() {
@@ -132,10 +143,16 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onStop() {
+        appUpdates.onStop()
         AppVisibility.foreground = false
         journeyViewModel.setVisible(false)
         refreshSessionEffects()
         super.onStop()
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        appUpdates.saveState(outState)
     }
 
     private fun refreshSessionEffects() {

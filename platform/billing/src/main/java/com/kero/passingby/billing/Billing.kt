@@ -13,9 +13,11 @@ import com.android.billingclient.api.ProductDetails
 import com.android.billingclient.api.Purchase
 import com.android.billingclient.api.PurchasesUpdatedListener
 import com.android.billingclient.api.QueryPurchasesParams
+import com.android.billingclient.api.UnfetchedProduct
 import com.kero.passingby.telemetry.Telemetry
 
-enum class PurchaseLaunch { LAUNCHED, IN_PROGRESS, UNAVAILABLE, PLAY_UNAVAILABLE }
+enum class PurchaseLaunch { LAUNCHED, IN_PROGRESS, CHECKING_PRICE, UNAVAILABLE, PLAY_UNAVAILABLE }
+enum class CheckoutPriceCheckStatus { CHECKING, READY, RETRY_NEEDED, PLAY_UNAVAILABLE, CANCELED }
 
 /** 일회성 코스 구매. 모든 상태와 화면 콜백은 메인 스레드에서 처리한다. */
 class Billing internal constructor(
@@ -26,6 +28,7 @@ class Billing internal constructor(
     private val onPending: () -> Unit,
     private val onPurchaseFailed: () -> Unit,
     private val createClient: (PurchasesUpdatedListener) -> PlayBillingConnection,
+    private val onCheckoutPriceCheck: (String, CheckoutPriceCheckStatus) -> Unit = { _, _ -> },
 ) {
     constructor(
         context: Context,
@@ -35,7 +38,8 @@ class Billing internal constructor(
         onRestore: (RestoreStatus) -> Unit,
         onPending: () -> Unit,
         onPurchaseFailed: () -> Unit,
-    ) : this(productIds, onPrices, onOwned, onRestore, onPending, onPurchaseFailed, playBillingFactory(context))
+        onCheckoutPriceCheck: (String, CheckoutPriceCheckStatus) -> Unit = { _, _ -> },
+    ) : this(productIds, onPrices, onOwned, onRestore, onPending, onPurchaseFailed, playBillingFactory(context), onCheckoutPriceCheck)
 
     private class Checkout(val productId: String) {
         var rejection: BillingResult? = null
@@ -43,16 +47,32 @@ class Billing internal constructor(
         var hasPaused = false
     }
 
+    private data class CatalogFailure(val reason: String, val code: Int? = null, val products: Set<String>? = null)
+
     private val main = Handler(Looper.getMainLooper())
     private val known = productIds.toSet()
     private val refresh = PurchaseRefresh()
     private val details = mutableMapOf<String, ProductDetails>()
+    private val unfetchedProducts = mutableMapOf<String, Int>()
     private val acknowledging = mutableSetOf<String>()
     private val pendingProducts = mutableSetOf<String>()
     private var checkout: Checkout? = null
     private var checkoutWithoutResult: Checkout? = null
     private var checkoutReturn: Runnable? = null
+    private val checkoutLaunchDeadline = Runnable {
+        val active = checkout ?: return@Runnable
+        checkoutWithoutResult = active
+        clearCheckout()
+        Telemetry.event("billing_checkout_no_result", "product" to active.productId, "reason" to "no_play_window")
+        onPurchaseFailed()
+    }
+    private var checkoutPriceProduct: String? = null
+    private var checkoutPriceRetries = 0
+    private val checkoutPriceDeadline = Runnable {
+        finishCheckoutPriceCheck(CheckoutPriceCheckStatus.RETRY_NEEDED, "timeout")
+    }
     private var productsUnavailable = false
+    private var lastCatalogFailure: CatalogFailure? = null
     private var productRequest = 0L
     private var productDeadline: Runnable? = null
     private var productRetry: Runnable? = null
@@ -69,6 +89,8 @@ class Billing internal constructor(
     val ready: Boolean get() = client.isReady
     fun restore() = refreshPurchases(manual = true)
     fun onPause() {
+        cancelCheckoutPriceCheck()
+        main.removeCallbacks(checkoutLaunchDeadline)
         checkoutReturn?.let(main::removeCallbacks)
         checkoutReturn = null
         checkout?.let { active ->
@@ -109,6 +131,7 @@ class Billing internal constructor(
                 client.endConnection()
                 client = createClient(listener)
                 connectedOnce = false
+                lastCatalogFailure = CatalogFailure("connection_timeout")
             }
             finish(id, false)
             if (connecting) scheduleProductRetry(productAttempt)
@@ -124,8 +147,10 @@ class Billing internal constructor(
                     val code = result.responseCode
                     if (code != BillingClient.BillingResponseCode.OK) {
                         productsUnavailable = report("setup", result)
+                        lastCatalogFailure = CatalogFailure("connection_error", code)
                         finish(id, false)
                         if (!productsUnavailable && canRetryProducts(code)) scheduleProductRetry(productAttempt)
+                        else finishCheckoutPriceCheckFailure()
                     } else {
                         productsUnavailable = false
                         connectedOnce = true
@@ -161,6 +186,11 @@ class Billing internal constructor(
         refresh.finish(id, success, hasPurchases, hasPending)?.let(onRestore)
     }
 
+    fun checkPrice(productId: String) {
+        if (closed || productId !in known || productId in details) return
+        startCheckoutPriceCheck(productId)
+    }
+
     fun purchase(activity: Activity, productId: String): PurchaseLaunch {
         if (closed || productId !in known) return PurchaseLaunch.UNAVAILABLE
         if (checkout != null) {
@@ -169,11 +199,13 @@ class Billing internal constructor(
         }
         val d = details[productId]
         if (d == null) {
-            val playUnavailable = productsUnavailable
-            requestProducts()
-            Telemetry.event("billing_checkout_blocked", "product" to productId,
-                "reason" to if (playUnavailable) "play_unavailable" else "no_product_details")
-            return if (playUnavailable) PurchaseLaunch.PLAY_UNAVAILABLE else PurchaseLaunch.UNAVAILABLE
+            if (checkoutPriceProduct == productId) return PurchaseLaunch.CHECKING_PRICE
+            Telemetry.event(
+                "billing_checkout_blocked", "product" to productId,
+                "reason" to if (productsUnavailable) "play_unavailable" else "no_product_details",
+                *catalogDiagnostics(productId, catalogReason(productId)),
+            )
+            return startCheckoutPriceCheck(productId)
         }
         val product = BillingFlowParams.ProductDetailsParams.newBuilder()
             .setProductDetails(d)
@@ -184,6 +216,7 @@ class Billing internal constructor(
         checkout = active
         val result = client.launchBillingFlow(activity, params)
         if (result.responseCode == BillingClient.BillingResponseCode.OK) {
+            if (checkout === active && !active.hasPaused) main.postDelayed(checkoutLaunchDeadline, 10_000L)
             Telemetry.event("billing_checkout_opened", "product" to productId)
             return PurchaseLaunch.LAUNCHED
         }
@@ -198,6 +231,7 @@ class Billing internal constructor(
 
     private fun clearCheckout() {
         checkout = null
+        main.removeCallbacks(checkoutLaunchDeadline)
         checkoutReturn?.let(main::removeCallbacks)
         checkoutReturn = null
     }
@@ -205,6 +239,7 @@ class Billing internal constructor(
     fun end() {
         closed = true
         refresh.cancel()
+        cancelCheckoutPriceCheck()
         main.removeCallbacksAndMessages(null)
         clearCheckout()
         checkoutWithoutResult = null
@@ -254,41 +289,123 @@ class Billing internal constructor(
         else refreshPurchases(manual = false, productAttempt = attempt)
     }
 
+    private fun startCheckoutPriceCheck(productId: String): PurchaseLaunch {
+        if (checkoutPriceProduct == productId) return PurchaseLaunch.CHECKING_PRICE
+        cancelCheckoutPriceCheck()
+        checkoutPriceProduct = productId
+        checkoutPriceRetries = 0
+        val launch = if (productsUnavailable) {
+            finishCheckoutPriceCheck(CheckoutPriceCheckStatus.PLAY_UNAVAILABLE)
+            PurchaseLaunch.PLAY_UNAVAILABLE
+        } else {
+            main.postDelayed(checkoutPriceDeadline, 12_000L)
+            onCheckoutPriceCheck(productId, CheckoutPriceCheckStatus.CHECKING)
+            PurchaseLaunch.CHECKING_PRICE
+        }
+        // A user asking for a price takes priority over the next scheduled background retry.
+        productRetry?.let(main::removeCallbacks)
+        productRetry = null
+        requestProducts()
+        return launch
+    }
+
+    fun cancelCheckoutPriceCheck() = finishCheckoutPriceCheck(CheckoutPriceCheckStatus.CANCELED)
+
+    private fun finishCheckoutPriceCheckFailure() = finishCheckoutPriceCheck(
+        if (productsUnavailable) CheckoutPriceCheckStatus.PLAY_UNAVAILABLE else CheckoutPriceCheckStatus.RETRY_NEEDED,
+    )
+
+    private fun finishCheckoutPriceCheck(status: CheckoutPriceCheckStatus, reason: String? = null) {
+        val productId = checkoutPriceProduct ?: return
+        checkoutPriceProduct = null
+        main.removeCallbacks(checkoutPriceDeadline)
+        Telemetry.event(
+            "billing_checkout_price_check", "product" to productId, "outcome" to status.name.lowercase(),
+            *catalogDiagnostics(productId, reason ?: if (status == CheckoutPriceCheckStatus.READY) "available" else catalogReason(productId)),
+        )
+        onCheckoutPriceCheck(productId, status)
+    }
+
+    private fun catalogReason(productId: String): String = when (unfetchedProducts[productId]) {
+        UnfetchedProduct.StatusCode.INVALID_PRODUCT_ID_FORMAT -> "invalid_product_id"
+        UnfetchedProduct.StatusCode.PRODUCT_NOT_FOUND -> "product_not_found"
+        UnfetchedProduct.StatusCode.NO_ELIGIBLE_OFFER -> "no_eligible_offer"
+        UnfetchedProduct.StatusCode.UNKNOWN -> "product_details_missing"
+        else -> catalogFailureFor(productId)?.reason ?: if (productDeadline != null || refresh.connecting) "query_in_progress" else "not_loaded"
+    }
+
+    private fun catalogFailureFor(productId: String): CatalogFailure? =
+        lastCatalogFailure?.takeIf { it.products == null || productId in it.products }
+
+    private fun catalogDiagnostics(productId: String, reason: String): Array<Pair<String, Any>> =
+        buildList<Pair<String, Any>> {
+            add("catalog_reason" to reason)
+            catalogFailureFor(productId)?.code?.let { add("catalog_code" to it) }
+            unfetchedProducts[productId]?.let { add("product_status" to it) }
+        }.toTypedArray()
+
     private fun queryProducts(attempt: Int) {
         if (closed || productDeadline != null || productRetry != null) return
         val missing = known - details.keys
         if (missing.isEmpty()) return
+        val prioritized = checkoutPriceProduct?.takeIf { it in missing }
+        val requested = prioritized?.let(::setOf) ?: missing
         val request = ++productRequest
         productDeadline = Runnable {
             if (!finishProductQuery(request)) return@Runnable
+            unfetchedProducts.keys.removeAll(requested)
+            lastCatalogFailure = CatalogFailure("query_timeout", products = requested)
             Telemetry.event("billing_catalog_failed", "reason" to "timeout", "attempt" to attempt)
             scheduleProductRetry(attempt)
         }.also { main.postDelayed(it, 15_000L) }
-        Telemetry.event("billing_catalog_query", "attempt" to attempt, "requested" to missing.size)
-        client.queryProducts(missing.toList()) { result, response ->
+        Telemetry.event("billing_catalog_query", "attempt" to attempt, "requested" to requested.size,
+            "trigger" to if (prioritized != null) "checkout" else "background")
+        client.queryProducts(requested.toList()) { result, response, unfetchedStatus ->
             main.post {
                 if (!finishProductQuery(request)) return@post
                 val code = result.responseCode
                 if (code != BillingClient.BillingResponseCode.OK) {
+                    unfetchedProducts.keys.removeAll(requested)
                     productsUnavailable = report("products", result)
+                    lastCatalogFailure = CatalogFailure("query_error", code, requested)
                     Telemetry.event("billing_catalog_failed", "reason" to "play_error", "code" to code, "attempt" to attempt)
                     if (!productsUnavailable && canRetryProducts(code)) scheduleProductRetry(attempt)
+                    else finishCheckoutPriceCheckFailure()
                     return@post
                 }
                 productsUnavailable = false
+                lastCatalogFailure = null
                 for (product in response) {
-                    if (product.productId in missing && product.oneTimePurchaseOfferDetails != null) {
+                    if (product.productId in requested && product.oneTimePurchaseOfferDetails != null) {
                         details[product.productId] = product
                     }
+                }
+                val unfetched = requested - details.keys
+                for (id in requested) {
+                    if (id in unfetched) unfetchedProducts[id] = unfetchedStatus[id] ?: UnfetchedProduct.StatusCode.UNKNOWN
+                    else unfetchedProducts.remove(id)
                 }
                 val prices = details.values.mapNotNull { product ->
                     product.oneTimePurchaseOfferDetails?.formattedPrice?.let { product.productId to it }
                 }.toMap()
-                val unfetched = known - details.keys
-                Telemetry.event("billing_catalog_result", "available" to prices.size, "missing" to unfetched.size, "attempt" to attempt)
+                Telemetry.event("billing_catalog_result", "available" to prices.size, "missing" to known.size - prices.size,
+                    "attempt" to attempt, "requested" to requested.size)
                 onPrices(prices)
                 if (unfetched.isNotEmpty()) {
                     Telemetry.event("billing_products_missing", "count" to unfetched.size, "ids" to unfetched.joinToString(",").take(100))
+                }
+                checkoutPriceProduct?.let { checking ->
+                    when {
+                        checking in prices -> finishCheckoutPriceCheck(CheckoutPriceCheckStatus.READY)
+                        unfetchedProducts[checking] == UnfetchedProduct.StatusCode.INVALID_PRODUCT_ID_FORMAT ||
+                            unfetchedProducts[checking] == UnfetchedProduct.StatusCode.NO_ELIGIBLE_OFFER -> finishCheckoutPriceCheckFailure()
+                        else -> Unit
+                    }
+                }
+                val checkingAnotherProduct = checkoutPriceProduct?.let { it !in requested } == true
+                if (checkingAnotherProduct || (prioritized != null && unfetched.isEmpty())) {
+                    requestProducts()
+                } else if (unfetched.isNotEmpty()) {
                     scheduleProductRetry(attempt)
                 }
             }
@@ -304,12 +421,18 @@ class Billing internal constructor(
     }
 
     private fun scheduleProductRetry(attempt: Int) {
-        if (closed || attempt >= 3 || productRetry != null || details.keys.containsAll(known)) return
-        Telemetry.event("billing_catalog_retry", "attempt" to attempt + 1)
+        if (closed || productRetry != null || details.keys.containsAll(known)) return
+        val retryAttempt = if (checkoutPriceProduct != null) checkoutPriceRetries else attempt
+        if (retryAttempt >= 3) {
+            finishCheckoutPriceCheckFailure()
+            return
+        }
+        if (checkoutPriceProduct != null) checkoutPriceRetries++
+        Telemetry.event("billing_catalog_retry", "attempt" to retryAttempt + 1)
         productRetry = Runnable {
             productRetry = null
-            requestProducts(attempt + 1)
-        }.also { main.postDelayed(it, 1_000L shl attempt) }
+            requestProducts(retryAttempt + 1)
+        }.also { main.postDelayed(it, 1_000L shl retryAttempt) }
     }
 
     private fun canRetryProducts(code: Int): Boolean = when (code) {

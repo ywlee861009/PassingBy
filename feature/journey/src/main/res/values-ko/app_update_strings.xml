@@ -1,0 +1,11 @@
+<resources>
+    <string name="app_update_available">새 버전이 나왔어요</string>
+    <string name="app_update_download">업데이트 다운로드</string>
+    <string name="app_update_requesting">업데이트 확인 중…</string>
+    <string name="app_update_downloading">업데이트 다운로드 중…</string>
+    <string name="app_update_ready">업데이트를 설치할 수 있어요</string>
+    <string name="app_update_install">재시작하여 업데이트</string>
+    <string name="app_update_installing">업데이트 설치 중…</string>
+    <string name="app_update_later">나중에</string>
+    <string name="app_update_failed">지금은 앱을 업데이트할 수 없어요.</string>
+</resources>

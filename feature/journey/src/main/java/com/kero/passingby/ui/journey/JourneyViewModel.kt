@@ -18,6 +18,7 @@ import com.kero.passingby.experience.*
 import com.kero.passingby.experience.JourneyCourse as Course
 import com.kero.passingby.experience.JourneyStation as Station
 import com.kero.passingby.billing.Billing
+import com.kero.passingby.billing.CheckoutPriceCheckStatus
 import com.kero.passingby.billing.PurchaseLaunch
 import com.kero.passingby.billing.RestoreStatus
 import com.kero.passingby.journey.SessionRuntime
@@ -139,6 +140,9 @@ class JourneyViewModel(
     /** 상품 ID → 표시 가격. 스토어에서 받아 오기 전에는 비어 있다. */
     var prices by mutableStateOf<Map<String, String>>(emptyMap())
         private set
+    private var checkoutPriceCheck by mutableStateOf<Pair<String, CheckoutPriceCheckStatus>?>(null)
+    private var visibleOfferProduct: String? = null
+    private var visibleOfferPriceLogged = false
     var restoringPurchases by mutableStateOf(false)
         private set
     private val billing = Billing(
@@ -165,6 +169,7 @@ class JourneyViewModel(
         },
         onPending = { notify(R.string.purchase_pending) },
         onPurchaseFailed = { notify(R.string.purchase_unavailable) },
+        onCheckoutPriceCheck = { productId, status -> checkoutPriceCheck = productId to status },
     )
 
     // ── 설정 ──
@@ -272,11 +277,40 @@ class JourneyViewModel(
 
     fun priceOf(c: Course): String? = c.productId?.let { prices[it] }
 
-    /** 지금 고른(미리 보는) 코스를 산다. 연결·상품 조회가 안 됐으면 재시도 안내를 띄운다. */
+    fun checkoutPriceStatus(c: Course): CheckoutPriceCheckStatus? =
+        checkoutPriceCheck?.takeIf { it.first == c.productId }?.second
+
+    /** 실제 구매 승차권을 본 방문마다 노출과 가격 표시를 한 번씩 기록한다. */
+    fun trackPaidOffer(c: Course?, priceShown: Boolean) {
+        val productId = c?.productId
+        if (visibleOfferProduct != productId) {
+            visibleOfferProduct = productId
+            visibleOfferPriceLogged = false
+            if (productId != null) Telemetry.event("billing_offer_view", "product" to productId)
+        }
+        if (productId != null && priceShown && !visibleOfferPriceLogged) {
+            visibleOfferPriceLogged = true
+            Telemetry.event("billing_price_shown", "product" to productId)
+        }
+    }
+
+    /** 가격을 모를 때는 가격만 확인하고, 가격이 표시된 구매 버튼에서 Play 결제창을 연다. */
     fun buy(activity: Activity, c: Course = course) {
         val id = c.productId ?: return
+        if (owns(c)) return
+        val hasPrice = priceOf(c) != null
+        // 노출 효과가 실행되기 전에 탭을 받아도 단계 순서를 지킨다.
+        if (telemetryOn) trackPaidOffer(c, hasPrice)
+        if (!hasPrice) {
+            Telemetry.event("billing_price_check_tap", "product" to id)
+            billing.checkPrice(id)
+            return
+        }
         val result = billing.purchase(activity, id)
-        Telemetry.event("purchase_tap", "course" to c.id, "launched" to (result == PurchaseLaunch.LAUNCHED))
+        Telemetry.event(
+            "purchase_tap", "course" to c.id, "launched" to (result == PurchaseLaunch.LAUNCHED),
+            "outcome" to result.name.lowercase(),
+        )
         when (result) {
             PurchaseLaunch.PLAY_UNAVAILABLE -> notify(R.string.purchase_play_unavailable)
             PurchaseLaunch.UNAVAILABLE -> notify(R.string.purchase_unavailable)
@@ -438,6 +472,8 @@ class JourneyViewModel(
         val replacement = if (registry.providerFor(courseId).id != registry.providerFor(course.id).id)
             registry.create(courseId, store) else null
         if (session.selectCourse(courseId, force, replacement)) {
+            billing.cancelCheckoutPriceCheck()
+            checkoutPriceCheck = null
             if (replacement != null) {
                 old.releasePresentation()
                 experience.selectTime(fixedTime)

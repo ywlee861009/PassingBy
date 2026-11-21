@@ -24,7 +24,11 @@
     <string name="depart_minutes">Depart · %1$d min</string>
     <string name="ticket_note">We\'ll keep the time left in your notifications. Just enjoy the view.</string>
     <string name="unlock_course_price">Unlock course · %1$s</string>
-    <string name="price_pending">Price coming soon</string>
+    <string name="price_pending">Check price on the ticket</string>
+    <string name="purchase_price_check">Check price</string>
+    <string name="purchase_price_checking">Checking price…</string>
+    <string name="purchase_price_retry">Check price again</string>
+    <string name="purchase_price_failed">Couldn\'t get the price from Google Play. Check your connection and try again.</string>
     <string name="unlock_once">Unlock once and ride any time.</string>
     <string name="arrived_at">Arrived at %1$s</string>
     <string name="trip_minutes">%1$d min on board</string>

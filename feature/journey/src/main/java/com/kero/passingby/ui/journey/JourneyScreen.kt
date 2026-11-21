@@ -86,6 +86,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.core.content.ContextCompat
 import androidx.window.layout.FoldingFeature
 import androidx.window.layout.WindowInfoTracker
+import com.kero.passingby.billing.CheckoutPriceCheckStatus
 import com.kero.passingby.journey.SessionPhase
 import com.kero.passingby.experience.JourneyMode
 import com.kero.passingby.locale.AppLanguage
@@ -113,6 +114,11 @@ fun JourneyScreen(
     notificationsEnabled: Boolean = true,
     onNotificationSettings: () -> Unit = {},
     onArrivalCardReady: (suspend () -> Unit)? = null,
+    appUpdate: AppUpdateUiState? = null,
+    onAppUpdate: () -> Unit = {},
+    onAppUpdateLater: () -> Unit = {},
+    onPurchaseInteraction: () -> Unit = {},
+    purchaseScreenVisible: Boolean = false,
 ) {
     val view = LocalView.current
     DisposableEffect(view) {
@@ -339,6 +345,15 @@ fun JourneyScreen(
         }
         val cardVisibility = remember { MutableTransitionState(!moving) }
         cardVisibility.targetState = !moving
+        val paidOffer = vm.course.takeIf {
+            purchaseScreenVisible && phase == SessionPhase.DOCKED && cardVisibility.currentState &&
+                sheet == SheetKind.NONE && vm.telemetryOn && !vm.owns(it) && it.productId != null
+        }
+        val offerPriceShown = paidOffer != null && vm.priceOf(paidOffer) != null &&
+            vm.checkoutPriceStatus(paidOffer) != CheckoutPriceCheckStatus.CHECKING
+        LaunchedEffect(paidOffer?.productId, offerPriceShown) {
+            vm.trackPaidOffer(paidOffer, offerPriceShown)
+        }
         if (phase == SessionPhase.ARRIVED && cardVisibility.currentState && cardVisibility.isIdle &&
             sheet == SheetKind.NONE && onArrivalCardReady != null
         ) {
@@ -363,9 +378,15 @@ fun JourneyScreen(
                 else -> TicketCard(
                     vm.course, vm.direction, vm.minutes, vm.today, vm.restDone,
                     owned = vm.owns(vm.course), price = vm.priceOf(vm.course),
+                    priceStatus = vm.checkoutPriceStatus(vm.course),
                     paper = paper, panel = Color(vm.panel),
                     onMinutes = vm::selectMinutes, onDepart = depart,
-                    onBuy = { activity?.let { vm.buy(it) } },
+                    onBuy = {
+                        if (activity != null) {
+                            onPurchaseInteraction()
+                            vm.buy(activity)
+                        }
+                    },
                     onCourses = { sheet = SheetKind.COURSES },
                     onSettings = { sheet = SheetKind.SETTINGS },
                     onJournal = { sheet = SheetKind.JOURNAL },
@@ -373,6 +394,20 @@ fun JourneyScreen(
                     onEnableNotifications = enableNotifications,
                 )
             }
+        }
+
+        if (appUpdate?.showPrompt == true && phase == SessionPhase.DOCKED &&
+            sheet == SheetKind.NONE && notice == null && vm.owns(vm.course)) {
+            AppUpdatePrompt(
+                appUpdate.stage,
+                onUpdate = onAppUpdate,
+                onLater = onAppUpdateLater,
+                modifier = Modifier
+                    .align(if (form == FormFactor.LANDSCAPE) Alignment.TopStart else Alignment.TopCenter)
+                    .windowInsetsPadding(insets)
+                    .padding(horizontal = CARD_MARGIN, vertical = CARD_MARGIN)
+                    .padding(top = testHeaderPadding),
+            )
         }
 
         // ── 주행 중 ──
@@ -593,6 +628,8 @@ fun JourneyScreen(
                         onTelemetry = vm::setTelemetry,
                         notificationsEnabled = notificationsEnabled,
                         onNotifications = enableNotifications,
+                        appUpdateStage = appUpdate?.stage,
+                        onAppUpdate = onAppUpdate,
                         onRestore = vm::restorePurchases, onDevUnlock = vm::toggleDevUnlock,
                         onShare = { shareApp(context, "settings") },
                         onPlayStore = { openPlayStore(context, uriHandler) },

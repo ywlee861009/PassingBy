@@ -22,7 +22,10 @@ internal interface PlayBillingConnection {
     fun startConnection(listener: BillingClientStateListener)
     fun endConnection()
     fun queryPurchases(params: QueryPurchasesParams, listener: PurchasesResponseListener)
-    fun queryProducts(productIds: List<String>, callback: (BillingResult, List<ProductDetails>) -> Unit)
+    fun queryProducts(
+        productIds: List<String>,
+        callback: (BillingResult, List<ProductDetails>, Map<String, Int>) -> Unit,
+    )
     fun launchBillingFlow(activity: Activity, params: BillingFlowParams): BillingResult
     fun acknowledgePurchase(params: AcknowledgePurchaseParams, listener: AcknowledgePurchaseResponseListener)
 }
@@ -57,7 +60,10 @@ private class GooglePlayBillingConnection(
     override fun queryPurchases(params: QueryPurchasesParams, listener: PurchasesResponseListener) =
         client.queryPurchasesAsync(params, listener)
 
-    override fun queryProducts(productIds: List<String>, callback: (BillingResult, List<ProductDetails>) -> Unit) {
+    override fun queryProducts(
+        productIds: List<String>,
+        callback: (BillingResult, List<ProductDetails>, Map<String, Int>) -> Unit,
+    ) {
         val products = productIds.map {
             QueryProductDetailsParams.Product.newBuilder()
                 .setProductId(it)
@@ -65,7 +71,9 @@ private class GooglePlayBillingConnection(
                 .build()
         }
         val params = QueryProductDetailsParams.newBuilder().setProductList(products).build()
-        client.queryProductDetailsAsync(params) { result, response -> callback(result, response.productDetailsList) }
+        client.queryProductDetailsAsync(params) { result, response ->
+            callback(result, response.productDetailsList, response.unfetchedProductList.associate { it.productId to it.statusCode })
+        }
     }
 
     override fun launchBillingFlow(activity: Activity, params: BillingFlowParams): BillingResult =

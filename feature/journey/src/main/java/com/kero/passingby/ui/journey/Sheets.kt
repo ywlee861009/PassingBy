@@ -318,8 +318,18 @@ fun SettingsSheetContent(
     flyby: Boolean = false,
     notificationsEnabled: Boolean = true,
     onNotifications: () -> Unit = {},
+    appUpdateStage: AppUpdateStage? = null,
+    onAppUpdate: () -> Unit = {},
 ) {
     BasicText(stringResource(R.string.settings), style = PbType.title.copy(color = Pb.Ink))
+
+    if (appUpdateStage != null) {
+        QuietButton(
+            stringResource(appUpdateStage.label), onAppUpdate, Modifier.fillMaxWidth(),
+            color = if (appUpdateStage.actionable) Pb.Ink else Pb.InkSoft,
+            enabled = appUpdateStage.actionable,
+        )
+    }
 
     SectionTitle(stringResource(R.string.notifications))
     BasicText(stringResource(if (notificationsEnabled) R.string.notifications_enabled else R.string.notifications_desc),

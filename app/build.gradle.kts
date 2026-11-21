@@ -146,6 +146,7 @@ dependencies {
     implementation(project(":platform:notifications"))
     implementation(project(":platform:billing"))
     implementation(project(":platform:telemetry"))
+    implementation(libs.play.app.update)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.junit)
