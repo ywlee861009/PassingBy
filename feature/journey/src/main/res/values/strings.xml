@@ -64,6 +64,8 @@
     <string name="purchases_restored">Your purchases have been checked</string>
     <string name="courses">Courses</string>
     <string name="courses_hint">You can pick a locked course too and preview the view.</string>
+    <string name="course_recommendation_title">How about %1$s for your next ride?</string>
+    <string name="course_recommendation_preview">Preview route</string>
     <string name="free">Free</string>
     <string name="unlocked">Unlocked</string>
     <string name="locked">Locked</string>

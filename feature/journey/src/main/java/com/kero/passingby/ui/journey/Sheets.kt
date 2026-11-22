@@ -64,6 +64,8 @@ import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
@@ -226,6 +228,24 @@ private fun BoxScope.SheetBody(
         verticalArrangement = Arrangement.spacedBy(12.dp),
         content = content,
     )
+}
+
+@Composable
+internal fun CourseRecommendationSheetContent(
+    course: Course,
+    compact: Boolean,
+    onPreview: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val preview = course.purchasePreview ?: return
+    BasicText(
+        stringResource(R.string.course_recommendation_title, stringResource(course.region)),
+        modifier = Modifier.semantics { heading() },
+        style = PbType.title.copy(color = Pb.Ink),
+    )
+    PurchasePreview(preview, compact)
+    PrimaryButton(stringResource(R.string.course_recommendation_preview), onPreview, Modifier.fillMaxWidth())
+    QuietButton(stringResource(R.string.close), onDismiss, Modifier.fillMaxWidth())
 }
 
 /** 코스 고르기. 잠긴 코스도 고를 수 있고, 고르면 정차 화면 창으로 미리 본다. */

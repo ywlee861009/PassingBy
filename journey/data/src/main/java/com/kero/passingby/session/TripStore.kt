@@ -53,6 +53,21 @@ class TripStore(private val context: Context) : JourneyStore {
     /** 지금까지 도착한 횟수와 집중한 분. */
     override fun lifetime(): Pair<Int, Int> = prefs.getInt(KEY_ALL_TRIPS, 0) to prefs.getInt(KEY_ALL_MINUTES, 0)
 
+    override fun tryRecordCourseRecommendation(nowMillis: Long): Boolean = synchronized(prefs) {
+        val exposure = CourseRecommendationExposure(lifetime().first, nowMillis)
+        val lastCompletedJourneys = prefs.getInt(KEY_COURSE_RECOMMENDATION_COMPLETIONS, -1)
+        val previous = if (lastCompletedJourneys >= 0) {
+            CourseRecommendationExposure(lastCompletedJourneys, prefs.getLong(KEY_COURSE_RECOMMENDATION_TIME, 0L))
+        } else null
+        if (!exposure.isEligibleAfter(previous)) return@synchronized false
+
+        prefs.edit()
+            .putInt(KEY_COURSE_RECOMMENDATION_COMPLETIONS, exposure.completedJourneys)
+            .putLong(KEY_COURSE_RECOMMENDATION_TIME, exposure.shownAtMillis)
+            .apply()
+        true
+    }
+
     // ── 코스 잠금 ──
 
     /** 열린 유료 코스 id. 결제 확인·구매 복원으로 채워진다. */
@@ -207,6 +222,8 @@ class TripStore(private val context: Context) : JourneyStore {
         const val KEY_DONE = "done_"
         const val KEY_ALL_TRIPS = "all_trips"
         const val KEY_ALL_MINUTES = "all_minutes"
+        const val KEY_COURSE_RECOMMENDATION_COMPLETIONS = "course_recommendation_completions"
+        const val KEY_COURSE_RECOMMENDATION_TIME = "course_recommendation_time"
         const val KEY_UNLOCKED = "unlocked"
         const val KEY_DEV_UNLOCK = "dev_unlock_all"
         const val KEY_LEDGE = "ledge_info"

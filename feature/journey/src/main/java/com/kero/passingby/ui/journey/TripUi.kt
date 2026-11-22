@@ -2,9 +2,11 @@ package com.kero.passingby.ui.journey
 
 import com.kero.passingby.feature.journey.R
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,11 +19,13 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -32,7 +36,9 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -49,6 +55,7 @@ import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.constrainHeight
 import androidx.compose.ui.unit.dp
 import com.kero.passingby.billing.CheckoutPriceCheckStatus
+import com.kero.passingby.experience.CoursePurchasePreview
 import com.kero.passingby.experience.JourneyCourse as Course
 import com.kero.passingby.ui.theme.Pb
 import com.kero.passingby.ui.theme.PbType
@@ -82,30 +89,41 @@ fun TicketCard(
     modifier: Modifier = Modifier,
     notificationsEnabled: Boolean = true,
     onEnableNotifications: () -> Unit = {},
+    compactPurchasePreview: Boolean = false,
 ) {
     val res = LocalResources.current
     val first = stringResource(course.ordered(direction).first().name)
     val region = stringResource(course.region)
+    val preview = if (owned) null else course.purchasePreview
     Sheet(paper, modifier) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            BasicText(
-                when {
-                    restDone -> stringResource(R.string.rest_over_at, first)
-                    !owned -> stringResource(R.string.ticket_kicker_preview, course.number, region)
-                    else -> stringResource(R.string.ticket_kicker, course.number, region, stringResource(course.vehicle))
-                },
-                style = PbType.kicker.copy(color = Pb.InkSoft),
-                modifier = Modifier.weight(1f),
-            )
-            SmallLink(stringResource(R.string.journal_short), onJournal)
-            SmallLink(stringResource(R.string.settings), onSettings)
+        Column(
+            modifier = if (preview == null) Modifier else {
+                // Keep space for the purchase button when the preview area needs to scroll.
+                Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())
+            },
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                BasicText(
+                    when {
+                        restDone -> stringResource(R.string.rest_over_at, first)
+                        !owned -> stringResource(R.string.ticket_kicker_preview, course.number, region)
+                        else -> stringResource(R.string.ticket_kicker, course.number, region, stringResource(course.vehicle))
+                    },
+                    style = PbType.kicker.copy(color = Pb.InkSoft),
+                    modifier = Modifier.weight(1f),
+                )
+                SmallLink(stringResource(R.string.journal_short), onJournal)
+                SmallLink(stringResource(R.string.settings), onSettings)
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                BasicText(course.title(res, direction), style = PbType.title.copy(color = Pb.Ink), modifier = Modifier.weight(1f))
+                SmallLink(stringResource(R.string.change_course), onCourses)
+            }
+            BasicText(course.stopsLine(res, direction), style = PbType.body.copy(color = Pb.InkSoft))
+            if (preview == null || !compactPurchasePreview) Perforation(panel)
+            if (preview != null) PurchasePreview(preview, compactPurchasePreview)
         }
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            BasicText(course.title(res, direction), style = PbType.title.copy(color = Pb.Ink), modifier = Modifier.weight(1f))
-            SmallLink(stringResource(R.string.change_course), onCourses)
-        }
-        BasicText(course.stopsLine(res, direction), style = PbType.body.copy(color = Pb.InkSoft))
-        Perforation(panel)
         if (owned) {
             MinuteSelector(minutes, onMinutes)
             PrimaryButton(stringResource(R.string.depart_minutes, minutes), onDepart, Modifier.fillMaxWidth())
@@ -139,6 +157,25 @@ fun TicketCard(
                 modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
                 style = PbType.body.copy(color = Pb.InkSoft),
             )
+        }
+    }
+}
+
+@Composable
+internal fun PurchasePreview(preview: CoursePurchasePreview, compact: Boolean) {
+    val image = painterResource(preview.image)
+    val caption = stringResource(preview.caption)
+    val captionStyle = PbType.body.copy(color = Pb.InkSoft)
+    val imageShape = RoundedCornerShape(10.dp)
+    if (compact) {
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+            Image(image, null, Modifier.size(88.dp, 44.dp).clip(imageShape), contentScale = ContentScale.Crop)
+            BasicText(caption, Modifier.weight(1f), style = captionStyle)
+        }
+    } else {
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Image(image, null, Modifier.fillMaxWidth().aspectRatio(2f).clip(imageShape), contentScale = ContentScale.Crop)
+            BasicText(caption, style = captionStyle)
         }
     }
 }

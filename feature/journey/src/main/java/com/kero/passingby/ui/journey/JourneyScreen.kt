@@ -198,6 +198,13 @@ fun JourneyScreen(
     var hint by remember { mutableStateOf(false) }
     // 언어를 바꾸면 화면을 다시 만든다. 그때 설정 시트가 닫히지 않게 저장해 둔다.
     var sheet by rememberSaveable { mutableStateOf(SheetKind.NONE) }
+    var recommendedCourseId by rememberSaveable { mutableStateOf<String?>(null) }
+    val recommendedCourse = recommendedCourseId?.let(vm::findCourse)?.takeIf {
+        phase == SessionPhase.DOCKED && it.purchasePreview != null && !vm.owns(it)
+    }
+    LaunchedEffect(sheet, recommendedCourse) {
+        if (sheet == SheetKind.RECOMMENDATION && recommendedCourse == null) sheet = SheetKind.NONE
+    }
     var language by remember { mutableStateOf(AppLanguage.current(context)) }
     var notice by remember { mutableStateOf<Int?>(null) }
     LaunchedEffect(vm.messageTick) {
@@ -262,6 +269,7 @@ fun JourneyScreen(
             maxHeight < 480.dp -> FormFactor.LANDSCAPE
             else -> FormFactor.EXPANDED
         }
+        val compactPurchasePreview = form == FormFactor.TABLETOP || maxHeight < 560.dp
         val density = LocalDensity.current
         val layoutDirection = LocalLayoutDirection.current
         val insets = WindowInsets.safeDrawing
@@ -369,7 +377,14 @@ fun JourneyScreen(
             val terminus = stringResource(vm.stations.last().name)
             when (phase) {
                 SessionPhase.ARRIVED -> ArrivalCard(
-                    terminus, vm.tripMinutes, vm.today, paper, vm::rest, vm::getOff,
+                    terminus, vm.tripMinutes, vm.today, paper, vm::rest,
+                    onGetOff = {
+                        vm.getOffAndRecommend()?.let { course ->
+                            recommendedCourseId = course.id
+                            sheet = SheetKind.RECOMMENDATION
+                            Telemetry.event("course_recommendation_view", "course" to course.id)
+                        }
+                    },
                     onShare = { shareApp(context, "arrival") },
                 )
                 SessionPhase.RESTING -> RestCard(
@@ -392,6 +407,7 @@ fun JourneyScreen(
                     onJournal = { sheet = SheetKind.JOURNAL },
                     notificationsEnabled = notificationsEnabled,
                     onEnableNotifications = enableNotifications,
+                    compactPurchasePreview = compactPurchasePreview,
                 )
             }
         }
@@ -599,6 +615,17 @@ fun JourneyScreen(
                         vm.selectCourse(it)
                         sheet = SheetKind.NONE
                     }
+                    SheetKind.RECOMMENDATION -> recommendedCourse?.let { course ->
+                        CourseRecommendationSheetContent(
+                            course, compactPurchasePreview,
+                            onPreview = {
+                                Telemetry.event("course_recommendation_preview", "course" to course.id)
+                                vm.selectCourse(course)
+                                sheet = SheetKind.NONE
+                            },
+                            onDismiss = { sheet = SheetKind.NONE },
+                        )
+                    }
                     SheetKind.JOURNAL -> JournalSheetContent(vm.journalCourses, vm.today, vm.lifetime, vm.visited, vm::completions, vm::owns)
                     SheetKind.LICENSES -> LicenseSheetContent(licenses)
                     SheetKind.MODES -> ModeSheetContent(vm.availableModes, vm.journeyMode, vm.phase == SessionPhase.DOCKED) {
@@ -707,7 +734,7 @@ private fun rememberSystemPowerSave(): Boolean {
     return on
 }
 
-private enum class SheetKind { NONE, COURSES, SETTINGS, JOURNAL, LICENSES, MODES }
+private enum class SheetKind { NONE, COURSES, RECOMMENDATION, SETTINGS, JOURNAL, LICENSES, MODES }
 
 /** 스크린리더(터치 탐색)가 켜져 있으면 true. 이때는 주행 중 오버레이를 늘 보여 준다(명세 6장). */
 @Composable

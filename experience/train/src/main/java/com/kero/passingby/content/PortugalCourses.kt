@@ -2,6 +2,7 @@ package com.kero.passingby.content
 
 import com.kero.passingby.experience.train.R
 import android.graphics.Color
+import com.kero.passingby.experience.CoursePurchasePreview
 import com.kero.passingby.scene.CityLook
 import com.kero.passingby.scene.FieldStyle
 import com.kero.passingby.scene.Hill
@@ -60,6 +61,10 @@ object PortugalCourses {
         ),
         Course.REGIONAL, "course_portugal", snowy = false, Themes.PORTUGAL,
         guide = RouteGuides.PORTUGAL,
+        purchasePreview = CoursePurchasePreview(
+            R.drawable.portugal_purchase_preview,
+            R.string.portugal_purchase_preview_caption,
+        ),
         features = listOf(
             // 리스본을 떠나며 테주강 하구.
             Feature(Feature.Kind.RIVER, 0, .05f, .22f),

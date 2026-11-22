@@ -1,6 +1,8 @@
 package com.kero.passingby.experience
 
 import android.content.res.Resources
+import androidx.annotation.DrawableRes
+import androidx.annotation.StringRes
 import com.kero.passingby.experience.api.R
 import com.kero.passingby.journey.JourneyProgram
 import com.kero.passingby.journey.SessionPhase
@@ -11,6 +13,8 @@ interface JourneyStation { val name: Int; val local: String; val roman: String }
 /** UI catalog metadata, without terrain, audio or rendering data. */
 data class CourseReference(val title: String, val url: String)
 
+data class CoursePurchasePreview(@DrawableRes val image: Int, @StringRes val caption: Int)
+
 interface JourneyCourse {
     val id: String
     val number: Int
@@ -18,6 +22,7 @@ interface JourneyCourse {
     val vehicle: Int
     val stations: List<JourneyStation>
     val productId: String?
+    val purchasePreview: CoursePurchasePreview? get() = null
     val description: Int? get() = null
     val researchNote: Int? get() = null
     val distanceLightYears: Double? get() = null

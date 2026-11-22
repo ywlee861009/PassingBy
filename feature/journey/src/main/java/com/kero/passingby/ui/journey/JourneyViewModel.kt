@@ -407,6 +407,15 @@ class JourneyViewModel(
 
     fun getOff() = session.getOff()
 
+    fun getOffAndRecommend(): Course? {
+        if (phase != SessionPhase.ARRIVED) return null
+        getOff()
+        if (phase != SessionPhase.DOCKED) return null
+
+        val candidate = courses.filter { it.purchasePreview != null && !owns(it) }.randomOrNull() ?: return null
+        return candidate.takeIf { store.tryRecordCourseRecommendation() }
+    }
+
     /** 알림 권한을 이미 한 번 물었는지. 거절해도 매번 묻지 않는다. */
     val notificationAsked: Boolean
         get() = store.notificationAsked

@@ -3,6 +3,7 @@ package com.kero.passingby.content
 import com.kero.passingby.experience.api.R
 import com.kero.passingby.experience.JourneyCourse
 import com.kero.passingby.experience.JourneyStation
+import com.kero.passingby.experience.CoursePurchasePreview
 import android.content.res.Resources
 import androidx.annotation.StringRes
 import com.kero.passingby.scene.CityLook
@@ -46,6 +47,7 @@ class Course(
     val guide: RouteGuide,
     val features: List<Feature> = emptyList(),
     val landmarks: List<LandmarkSpot> = emptyList(),
+    override val purchasePreview: CoursePurchasePreview? = null,
 ) : JourneyCourse {
     override val free: Boolean get() = productId == null
 

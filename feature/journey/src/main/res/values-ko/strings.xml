@@ -61,6 +61,8 @@
     <string name="purchases_restored">구매 내역을 확인했어요</string>
     <string name="courses">코스</string>
     <string name="courses_hint">잠긴 코스도 골라서 창밖을 미리 볼 수 있어요.</string>
+    <string name="course_recommendation_title">다음엔 %1$s 여행 어때요?</string>
+    <string name="course_recommendation_preview">코스 미리보기</string>
     <string name="free">무료</string>
     <string name="unlocked">열림</string>
     <string name="locked">잠김</string>

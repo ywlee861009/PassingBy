@@ -34,6 +34,8 @@ interface JourneyStore : SessionPersistence {
     fun today(): Pair<Int, Int>
     fun completions(courseId: String): Int
     fun lifetime(): Pair<Int, Int>
+    /** Claims one eligible recommendation using the current completed journey count. */
+    fun tryRecordCourseRecommendation(nowMillis: Long = System.currentTimeMillis()): Boolean
     override fun loadActive(): Active?
 
     /** One atomic storage edit: session, route, stamps and optional completion share a checkpoint. */
