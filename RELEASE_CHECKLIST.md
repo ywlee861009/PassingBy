@@ -86,6 +86,7 @@ release 빌드를 테스트 트랙에 올리고 Play에서 설치해서 시험�
    - ID는 코드(`Course.productId`, 나라별 `content/*Courses.kt`)와 정확히 같아야 한다: `course_korea_jeolla`, `course_korea_gangneung`, `course_china_north`, `course_china_south`, `course_portugal`, `course_france`
    - 한 번 만든 ID는 지워도 다시 쓸 수 없으니 확정한 뒤에 만든다.
    - 이름, 설명, 가격을 넣고 **활성화**해야 앱에서 보인다.
+   - [ ] 미국 캘리포니아 해안선 출시 전 `course_usa_pacific_coast`의 구매 옵션을 활성화하고 내부 테스트에서 현지 가격 표시와 라이선스 테스트 구매·복원을 확인한다.
 7. [ ] **라이선스 테스트** — 설정 → 라이선스 테스트에 테스트용 Gmail 계정을 등록한다. 이 계정으로 한 결제는 실제로 청구되지 않는다.
 8. [ ] **앱 콘텐츠**
    - [ ] 개인정보처리방침 URL — 데이터를 수집하지 않는 앱도 필수

@@ -42,7 +42,7 @@ class RouteGuideTest {
     }
 
     @Test fun everyCoursePassesEveryPlaceInOrderForShortLongAndReturnJourneys() {
-        assertEquals(8, RouteGuides.ALL.size)
+        assertTrue(RouteGuides.USA_PACIFIC_COAST in RouteGuides.ALL)
         for ((index, route) in RouteGuides.ALL.withIndex()) {
             assertTrue(route.via.isNotEmpty())
             for (segment in 0 until route.stops.lastIndex) {

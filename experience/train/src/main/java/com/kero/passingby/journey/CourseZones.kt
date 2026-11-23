@@ -22,7 +22,8 @@ class CourseZones(plan: CoursePlan, private val course: Course, direction: Int, 
     private val reverse = direction < 0
     private val ramp = RAMP_SEG * segDist
 
-    private val sea = ranges(course, Feature.Kind.SEA)
+    override val seaRamp get() = ramp
+    override val seaRanges = ranges(course, Feature.Kind.SEA)
     private val rivers = ranges(course, Feature.Kind.RIVER)
     private val fieldList = course.features.filter { it.kind == Feature.Kind.FIELD }
     private val fieldRanges = DoubleArray(fieldList.size * 2).also { fill(it, fieldList) }
@@ -41,10 +42,10 @@ class CourseZones(plan: CoursePlan, private val course: Course, direction: Int, 
     /** 풍경의 좌우는 정방향 기준이라 역방향이면 뒤집는다. */
     private val side = if (reverse) -1f else 1f
 
-    override val water = sea.isNotEmpty() || rivers.isNotEmpty() || bridges.isNotEmpty() || looks.any { it.river != null }
+    override val water = seaRanges.isNotEmpty() || rivers.isNotEmpty() || bridges.isNotEmpty() || looks.any { it.river != null }
     override val fields = fieldList.isNotEmpty()
 
-    override fun sea(x: Double): Float = weight(sea, x)
+    override fun sea(x: Double): Float = weight(seaRanges, x)
 
     override fun river(x: Double): Float {
         val w = weight(rivers, x)

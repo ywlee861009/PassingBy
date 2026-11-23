@@ -78,7 +78,7 @@ class Course(
          * 나라별 파일이 이 클래스를 만들므로 처음 쓸 때 모아야 초기화 순서가 꼬이지 않는다.
          */
         val ALL: List<Course> by lazy {
-            listOf(KoreaCourses.ALL, JapanCourses.ALL, ChinaCourses.ALL, PortugalCourses.ALL, FranceCourses.ALL)
+            listOf(KoreaCourses.ALL, JapanCourses.ALL, ChinaCourses.ALL, PortugalCourses.ALL, FranceCourses.ALL, UsaCourses.ALL)
                 .flatten()
                 .sortedBy { it.number }
                 .also(::validate)

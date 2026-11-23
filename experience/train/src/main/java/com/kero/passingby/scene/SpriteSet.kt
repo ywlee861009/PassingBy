@@ -11,6 +11,7 @@ import android.graphics.PorterDuff
 import android.graphics.PorterDuffXfermode
 import android.graphics.RectF
 import kotlin.math.PI
+import kotlin.math.abs
 import kotlin.math.ceil
 import kotlin.math.cos
 import kotlin.math.max
@@ -19,7 +20,7 @@ import kotlin.math.pow
 import kotlin.math.sin
 import kotlin.math.sqrt
 
-enum class SpriteKind { PINE, ROUND, POPLAR, BUSH, REED, BAMBOO, CYPRESS }
+enum class SpriteKind { PINE, ROUND, POPLAR, BUSH, REED, BAMBOO, CYPRESS, FAN_PALM, COASTAL_SCRUB }
 
 /**
  * 단색 알파 마스크(ALPHA_8) 스프라이트.
@@ -55,6 +56,9 @@ class SpriteSet {
     val tufts = Array(6) { tuft(701 + it, tall = false) }
     val bamboos = Array(4) { bamboo(801 + it) }
     val cypresses = Array(4) { cypress(901 + it) }
+    private val fanPalmMasks = lazy { Array(3) { fanPalm(1501 + it) } }
+
+    fun prepareFanPalms() { fanPalmMasks.value }
     val houses = arrayOf(
         house(floatArrayOf(26f, 46f, 10f, 10f, 64f, 46f, 10f, 10f)) { c ->
             c.drawRect(14f, 34f, 86f, 80f, fill)
@@ -79,14 +83,18 @@ class SpriteSet {
         SpriteKind.REED -> reeds
         SpriteKind.BAMBOO -> bamboos
         SpriteKind.CYPRESS -> cypresses
+        SpriteKind.FAN_PALM -> fanPalmMasks.value
+        SpriteKind.COASTAL_SCRUB -> bushes
     }
 
-    val bytes: Long = listOf(pines, rounds, poplars, bushes, clouds, reeds, tufts, houses, bamboos, cypresses, bareRounds, barePoplars, bareBushes).sumOf { arr ->
-        arr.sumOf { s ->
-            s.base.allocationByteCount.toLong() + (s.dark?.allocationByteCount ?: 0) + (s.light?.allocationByteCount ?: 0)
-        }
+    private val commonBytes: Long = listOf(pines, rounds, poplars, bushes, clouds, reeds, tufts, houses, bamboos, cypresses, bareRounds, barePoplars, bareBushes).sumOf { arr ->
+        arr.sumOf { it.maskBytes }
     }
+    val bytes: Long get() = commonBytes + if (fanPalmMasks.isInitialized()) fanPalmMasks.value.sumOf { it.maskBytes } else 0L
 }
+
+private val Sprite.maskBytes: Long
+    get() = base.allocationByteCount.toLong() + (dark?.allocationByteCount ?: 0) + (light?.allocationByteCount ?: 0)
 
 // ───────────── 마스크 생성 (앱 시작 시 한 번, 메인 스레드에서만 실행) ─────────────
 
@@ -391,6 +399,48 @@ private fun cypress(seed: Int) = shaded(56, 240) { b, l, d, base, w, h ->
     leftSide(d, cx, h, r, 2.5f)
     restrict(d, base)
     rim(l, base, -3f, 2f)
+}
+
+/** 가늘고 긴 줄기 끝에서 부채꼴 잎이 사방으로 뻗는 가로수. */
+private fun fanPalm(seed: Int) = shaded(108, 220) { b, l, d, base, w, h ->
+    val r = SeqRandom(seed)
+    val foot = w / 2
+    val crown = foot + (r.next() - .5f) * 10f
+    val bud = 50f
+    poly(b, foot - 4f, h, crown - 2.3f, bud, crown + 2.3f, bud, foot + 4f, h)
+    poly(d, foot - 4f, h, crown - 2.3f, bud, crown, bud, foot, h)
+    // Retained leaf bases hang below the crown. The live fans sit at the ends of long,
+    // bare stalks, leaving gaps where the sky can be seen between adjacent leaves.
+    for (i in -3..3) {
+        val end = bud + 11f + r.next() * 10f
+        poly(b, crown - 3f, bud - 2f, crown + i * 2.1f, end, crown + 3f, bud)
+        poly(d, crown - 2f, bud, crown + i * 2.1f, end, crown, bud + 2f)
+    }
+    for (i in 0 until 10) {
+        val angle = (-124f + i * 27f + (r.next() - .5f) * 12f) * PI.toFloat() / 180f
+        val stalk = 11f + r.next() * 6f
+        val leaf = 17f + r.next() * 9f
+        val hubX = crown + sin(angle) * stalk
+        val hubY = bud - cos(angle) * stalk
+        poly(b, crown - 1.1f, bud + 1f, hubX - .8f, hubY, hubX + .8f, hubY, crown + 1.1f, bud)
+        val fan = Path().apply {
+            moveTo(hubX, hubY)
+            for (j in -4..4) {
+                val a = angle + j * .14f
+                val radius = if (j % 2 == 0) leaf * (1f - abs(j) * .045f) else leaf * .65f
+                lineTo(hubX + sin(a) * radius, hubY - cos(a) * radius + abs(j) * .65f)
+            }
+            close()
+        }
+        b.drawPath(fan, fill)
+        if (i < 3 || i == 8) d.drawPath(fan, fill)
+        if (i in 4..7) {
+            poly(l, hubX, hubY, hubX + sin(angle) * leaf, hubY - cos(angle) * leaf,
+                hubX + sin(angle + .18f) * leaf * .65f, hubY - cos(angle + .18f) * leaf * .65f)
+        }
+    }
+    poly(l, foot + 2.5f, h, crown + 1f, bud + 16f, crown + 2f, bud + 16f, foot + 4f, h)
+    restrict(l, base)
 }
 
 private fun bush(seed: Int) = shaded(130, 60) { b, l, d, base, w, h ->

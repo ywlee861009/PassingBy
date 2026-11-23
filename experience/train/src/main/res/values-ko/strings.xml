@@ -112,4 +112,24 @@
     <string name="place_macon">마콩</string>
     <string name="place_valence">발랑스</string>
     <string name="place_aix_provence">엑상프로방스</string>
+
+    <string name="region_usa_pacific_coast">미국 캘리포니아 해안선</string>
+    <string name="california_purchase_preview_caption">샌클레멘테의 목조 부두를 지나 태평양 해안을 달려요.</string>
+    <string name="vehicle_intercity">도시간 여객열차</string>
+    <string name="station_los_angeles">로스앤젤레스</string>
+    <string name="station_anaheim">애너하임</string>
+    <string name="station_san_juan_capistrano">샌후안카피스트라노</string>
+    <string name="station_oceanside">오션사이드</string>
+    <string name="station_solana_beach">솔라나비치</string>
+    <string name="station_san_diego">샌디에이고</string>
+    <string name="place_fullerton">풀러턴</string>
+    <string name="place_santa_ana">샌타애나</string>
+    <string name="place_irvine">어바인</string>
+    <string name="place_san_clemente_pier">샌클레멘테 부두</string>
+    <string name="place_carlsbad">칼즈배드</string>
+    <string name="place_encinitas">엔시니터스</string>
+    <string name="place_del_mar">델마</string>
+    <string name="place_sorrento_valley">소렌토 밸리</string>
+    <string name="place_rose_canyon">로즈 캐니언</string>
+    <string name="place_old_town_san_diego">샌디에이고 올드타운</string>
 </resources>

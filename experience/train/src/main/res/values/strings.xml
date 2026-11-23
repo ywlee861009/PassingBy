@@ -112,4 +112,24 @@
     <string name="place_macon">Mâcon</string>
     <string name="place_valence">Valence</string>
     <string name="place_aix_provence">Aix-en-Provence</string>
+
+    <string name="region_usa_pacific_coast">California Coast, USA</string>
+    <string name="california_purchase_preview_caption">Follow the Pacific shore past the wooden pier at San Clemente.</string>
+    <string name="vehicle_intercity">Intercity train</string>
+    <string name="station_los_angeles">Los Angeles</string>
+    <string name="station_anaheim">Anaheim</string>
+    <string name="station_san_juan_capistrano">San Juan Capistrano</string>
+    <string name="station_oceanside">Oceanside</string>
+    <string name="station_solana_beach">Solana Beach</string>
+    <string name="station_san_diego">San Diego</string>
+    <string name="place_fullerton">Fullerton</string>
+    <string name="place_santa_ana">Santa Ana</string>
+    <string name="place_irvine">Irvine</string>
+    <string name="place_san_clemente_pier">San Clemente Pier</string>
+    <string name="place_carlsbad">Carlsbad</string>
+    <string name="place_encinitas">Encinitas</string>
+    <string name="place_del_mar">Del Mar</string>
+    <string name="place_sorrento_valley">Sorrento Valley</string>
+    <string name="place_rose_canyon">Rose Canyon</string>
+    <string name="place_old_town_san_diego">San Diego Old Town</string>
 </resources>

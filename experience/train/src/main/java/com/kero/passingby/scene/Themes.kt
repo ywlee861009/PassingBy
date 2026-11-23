@@ -248,8 +248,38 @@ object Themes {
         SignStyle(Color.rgb(30, 54, 104), Color.rgb(250, 250, 250), Color.rgb(250, 250, 250)),
     )
 
+    /** 남부 캘리포니아: 마른 해안 구릉과 낮은 관목, 시가지의 키 큰 부채야자. */
+    val CALIFORNIA = Theme(
+        "california",
+        arrayOf(
+            TerrainLayer(.035, .60f, .19f, 1.0 / 350, .55, 121, Palette.FAR, .48f, .4f),
+            TerrainLayer(.075, .67f, .14f, 1.0 / 180, .35, 133, Palette.FAR, .25f, .32f,
+                daylightTint = Color.rgb(160, 147, 131)),
+            TerrainLayer(.2, .77f, .09f, 1.0 / 190, .22, 147, Palette.MID, .10f, .18f,
+                spriteHaze = .28f, daylightTint = Color.rgb(183, 163, 113),
+                objects = ObjectRule(64.0, 4.0, 16f, 29f, town = true, sink = 2f,
+                    kinds = arrayOf(SpriteKind.COASTAL_SCRUB, SpriteKind.COASTAL_SCRUB, SpriteKind.PINE))),
+            TerrainLayer(.55, .875f, .032f, 1.0 / 300, .1, 159, Palette.NEAR, .02f, .05f,
+                daylightTint = Color.rgb(161, 143, 91),
+                objects = ObjectRule(92.0, 3.8, 34f, 52f, town = false, sink = 2f,
+                    kinds = arrayOf(SpriteKind.COASTAL_SCRUB, SpriteKind.COASTAL_SCRUB, SpriteKind.COASTAL_SCRUB,
+                        SpriteKind.REED, SpriteKind.PINE))),
+        ),
+        CityLayer(.075, .70f, 38.0, 2, 17f, 32f, 22f, 98f, 162, WindowStyle.DOTS, 4.5f, 3.6f),
+        CityLayer(.2, .80f, 78.0, 2, 28f, 52f, 16f, 45f, 172, WindowStyle.GRID, 3.8f, 4.0f,
+            facades = intArrayOf(Color.rgb(226, 208, 183), Color.rgb(167, 186, 191), Color.rgb(200, 177, 157))),
+        CityLayer(.55, .885f, 72.0, 2, 24f, 45f, 11f, 24f, 182, WindowStyle.SHOP, 4.6f, 4.2f),
+        ObjectRule(90.0, 3.2, 56f, 94f, town = false, sink = 4f,
+            kinds = arrayOf(SpriteKind.FAN_PALM, SpriteKind.FAN_PALM, SpriteKind.FAN_PALM, SpriteKind.COASTAL_SCRUB)),
+        HouseStyle(RoofStyle.TILE,
+            intArrayOf(Color.rgb(241, 228, 197), Color.rgb(228, 201, 165), Color.rgb(240, 221, 206)),
+            intArrayOf(Color.rgb(175, 90, 57), Color.rgb(154, 83, 65), Color.rgb(199, 116, 77))),
+        BarrierStyle.NONE,
+        SignStyle(Color.rgb(37, 72, 93), Color.rgb(250, 246, 227), Color.rgb(221, 155, 81)),
+    )
+
     private fun TerrainLayer.reseeded(shift: Int) =
-        TerrainLayer(speed, base, amp, freq, ridge, seed + shift, colorKey, haze, mist, spriteHaze, objects, shape)
+        TerrainLayer(speed, base, amp, freq, ridge, seed + shift, colorKey, haze, mist, spriteHaze, objects, shape, daylightTint)
 
     private fun CityLayer.reseeded(shift: Int) = CityLayer(
         speed, base, chunkUnits, perChunk, minW, maxW, minH, maxH, seed + shift, style, floorU, colU,

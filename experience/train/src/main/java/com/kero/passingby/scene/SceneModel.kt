@@ -75,6 +75,7 @@ class TerrainLayer(
     val spriteHaze: Float = 0f,
     val objects: ObjectRule? = null,
     val shape: TerrainShape = TerrainShape.HILLS,
+    val daylightTint: Int? = null,
 )
 
 /** 지형 모양. 언덕(노이즈 능선)과 카르스트(가파른 둥근 봉우리가 늘어선 모양). */
@@ -151,7 +152,14 @@ private fun karst(l: TerrainLayer, wx: Double): Double {
     return h
 }
 
-internal fun layerColor(l: TerrainLayer, p: Palette) = mix(p.c[l.colorKey], p.c[Palette.HAZE], l.haze)
+internal fun layerColor(l: TerrainLayer, p: Palette): Int {
+    val base = p.c[l.colorKey]
+    val ground = l.daylightTint?.let { tint ->
+        val darkness = maxOf(p.f[Palette.STARS], p.f[Palette.LIT], p.f[Palette.SNOW])
+        mix(base, tint, .58f * (1f - darkness))
+    } ?: base
+    return mix(ground, p.c[Palette.HAZE], l.haze)
+}
 
 internal fun spriteColor(l: TerrainLayer, p: Palette) = mix(p.c[Palette.TREE], p.c[Palette.HAZE], l.spriteHaze)
 
@@ -196,6 +204,7 @@ internal object Placement {
             val arr = sprites.of(kind, season)
             out.sprite = arr[(r5 * arr.size).toInt()]
             out.heightU = when (kind) {
+                SpriteKind.COASTAL_SCRUB -> 7f + r3 * 10f
                 SpriteKind.BUSH -> 20 + r3 * 12
                 SpriteKind.REED -> 30 + r3 * 18
                 else -> r.minH + r3 * (r.maxH - r.minH)

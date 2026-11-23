@@ -89,6 +89,10 @@ enum class LandmarkKind(
     PAPAL_PALACE(Scenery.MID, top = true, tone = Tone.STONE),
     /** 강 가운데서 끊긴 돌다리와 작은 예배당(아비뇽 생베네제 다리). */
     BROKEN_BRIDGE(Scenery.MID, water = true, tone = Tone.STONE),
+    LA_UNION_STATION(Scenery.MID, top = true, tone = Tone.STONE),
+    ANAHEIM_ARTIC(Scenery.MID, top = true, tone = Tone.IRON),
+    SAN_CLEMENTE_PIER(Scenery.MID, water = true),
+    SANTA_FE_DEPOT(Scenery.MID, top = true, tone = Tone.STONE),
 }
 
 /** 랜드마크 재질 색. LAYER는 원경이면 레이어 색(안개), 중경이면 철재색. */
@@ -126,6 +130,8 @@ class Theme(
  */
 interface Zones {
     /** 수평선까지 이어지는 바다(0~1). */
+    val seaRanges: DoubleArray
+    val seaRamp: Double
     fun sea(x: Double): Float
     /** 중경 높이에서 맞은편 언덕이 보이는 강·호수(0~1). */
     fun river(x: Double): Float
@@ -152,6 +158,8 @@ interface Zones {
 
     companion object {
         val NONE = object : Zones {
+            override val seaRanges = DoubleArray(0)
+            override val seaRamp = 0.0
             override fun sea(x: Double) = 0f
             override fun river(x: Double) = 0f
             override fun fieldStyle(x: Double) = FieldStyle.NONE

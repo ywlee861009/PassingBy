@@ -8,6 +8,8 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.kero.passingby.audio.AmbientSound
 import com.kero.passingby.audio.LookaheadLimiter
 import com.kero.passingby.content.Course
+import com.kero.passingby.content.RouteGuides
+import com.kero.passingby.content.UsaCourses
 import com.kero.passingby.journey.CoursePlan
 import com.kero.passingby.journey.CourseZones
 import com.kero.passingby.scene.*
@@ -61,7 +63,7 @@ class TrainRenderingValidationTest {
         assertEquals(0f, state.effective.f[Palette.SNOW], 0f)
     }
 
-    @Test fun renderEightCoursesAndRepresentativeWeatherMatrix() {
+    @Test fun renderAllCoursesAndRepresentativeWeatherMatrix() {
         for (course in Course.ALL) {
             val plan = CoursePlan(25 * 60.0, course.stations.size, course.cruise)
             val state = SceneState().apply {
@@ -146,7 +148,56 @@ class TrainRenderingValidationTest {
                 assertTrue(File(output, "${course.id}-${season.id}-DAY-CLEAR-portrait.png").isFile)
             }
         }
-        assertEquals(8, Course.ALL.size)
+        assertEquals(Course.ALL.map { it.guide }, RouteGuides.ALL)
+    }
+
+    @Test fun californiaLandmarksAreVisibleInBothDirections() {
+        val course = UsaCourses.PACIFIC_COAST
+        val plan = CoursePlan(25 * 60.0, course.stations.size, course.cruise)
+        val width = 960
+        val height = 480
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        val withLandmark = IntArray(width * height)
+        val withoutLandmark = IntArray(width * height)
+        val state = SceneState().apply {
+            theme = course.theme
+            urban = UrbanField { x -> plan.at(x) }
+            mode = RenderMode.DIRECT
+            windowFrame = false
+            autoWeather = false
+            setTimeOfDay(TimeOfDay.DAY)
+            snapTimeOfDay()
+        }
+        val renderer = SceneRenderer(state)
+        try {
+            for (direction in listOf(1, -1)) {
+                val zones = CourseZones(plan, course, direction, 0.0)
+                val stops = course.ordered(direction)
+                state.setStations(DoubleArray(stops.size) { plan.stationDistance(it) },
+                    Array(stops.size) { stops[it].local }, Array(stops.size) { stops[it].roman })
+                for (mark in zones.landmarks) {
+                    state.zones = zones
+                    state.setTravel(mark.x, 0.0)
+                    state.update(0f, .4f)
+                    renderer.render(canvas, width, height)
+                    bitmap.getPixels(withLandmark, 0, width, 0, 0, width, height)
+                    File(output, "california-${mark.kind}-$direction.png").outputStream().use {
+                        assertTrue(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it))
+                    }
+                    state.zones = object : Zones by zones {
+                        override val landmarks = zones.landmarks.filter { it !== mark }
+                    }
+                    renderer.render(canvas, width, height)
+                    bitmap.getPixels(withoutLandmark, 0, width, 0, 0, width, height)
+                    val visiblePixels = withLandmark.indices.count { withLandmark[it] != withoutLandmark[it] }
+                    assertTrue("${mark.kind} ($direction) visible pixels: $visiblePixels", visiblePixels > 300)
+                }
+            }
+        } finally {
+            renderer.release()
+            bitmap.recycle()
+        }
     }
 
     private fun capture(renderer: SceneRenderer, state: SceneState, name: String, time: TimeOfDay, weather: Weather, landscape: Boolean) {

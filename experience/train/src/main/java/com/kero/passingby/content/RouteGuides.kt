@@ -172,5 +172,28 @@ object RouteGuides {
         ),
     )
 
-    val ALL = listOf(GYEONGBU, TOKAIDO, JEOLLA, GANGNEUNG, CHINA_NORTH, CHINA_SOUTH, PORTUGAL, FRANCE)
+    val USA_PACIFIC_COAST = RouteGuide(
+        stops = listOf(
+            RoutePlace(R.string.station_los_angeles, 0.0),
+            RoutePlace(R.string.station_anaheim, 50.0),
+            RoutePlace(R.string.station_san_juan_capistrano, 93.0),
+            RoutePlace(R.string.station_oceanside, 140.0),
+            RoutePlace(R.string.station_solana_beach, 164.0),
+            RoutePlace(R.string.station_san_diego, 206.0),
+        ),
+        via = listOf(
+            RoutePlace(R.string.place_fullerton, 42.0),
+            RoutePlace(R.string.place_santa_ana, 58.0),
+            RoutePlace(R.string.place_irvine, 72.0),
+            RoutePlace(R.string.place_san_clemente_pier, 105.0),
+            RoutePlace(R.string.place_carlsbad, 145.0),
+            RoutePlace(R.string.place_encinitas, 158.0),
+            RoutePlace(R.string.place_del_mar, 167.0),
+            RoutePlace(R.string.place_sorrento_valley, 175.0),
+            RoutePlace(R.string.place_rose_canyon, 188.0),
+            RoutePlace(R.string.place_old_town_san_diego, 201.0),
+        ),
+    )
+
+    val ALL = listOf(GYEONGBU, TOKAIDO, JEOLLA, GANGNEUNG, CHINA_NORTH, CHINA_SOUTH, PORTUGAL, FRANCE, USA_PACIFIC_COAST)
 }

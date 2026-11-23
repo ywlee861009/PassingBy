@@ -15,6 +15,7 @@ import android.graphics.RectF
 import android.graphics.Shader
 import android.graphics.Typeface
 import java.util.Random
+import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import kotlin.math.PI
@@ -66,7 +67,7 @@ class SceneRenderer(private val state: SceneState) : ExperienceRenderer {
         private set
 
     override val bitmapBytes: Long
-        get() = sprites.bytes + bakers.sumOf { it.bytes } + (tileSet?.bytes ?: 0L)
+        get() = sprites.bytes + (pacificShore?.bytes ?: 0L) + landmarkPainter.bitmapBytes + bakers.sumOf { it.bytes } + (tileSet?.bytes ?: 0L)
 
     // 재사용 객체
     private val terrainPath = Path()
@@ -109,6 +110,7 @@ class SceneRenderer(private val state: SceneState) : ExperienceRenderer {
     private val bedTones = IntArray(4)
     private val warmPts = FloatArray(MAX_WINDOWS * 2)
     private val coolPts = FloatArray(MAX_WINDOWS * 2)
+    private val poleVisible = BooleanArray(MAX_POLES)
     private val polesX = FloatArray(MAX_POLES)
     private val barrierOn = BooleanArray(MAX_BARRIER)
     /** 화면 폭의 절반(장면 단위). 사물의 레이어 좌표를 세계 위치로 환산할 때 쓴다. */
@@ -156,6 +158,9 @@ class SceneRenderer(private val state: SceneState) : ExperienceRenderer {
     private val platformPaint = Paint()
     private val housePaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val housePath = Path()
+    private val horizonClip = Path()
+    private var shoreBake: CompletableFuture<PacificShore>? = null
+    private val pacificShore: PacificShore? get() = shoreBake?.getNow(null)
     private val waterPaint = Paint()
     private var waterKeyA = 0
     private var waterKeyB = 0
@@ -237,6 +242,9 @@ class SceneRenderer(private val state: SceneState) : ExperienceRenderer {
 
     override fun release() {
         released = true
+        shoreBake?.cancel(false)
+        shoreBake = null
+        landmarkPainter.release()
         tileGeneration++
         executor.shutdownNow()
         for (b in bakers) b.release()
@@ -274,6 +282,10 @@ class SceneRenderer(private val state: SceneState) : ExperienceRenderer {
     private fun applyTheme() {
         val t = state.theme
         appliedTheme = t
+        shoreBake?.cancel(false)
+        shoreBake = if (t === Themes.CALIFORNIA) CompletableFuture.supplyAsync(::PacificShore, executor) else null
+        if (t === Themes.CALIFORNIA) sprites.prepareFanPalms()
+        landmarkPainter.release()
         for (b in bakers) b.release()
         layers = t.layers
         shapers = Array(layers.size) { TerrainShaper(appliedZones, it, layers[it].speed, shapedHalfWU) }
@@ -418,6 +430,7 @@ class SceneRenderer(private val state: SceneState) : ExperienceRenderer {
         val mid = layers[Scenery.MID]
         val near = layers[Scenery.NEAR]
 
+        val coastClip = th === Themes.CALIFORNIA && clipPacificSky(canvas, mid.speed, d * mid.speed)
         drawTerrain(canvas, Scenery.FAR_A, d * farA.speed, mix(layerColor(farA, p), mix(p.c[Palette.FAR], p.c[Palette.HAZE], .55f), uc), farA.mist, p)
         drawLandmarks(canvas, p, Scenery.FAR_A)
         drawTerrain(canvas, Scenery.FAR_B, d * farB.speed, desaturate(layerColor(farB, p), .25f * uc), farB.mist, p)
@@ -433,6 +446,7 @@ class SceneRenderer(private val state: SceneState) : ExperienceRenderer {
         midTones.update(spriteColor(mid, p), mid.spriteHaze, .6f, p, state.season)
         // 도시 안 언덕에도 나무가 조금 남는다.
         mid.objects?.let { drawObjects(canvas, mid, it, midOff, midTones, p, GATE_RURAL, .8f) }
+        if (coastClip) canvas.restore()
         drawWater(canvas, p, mid.speed, midOff)
         drawLandmarks(canvas, p, Scenery.MID, onWater = true)
         val mb = mix(desaturate(p.c[Palette.MID], .7f), p.c[Palette.FAR], .15f)
@@ -972,6 +986,7 @@ class SceneRenderer(private val state: SceneState) : ExperienceRenderer {
         var count = 0
         for (i in i0..i1) {
             if (count >= MAX_POLES) break
+            poleVisible[count] = state.theme !== Themes.CALIFORNIA || state.zones.sea((i * spacing - halfWU) / Scenery.POLE_SPEED) < .35f
             polesX[count++] = ((i * spacing - off) * u).toFloat()
         }
         val top = layout.yAt(.16f)
@@ -979,6 +994,7 @@ class SceneRenderer(private val state: SceneState) : ExperienceRenderer {
         val h = layout.h.toFloat()
         polePaint.color = p.c[Palette.POLE]
         for (n in 0 until count) {
+            if (!poleVisible[n]) continue
             val x = polesX[n]
             canvas.drawRect(x - 2.5f * u, top, x + 2.5f * u, h, polePaint)
             canvas.drawRect(x - 17 * u, arm, x + 17 * u, arm + 3 * u, polePaint)
@@ -990,6 +1006,7 @@ class SceneRenderer(private val state: SceneState) : ExperienceRenderer {
         val path = wirePath
         path.rewind()
         for (n in 0 until count - 1) {
+            if (!poleVisible[n] || !poleVisible[n + 1]) continue
             val a = polesX[n]
             val b = polesX[n + 1]
             for (q in 0 until 4) {
@@ -1022,6 +1039,7 @@ class SceneRenderer(private val state: SceneState) : ExperienceRenderer {
         if (!z.water) return false
         val x = (wx - halfWU) / speed
         return when {
+            state.theme === Themes.CALIFORNIA && z.sea(x) > .45f -> true
             speed >= .5 -> inRanges(z.bridges, x, BRIDGE_BANK)
             speed < .1 -> z.sea(x) > .5f
             else -> false
@@ -1110,6 +1128,40 @@ class SceneRenderer(private val state: SceneState) : ExperienceRenderer {
         canvas.drawRect(x0 - ov, bodyTop - max(1f, hPx * .03f), x1 + ov, bodyTop, housePaint)
     }
 
+    /** Keep the original sky (including clouds and sun) visible all the way down to the Pacific horizon. */
+    private fun clipPacificSky(canvas: Canvas, speed: Double, off: Double): Boolean {
+        val ranges = state.zones.seaRanges
+        if (ranges.isEmpty()) return false
+        val ramp = state.zones.seaRamp * speed
+        val w = layout.w.toFloat()
+        val u = layout.u
+        val horizon = layout.yAt(PACIFIC_HORIZON)
+        horizonClip.rewind()
+        var visible = false
+        var i = 0
+        while (i < ranges.size) {
+            val left = ranges[i++] * speed + halfWU - off
+            val right = ranges[i++] * speed + halfWU - off
+            if ((right + ramp) * u <= 0 || (left - ramp) * u >= w) continue
+            // Clip away a bay-shaped opening. Vertical coordinates above zero lie outside the canvas.
+            val x0 = ((left - ramp) * u).toFloat()
+            val x1 = (left * u).toFloat()
+            val x2 = (right * u).toFloat()
+            val x3 = ((right + ramp) * u).toFloat()
+            horizonClip.moveTo(x0, -1f)
+            horizonClip.cubicTo(x0, horizon * .72f, x1, horizon, x1, horizon)
+            horizonClip.lineTo(x2, horizon)
+            horizonClip.cubicTo(x2, horizon, x3, horizon * .72f, x3, -1f)
+            horizonClip.close()
+            visible = true
+        }
+        if (visible) {
+            canvas.save()
+            canvas.clipOutPath(horizonClip)
+        }
+        return visible
+    }
+
     /**
      * 중경 높이의 물. 바다는 수평선(먼 산 아래)까지, 강·호수는 맞은편 언덕 아래부터 채운다.
      * 화면을 세로 띠로 나눠 띠마다 구역 비중을 읽고, 해안선은 비중에 따라 부드럽게 흐려진다.
@@ -1119,19 +1171,25 @@ class SceneRenderer(private val state: SceneState) : ExperienceRenderer {
         if (!z.water) return
         val u = layout.u
         val w = layout.w.toFloat()
-        val seaTop = layout.yAt(.655f)
+        val pacific = state.theme === Themes.CALIFORNIA
+        val waterGradientTop = layout.yAt(.655f)
+        val seaTop = if (pacific) layout.yAt(PACIFIC_HORIZON) else waterGradientTop
         val riverTop = layout.yAt(.772f)
         val bottom = layout.yAt(.9f)
         // 바다는 중경 건물 바닥선 위까지만 채워, 해안 도시와 해변이 땅 위에 서게 한다.
-        val seaBottom = layout.yAt(.792f)
+        val seaBottom = layout.yAt(if (pacific) .79f else .792f)
         val top = mix(p.c[Palette.HAZE], p.c[Palette.BOT], .35f)
         val deep = mix(mix(p.c[Palette.FAR], p.c[Palette.TOP], .3f), p.c[Palette.HAZE], .25f)
-        if (top != waterKeyA || deep != waterKeyB || waterTop != seaTop) {
+        if (top != waterKeyA || deep != waterKeyB || waterTop != waterGradientTop) {
             waterKeyA = top
             waterKeyB = deep
-            waterTop = seaTop
-            waterPaint.shader = LinearGradient(0f, seaTop, 0f, bottom, top, deep, Shader.TileMode.CLAMP)
+            waterTop = waterGradientTop
+            waterPaint.shader = LinearGradient(0f, waterGradientTop, 0f, bottom, top, deep, Shader.TileMode.CLAMP)
         }
+        val shore = pacificShore
+        shore?.update(p, state.elapsedSec)
+        var coastStart = 0f
+        var coastAlpha = 0
         val strip = WATER_STRIP * u
         var x = 0f
         while (x < w) {
@@ -1139,8 +1197,15 @@ class SceneRenderer(private val state: SceneState) : ExperienceRenderer {
             val sea = z.sea(xw)
             val river = max(z.river(xw), if (inRanges(z.bridges, xw, BRIDGE_RIVER)) 1f else 0f)
             val amount = max(sea, river)
-            if (amount > .02f) {
-                waterPaint.alpha = (smooth01((amount - .25f) / .5f) * 255).toInt()
+            val alpha = if (amount > .02f) (smooth01((amount - .25f) / .5f) * 255).toInt() else 0
+            val nextCoastAlpha = if (shore != null && sea >= river) alpha else 0
+            if (nextCoastAlpha != coastAlpha) {
+                if (coastAlpha > 0) shore?.draw(canvas, coastStart, x, seaTop, bottom, off, u, coastAlpha)
+                coastStart = x
+                coastAlpha = nextCoastAlpha
+            }
+            if (alpha > 0 && nextCoastAlpha == 0) {
+                waterPaint.alpha = alpha
                 if (sea >= river) {
                     canvas.drawRect(x, seaTop, x + strip + 1, seaBottom, waterPaint)
                 } else {
@@ -1149,6 +1214,7 @@ class SceneRenderer(private val state: SceneState) : ExperienceRenderer {
             }
             x += strip
         }
+        if (coastAlpha > 0) shore?.draw(canvas, coastStart, w, seaTop, bottom, off, u, coastAlpha)
         waterPaint.alpha = 255
         drawGlints(canvas, p, speed, off, seaTop, seaBottom, riverTop, bottom)
     }
@@ -1170,6 +1236,7 @@ class SceneRenderer(private val state: SceneState) : ExperienceRenderer {
         for (k in k0..k1) {
             val xw = ((k + .5) * cell - halfWU) / speed
             val sea = z.sea(xw) > .6f
+            if (sea && pacificShore != null) continue
             val river = !sea && (z.river(xw) > .6f || inRanges(z.bridges, xw, BRIDGE_RIVER))
             if (!sea && !river) continue
             val y0 = if (sea) seaTop else riverTop
@@ -1435,6 +1502,8 @@ class SceneRenderer(private val state: SceneState) : ExperienceRenderer {
             groundLayer = l
             groundWx = lm.x * l.speed + halfWU
             val by = when {
+                // The landward ramp extends past the wash even where the beach curves inland.
+                lm.kind == LandmarkKind.SAN_CLEMENTE_PIER -> layout.yAt(.79f) + 13 * u
                 onWater -> layout.yAt(if (z.sea(lm.x) >= z.river(lm.x)) SEA_BRIDGE_BASE else RIVER_BRIDGE_BASE)
                 layerIndex == Scenery.MID -> terrainY(l, groundWx) + 3 * u
                 else -> layout.yAt(l.base) + 4 * u
@@ -1805,6 +1874,7 @@ class SceneRenderer(private val state: SceneState) : ExperienceRenderer {
         /** 원경 랜드마크의 명암 세기(중경 대비). */
         const val FAR_RELIEF = .8f
         /** 물 위 다리의 바닥선. 바다는 수평선 가까이, 강은 강물 띠 위쪽. */
+        const val PACIFIC_HORIZON = .585f
         const val SEA_BRIDGE_BASE = .70f
         const val RIVER_BRIDGE_BASE = .80f
         /** 물을 그리는 세로 띠 폭(단위). */

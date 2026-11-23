@@ -1,6 +1,6 @@
 # 노선 위치 안내
 
-8개 코스 모두 `Course.guide`에 정차역과 통과 지역을 둔다. 지명은 한국어·영어 리소스로 제공한다.
+각 코스는 `Course.guide`에 정차역과 통과 지역을 둔다. 지명은 한국어·영어 리소스로 제공한다.
 실제 노선의 대표 지점과 경유 순서를 바탕으로 한 가상 열차 위치이며, 사용자 기기의 GPS 위치는 읽지 않는다.
 
 `RouteGuide.kmAt`은 풍경이 쓰는 `CoursePlan.distanceAt(t) / segDist`를 각 정차역 사이의
@@ -29,7 +29,8 @@
 | 중국 남부 | 광저우남–구이린서–구이양동. 원래 구이양동 기준 857 km 거리 축을 반대로 변환. | [국가발전개혁위원회 노선 경유지](https://www.ndrc.gov.cn/fzggw/jgsj/zcs/sjdt/200811/t20081124_1144642_ext.html), [중국철도 12306 역 목록](https://www.12306.cn/mormhweb/zxdt/202308/t20230826_39897.html), [거리표와 참고문헌](https://china-emu.cn/RailRoads/Line/?LineName=贵广高速铁路) |
 | 포르투갈 | 리스본 산타아폴로니아–코임브라B–포르투 캄파냥의 북부선 뒤에 도루선 레구아 구간을 연결. 아베이루·이스피뉴·페나피엘·마르쿠 드 카나베즈스·아레구스 경유. | [CP 북부선 운행계약 역 목록](https://cp.pt/info/documents/d/cp/anexo12-alfa-pendular-1?download=true), [CP 도루선](https://cp.pt/info/w/linha-douro) |
 | 프랑스 | 파리 리옹역–리옹 파르디외–아비뇽 고속역–마르세유 생샤를. 르크뢰조·마콩·발랑스·엑상프로방스 경유. | [SNCF 고속선 노선도](https://www.sncf-connect.com/assets/media/2024-05/2014_axes-tgv_0.pdf), [SNCF 철도 지도집](https://www.sncf-reseau.com/fr/cartes/atlas-du-reseau-ferre-francais) |
+| 미국 캘리포니아 해안선 | 로스앤젤레스–애너하임–샌후안카피스트라노–오션사이드–솔라나비치–샌디에이고. 정차역의 누적 거리는 로스앤젤레스에서 샌디에이고까지의 128마일을 km로 환산했다. | [Amtrak 정차역](https://www.amtrak.com/pacific-surfliner-train), [Amtrak 영업거리표 4쪽](https://juckins.net/amtrak_timetables/archive/timetables_Pacific_Surfliner_CA_Coastal_Services_20161003.pdf) |
 
 새 코스는 `guide`가 필수다. 코스 초기화 시 안내 정차역과 실제 코스의 정차역 이름·순서를 대조한다.
-`RouteGuideTest`는 8개 코스의 25·50·90분 여행을 양방향으로 훑어 모든 통과 지역의 순서와
+`RouteGuideTest`는 각 코스의 25·50·90분 여행을 양방향으로 훑어 모든 통과 지역의 순서와
 노출 여부, 정차·거리 비율·경과 시간 재현을 확인한다.
