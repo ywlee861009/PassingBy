@@ -24,6 +24,14 @@ class CourseZones(plan: CoursePlan, private val course: Course, direction: Int, 
 
     override val seaRamp get() = ramp
     override val seaRanges = ranges(course, Feature.Kind.SEA)
+    private val prairies = ranges(course, Feature.Kind.PRAIRIE)
+    private val dryWashes = ranges(course, Feature.Kind.DRY_WASH)
+    private val limestoneCanyons = ranges(course, Feature.Kind.LIMESTONE_CANYON)
+
+    override fun prairie(x: Double): Float = weight(prairies, x)
+    override fun dryWash(x: Double): Float = weight(dryWashes, x)
+    override fun limestoneCanyon(x: Double): Float = weight(limestoneCanyons, x)
+
     private val rivers = ranges(course, Feature.Kind.RIVER)
     private val fieldList = course.features.filter { it.kind == Feature.Kind.FIELD }
     private val fieldRanges = DoubleArray(fieldList.size * 2).also { fill(it, fieldList) }

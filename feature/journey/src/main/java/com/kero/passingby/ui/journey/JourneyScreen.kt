@@ -202,8 +202,10 @@ fun JourneyScreen(
     val recommendedCourse = recommendedCourseId?.let(vm::findCourse)?.takeIf {
         phase == SessionPhase.DOCKED && it.purchasePreview != null && !vm.owns(it)
     }
-    LaunchedEffect(sheet, recommendedCourse) {
+    val arrivalPostcard = if (phase == SessionPhase.ARRIVED) vm.course.arrivalPostcard(vm.direction) else null
+    LaunchedEffect(sheet, recommendedCourse, arrivalPostcard) {
         if (sheet == SheetKind.RECOMMENDATION && recommendedCourse == null) sheet = SheetKind.NONE
+        if (sheet == SheetKind.POSTCARD && arrivalPostcard == null) sheet = SheetKind.NONE
     }
     var language by remember { mutableStateOf(AppLanguage.current(context)) }
     var notice by remember { mutableStateOf<Int?>(null) }
@@ -386,6 +388,7 @@ fun JourneyScreen(
                         }
                     },
                     onShare = { shareApp(context, "arrival") },
+                    onViewPostcard = if (arrivalPostcard != null) ({ sheet = SheetKind.POSTCARD }) else null,
                 )
                 SessionPhase.RESTING -> RestCard(
                     terminus, vm.course.title(res, -vm.direction), vm.minutes, vm.restLeftSec, paper, depart, vm::getOff,
@@ -626,6 +629,9 @@ fun JourneyScreen(
                             onDismiss = { sheet = SheetKind.NONE },
                         )
                     }
+                    SheetKind.POSTCARD -> arrivalPostcard?.let { postcard ->
+                        DestinationPostcard(postcard, onDismiss = { sheet = SheetKind.NONE })
+                    }
                     SheetKind.JOURNAL -> JournalSheetContent(vm.journalCourses, vm.today, vm.lifetime, vm.visited, vm::completions, vm::owns)
                     SheetKind.LICENSES -> LicenseSheetContent(licenses)
                     SheetKind.MODES -> ModeSheetContent(vm.availableModes, vm.journeyMode, vm.phase == SessionPhase.DOCKED) {
@@ -734,7 +740,7 @@ private fun rememberSystemPowerSave(): Boolean {
     return on
 }
 
-private enum class SheetKind { NONE, COURSES, RECOMMENDATION, SETTINGS, JOURNAL, LICENSES, MODES }
+private enum class SheetKind { NONE, COURSES, RECOMMENDATION, SETTINGS, JOURNAL, LICENSES, MODES, POSTCARD }
 
 /** 스크린리더(터치 탐색)가 켜져 있으면 true. 이때는 주행 중 오버레이를 늘 보여 준다(명세 6장). */
 @Composable

@@ -15,6 +15,8 @@ import com.kero.passingby.journey.CourseZones
 import com.kero.passingby.scene.*
 import com.kero.passingby.experience.*
 import java.io.File
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.TimeUnit
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.random.Random
@@ -151,8 +153,52 @@ class TrainRenderingValidationTest {
         assertEquals(Course.ALL.map { it.guide }, RouteGuides.ALL)
     }
 
-    @Test fun californiaLandmarksAreVisibleInBothDirections() {
-        val course = UsaCourses.PACIFIC_COAST
+    @Test fun californiaLandmarksAreVisibleInBothDirections() =
+        verifyLandmarks(UsaCourses.PACIFIC_COAST, "california")
+
+    @Test fun grandCanyonDepotsAndPostcardFollowTheTrainDirection() {
+        val course = UsaCourses.GRAND_CANYON
+        assertNotNull(course.purchasePreview)
+        assertEquals(course.purchasePreview, course.arrivalPostcard(1))
+        assertNull(course.arrivalPostcard(-1))
+        assertNull(UsaCourses.PACIFIC_COAST.arrivalPostcard(1))
+        verifyLandmarks(course, course.id)
+    }
+
+    @Test fun grandCanyonTerrainIsVisibleAlongBothDirections() {
+        val course = UsaCourses.GRAND_CANYON
+        val plan = CoursePlan(1500.0, course.stations.size, course.cruise)
+        val state = SceneState().apply {
+            theme = course.theme
+            mode = RenderMode.BAKED
+            windowFrame = false
+            autoWeather = false
+            setTimeOfDay(TimeOfDay.DAY)
+            snapTimeOfDay()
+        }
+        val renderer = SceneRenderer(state)
+        try {
+            for (direction in listOf(1, -1)) {
+                val zones = CourseZones(plan, course, direction, 0.0)
+                state.zones = zones
+                fun at(fraction: Double) = plan.segDist * if (direction > 0) fraction else 1.0 - fraction
+                for ((scene, fraction) in listOf("forest" to .08, "prairie" to .38,
+                    "miller-wash" to (35.5 / 65), "coconino-canyon" to (56.0 / 65))) {
+                    val x = at(fraction)
+                    when (scene) {
+                        "forest" -> assertEquals(0f, zones.prairie(x), .001f)
+                        "prairie" -> assertEquals(1f, zones.prairie(x), .001f)
+                        "miller-wash" -> assertEquals(1f, zones.dryWash(x), .001f)
+                        "coconino-canyon" -> assertEquals(1f, zones.limestoneCanyon(x), .001f)
+                    }
+                    state.setTravel(x, 0.0)
+                    capture(renderer, state, "${course.id}-$scene-$direction", TimeOfDay.DAY, Weather.CLEAR, true)
+                }
+            }
+        } finally { renderer.release() }
+    }
+
+    private fun verifyLandmarks(course: Course, prefix: String) {
         val plan = CoursePlan(25 * 60.0, course.stations.size, course.cruise)
         val width = 960
         val height = 480
@@ -176,13 +222,19 @@ class TrainRenderingValidationTest {
                 val stops = course.ordered(direction)
                 state.setStations(DoubleArray(stops.size) { plan.stationDistance(it) },
                     Array(stops.size) { stops[it].local }, Array(stops.size) { stops[it].roman })
-                for (mark in zones.landmarks) {
+                for ((spot, mark) in course.landmarks.zip(zones.landmarks)) {
                     state.zones = zones
-                    state.setTravel(mark.x, 0.0)
+                    // Use the scheduled rail position; a depot can sit to one side of the platform.
+                    val position = if (direction < 0) plan.segments - spot.pos else spot.pos
+                    state.setTravel(position * plan.segDist, 0.0)
                     state.update(0f, .4f)
                     renderer.render(canvas, width, height)
+                    if (course === UsaCourses.GRAND_CANYON) {
+                        awaitPlateauArtwork(renderer)
+                        renderer.render(canvas, width, height)
+                    }
                     bitmap.getPixels(withLandmark, 0, width, 0, 0, width, height)
-                    File(output, "california-${mark.kind}-$direction.png").outputStream().use {
+                    File(output, "$prefix-${mark.kind}-$direction.png").outputStream().use {
                         assertTrue(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it))
                     }
                     state.zones = object : Zones by zones {
@@ -209,9 +261,19 @@ class TrainRenderingValidationTest {
         val w = if (landscape) 1280 else 720
         val h = if (landscape) 720 else 1280
         val bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
-        renderer.render(Canvas(bitmap), w, h)
+        val canvas = Canvas(bitmap)
+        renderer.render(canvas, w, h)
+        if (state.theme === Themes.GRAND_CANYON) {
+            awaitPlateauArtwork(renderer)
+            renderer.render(canvas, w, h)
+        }
         File(output, "$name.png").outputStream().use { assertTrue(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)) }
         bitmap.recycle()
+    }
+
+    private fun awaitPlateauArtwork(renderer: SceneRenderer) {
+        val bake = SceneRenderer::class.java.getDeclaredField("plateauBake").apply { isAccessible = true }
+        (bake.get(renderer) as CompletableFuture<*>).get(5, TimeUnit.SECONDS)
     }
 
     @Test fun audioRapidToggleAndForegroundRestartEndTheirThread() {

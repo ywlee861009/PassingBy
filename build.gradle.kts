@@ -13,6 +13,8 @@ subprojects {
     pluginManager.withPlugin("com.android.library") {
         extensions.configure<com.android.build.gradle.LibraryExtension> {
             compileSdk = 36
+            // Standalone instrumentation activities should run with the same window behavior as the app.
+            testOptions.targetSdk = 36
             defaultConfig {
                 minSdk = 26
                 testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"

@@ -67,7 +67,7 @@ class SceneRenderer(private val state: SceneState) : ExperienceRenderer {
         private set
 
     override val bitmapBytes: Long
-        get() = sprites.bytes + (pacificShore?.bytes ?: 0L) + landmarkPainter.bitmapBytes + bakers.sumOf { it.bytes } + (tileSet?.bytes ?: 0L)
+        get() = sprites.bytes + (pacificShore?.bytes ?: 0L) + (plateau?.bytes ?: 0L) + landmarkPainter.bitmapBytes + bakers.sumOf { it.bytes } + (tileSet?.bytes ?: 0L)
 
     // 재사용 객체
     private val terrainPath = Path()
@@ -159,6 +159,8 @@ class SceneRenderer(private val state: SceneState) : ExperienceRenderer {
     private val housePaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val housePath = Path()
     private val horizonClip = Path()
+    private var plateauBake: CompletableFuture<CoconinoPlateau>? = null
+    private val plateau: CoconinoPlateau? get() = plateauBake?.getNow(null)
     private var shoreBake: CompletableFuture<PacificShore>? = null
     private val pacificShore: PacificShore? get() = shoreBake?.getNow(null)
     private val waterPaint = Paint()
@@ -231,7 +233,7 @@ class SceneRenderer(private val state: SceneState) : ExperienceRenderer {
         celestialPainter.draw(canvas, layout, p, state.elapsedSec)
         drawClouds(canvas, p)
         drawLand(canvas, p)
-        drawPoles(canvas, p)
+        if (state.theme !== Themes.GRAND_CANYON) drawPoles(canvas, p)
         drawStations(canvas, p)
         drawTruss(canvas, p)
         drawFalling(canvas, p)
@@ -242,6 +244,8 @@ class SceneRenderer(private val state: SceneState) : ExperienceRenderer {
 
     override fun release() {
         released = true
+        plateauBake?.cancel(false)
+        plateauBake = null
         shoreBake?.cancel(false)
         shoreBake = null
         landmarkPainter.release()
@@ -282,6 +286,8 @@ class SceneRenderer(private val state: SceneState) : ExperienceRenderer {
     private fun applyTheme() {
         val t = state.theme
         appliedTheme = t
+        plateauBake?.cancel(false)
+        plateauBake = if (t === Themes.GRAND_CANYON) CompletableFuture.supplyAsync(::CoconinoPlateau, executor) else null
         shoreBake?.cancel(false)
         shoreBake = if (t === Themes.CALIFORNIA) CompletableFuture.supplyAsync(::PacificShore, executor) else null
         if (t === Themes.CALIFORNIA) sprites.prepareFanPalms()
@@ -416,6 +422,10 @@ class SceneRenderer(private val state: SceneState) : ExperienceRenderer {
      * - 나무·집·건물·풀·방음벽은 각자 자기 위치의 도시화 정도로 있을지 없을지 정한다.
      */
     private fun drawLand(canvas: Canvas, p: Palette) {
+        if (state.theme === Themes.GRAND_CANYON) {
+            drawPlateau(canvas, p)
+            return
+        }
         if (appliedMode == RenderMode.TILES) {
             // 비교용 타일 방식은 시골만 지원한다.
             drawCountry(canvas, p)
@@ -468,6 +478,25 @@ class SceneRenderer(private val state: SceneState) : ExperienceRenderer {
         drawBed(canvas, p)
         drawRiverCrossing(canvas, p)
         drawBarrier(canvas, p)
+    }
+
+    private fun drawPlateau(canvas: Canvas, p: Palette) {
+        val art = plateau
+        art?.update(p)
+        val tilesReady = appliedMode == RenderMode.TILES && ensureTiles()
+        for (i in layers.indices) {
+            val l = layers[i]
+            if (art == null) {
+                if (tilesReady) drawTiles(canvas, i, l)
+                else drawTerrain(canvas, i, state.distanceU * l.speed, layerColor(l, p), l.mist, p)
+            } else if (i < Scenery.MID) {
+                art.drawFoothills(canvas, layout, state.distanceU * l.speed, i)
+            } else {
+                art.draw(canvas, layout, state, if (i == Scenery.MID) CoconinoPlateau.MID else CoconinoPlateau.NEAR)
+            }
+            drawLandmarks(canvas, p, i)
+            if (i == Scenery.MID) drawLandmarks(canvas, p, i, onTop = true)
+        }
     }
 
     /** 시골만 그린다. 비교용 타일 방식에서 쓴다. */
@@ -1505,7 +1534,7 @@ class SceneRenderer(private val state: SceneState) : ExperienceRenderer {
                 // The landward ramp extends past the wash even where the beach curves inland.
                 lm.kind == LandmarkKind.SAN_CLEMENTE_PIER -> layout.yAt(.79f) + 13 * u
                 onWater -> layout.yAt(if (z.sea(lm.x) >= z.river(lm.x)) SEA_BRIDGE_BASE else RIVER_BRIDGE_BASE)
-                layerIndex == Scenery.MID -> terrainY(l, groundWx) + 3 * u
+                layerIndex == Scenery.MID -> (plateau?.groundY(layout, CoconinoPlateau.MID, groundWx) ?: terrainY(l, groundWx)) + 3 * u
                 else -> layout.yAt(l.base) + 4 * u
             }
             // 먼 원경은 안개에 묻혀 명암이 약하다.
@@ -1566,6 +1595,15 @@ class SceneRenderer(private val state: SceneState) : ExperienceRenderer {
             if (cx + half + eave < 0 || cx - half - eave > w) continue
             val x0 = cx - half
             val x1 = cx + half
+            if (state.theme === Themes.GRAND_CANYON) {
+                val edge = layout.yAt(.94f)
+                platformPaint.color = themed(Color.rgb(163, 143, 114), p, .04f)
+                canvas.drawRect(x0, edge, x1, h, platformPaint)
+                platformPaint.color = themed(Color.rgb(102, 84, 65), p, .04f)
+                canvas.drawRect(x0, edge, x1, edge + 2 * u, platformPaint)
+                drawSign(canvas, i, cx, edge - 49 * u, .55f * u, lit, standing = true)
+                continue
+            }
             // 바닥: 먼 쪽 낮은 벽, 콘크리트 면, 선로 쪽 노란 안전선.
             platformPaint.color = concrete
             canvas.drawRect(x0, floorTop, x1, h, platformPaint)
@@ -1600,7 +1638,7 @@ class SceneRenderer(private val state: SceneState) : ExperienceRenderer {
     }
 
     /** 역 이름판. 지붕에 매달린 흰 판에 현지 표기를 크게, 로마자를 작게 쓴다. */
-    private fun drawSign(canvas: Canvas, i: Int, cx: Float, roof: Float, u: Float, lit: Float) {
+    private fun drawSign(canvas: Canvas, i: Int, cx: Float, roof: Float, u: Float, lit: Float, standing: Boolean = false) {
         val local = state.stationLocal.getOrNull(i) ?: return
         val roman = state.stationRoman.getOrNull(i) ?: ""
         signText.textSize = 24 * u
@@ -1609,8 +1647,11 @@ class SceneRenderer(private val state: SceneState) : ExperienceRenderer {
         val bh = 54 * u
         val top = roof + 10 * u
         platformPaint.color = SIGN_HANGER
-        canvas.drawRect(cx - bw * .3f - .6f * u, roof, cx - bw * .3f + .6f * u, top, platformPaint)
-        canvas.drawRect(cx + bw * .3f - .6f * u, roof, cx + bw * .3f + .6f * u, top, platformPaint)
+        val postTop = if (standing) top + bh - u else roof
+        val postBottom = if (standing) postTop + 30 * u else top
+        val postHalf = if (standing) 2 * u else .6f * u
+        canvas.drawRect(cx - bw * .3f - postHalf, postTop, cx - bw * .3f + postHalf, postBottom, platformPaint)
+        canvas.drawRect(cx + bw * .3f - postHalf, postTop, cx + bw * .3f + postHalf, postBottom, platformPaint)
         val sign = state.theme.sign
         signPaint.color = mix(sign.board, Color.rgb(255, 236, 205), lit * .25f)
         dst.set(cx - bw / 2, top, cx + bw / 2, top + bh)

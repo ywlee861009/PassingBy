@@ -113,7 +113,7 @@ class Feature(
     val to: Float,
     val style: FieldStyle = FieldStyle.NONE,
 ) {
-    enum class Kind { SEA, RIVER, FIELD, TUNNEL, BRIDGE }
+    enum class Kind { SEA, RIVER, FIELD, TUNNEL, BRIDGE, PRAIRIE, DRY_WASH, LIMESTONE_CANYON }
 }
 
 /**

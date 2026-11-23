@@ -30,6 +30,7 @@
 | 포르투갈 | 리스본 산타아폴로니아–코임브라B–포르투 캄파냥의 북부선 뒤에 도루선 레구아 구간을 연결. 아베이루·이스피뉴·페나피엘·마르쿠 드 카나베즈스·아레구스 경유. | [CP 북부선 운행계약 역 목록](https://cp.pt/info/documents/d/cp/anexo12-alfa-pendular-1?download=true), [CP 도루선](https://cp.pt/info/w/linha-douro) |
 | 프랑스 | 파리 리옹역–리옹 파르디외–아비뇽 고속역–마르세유 생샤를. 르크뢰조·마콩·발랑스·엑상프로방스 경유. | [SNCF 고속선 노선도](https://www.sncf-connect.com/assets/media/2024-05/2014_axes-tgv_0.pdf), [SNCF 철도 지도집](https://www.sncf-reseau.com/fr/cartes/atlas-du-reseau-ferre-francais) |
 | 미국 캘리포니아 해안선 | 로스앤젤레스–애너하임–샌후안카피스트라노–오션사이드–솔라나비치–샌디에이고. 정차역의 누적 거리는 로스앤젤레스에서 샌디에이고까지의 128마일을 km로 환산했다. | [Amtrak 정차역](https://www.amtrak.com/pacific-surfliner-train), [Amtrak 영업거리표 4쪽](https://juckins.net/amtrak_timetables/archive/timetables_Pacific_Surfliner_CA_Coastal_Services_20161003.pdf) |
+| 미국 그랜드 캐니언 | 윌리엄스역–그랜드 캐니언역. 운영사가 안내하는 편도 65마일(104.6km)을 기준으로 한다. 레드 레이크(MP 9), 밀러 워시(MP 36), 아니타(MP 44.8), 에이펙스(MP 52), 코코니노 협곡(MP 54–58)을 달리며, 각 지점은 통과 안내로 표시한다. 남쪽 림 전망대까지는 하차 후 걷는다. | [운영사 노선 안내](https://www.thetrain.com/the-train/schedule-route/), [미국 국립공원관리청 철도 유산 등재 자료](https://npgallery.nps.gov/GetAsset/64254ac4-fb05-4d29-88d5-5f4a63f5be7c), [역에서 사우스 림까지](https://www.thetrain.com/press-kit/railway-fact-sheet/) |
 
 새 코스는 `guide`가 필수다. 코스 초기화 시 안내 정차역과 실제 코스의 정차역 이름·순서를 대조한다.
 `RouteGuideTest`는 각 코스의 25·50·90분 여행을 양방향으로 훑어 모든 통과 지역의 순서와

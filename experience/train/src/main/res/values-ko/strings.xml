@@ -132,4 +132,15 @@
     <string name="place_sorrento_valley">소렌토 밸리</string>
     <string name="place_rose_canyon">로즈 캐니언</string>
     <string name="place_old_town_san_diego">샌디에이고 올드타운</string>
+
+    <string name="region_usa_grand_canyon">미국 애리조나 그랜드 캐니언</string>
+    <string name="vehicle_heritage_train">관광열차</string>
+    <string name="station_williams_depot">윌리엄스역</string>
+    <string name="station_grand_canyon_depot">그랜드 캐니언역</string>
+    <string name="place_red_lake">레드 레이크</string>
+    <string name="place_miller_wash">밀러 워시</string>
+    <string name="place_anita">아니타</string>
+    <string name="place_apex">에이펙스</string>
+    <string name="place_coconino_canyon">코코니노 협곡</string>
+    <string name="grand_canyon_purchase_preview_caption">그랜드 캐니언역에서 사우스림까지 조금 걸으면 붉은 절벽이 층층이 펼쳐져요.</string>
 </resources>

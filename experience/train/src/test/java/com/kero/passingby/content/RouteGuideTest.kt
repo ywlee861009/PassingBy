@@ -43,6 +43,7 @@ class RouteGuideTest {
 
     @Test fun everyCoursePassesEveryPlaceInOrderForShortLongAndReturnJourneys() {
         assertTrue(RouteGuides.USA_PACIFIC_COAST in RouteGuides.ALL)
+        assertTrue(RouteGuides.USA_GRAND_CANYON in RouteGuides.ALL)
         for ((index, route) in RouteGuides.ALL.withIndex()) {
             assertTrue(route.via.isNotEmpty())
             for (segment in 0 until route.stops.lastIndex) {
@@ -80,6 +81,18 @@ class RouteGuideTest {
                 assertEquals(RouteCaption(name, RouteCaption.Kind.STOPPED),
                     route.captionAt(plan.distanceAt(t) / plan.segDist, direction, plan.stoppedAt(t)))
             }
+        }
+    }
+
+    @Test fun grandCanyonWaypointsArePassingLocationsInBothDirections() {
+        val route = RouteGuides.USA_GRAND_CANYON
+        assertEquals(2, route.stops.size)
+        assertEquals(104.6, route.stops.last().km, 1e-9)
+        for (place in route.via) {
+            val outboundFraction = place.km / route.stops.last().km
+            val passing = RouteCaption(place.name, RouteCaption.Kind.PASSING)
+            assertEquals(passing, route.captionAt(outboundFraction, 1))
+            assertEquals(passing, route.captionAt(1.0 - outboundFraction, -1))
         }
     }
 

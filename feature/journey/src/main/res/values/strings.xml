@@ -31,6 +31,7 @@
     <string name="purchase_price_failed">Couldn\'t get the price from Google Play. Check your connection and try again.</string>
     <string name="unlock_once">Unlock once and ride any time.</string>
     <string name="arrived_at">Arrived at %1$s</string>
+    <string name="view_arrival_postcard">View postcard</string>
     <string name="trip_minutes">%1$d min on board</string>
     <string name="rest_and_continue">Rest %1$d min, then go on</string>
     <string name="get_off_here">Get off here</string>

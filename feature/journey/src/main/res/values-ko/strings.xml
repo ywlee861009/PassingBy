@@ -28,6 +28,7 @@
     <string name="purchase_price_failed">Google Play에서 가격을 불러오지 못했어요. 연결을 확인한 뒤 다시 시도해 주세요.</string>
     <string name="unlock_once">한 번 열면 계속 탈 수 있어요.</string>
     <string name="arrived_at">%1$s에 도착했어요</string>
+    <string name="view_arrival_postcard">도착 엽서 보기</string>
     <string name="trip_minutes">%1$d분 동안 함께 달렸어요</string>
     <string name="rest_and_continue">%1$d분 쉬고 이어 가기</string>
     <string name="get_off_here">여기서 내리기</string>

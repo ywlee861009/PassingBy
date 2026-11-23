@@ -195,5 +195,19 @@ object RouteGuides {
         ),
     )
 
-    val ALL = listOf(GYEONGBU, TOKAIDO, JEOLLA, GANGNEUNG, CHINA_NORTH, CHINA_SOUTH, PORTUGAL, FRANCE, USA_PACIFIC_COAST)
+    val USA_GRAND_CANYON = RouteGuide(
+        stops = listOf(
+            RoutePlace(R.string.station_williams_depot, 0.0),
+            RoutePlace(R.string.station_grand_canyon_depot, 104.6),
+        ),
+        via = listOf(
+            RoutePlace(R.string.place_red_lake, 14.5),
+            RoutePlace(R.string.place_miller_wash, 57.9),
+            RoutePlace(R.string.place_anita, 72.1),
+            RoutePlace(R.string.place_apex, 83.7),
+            RoutePlace(R.string.place_coconino_canyon, 90.1),
+        ),
+    )
+
+    val ALL = listOf(GYEONGBU, TOKAIDO, JEOLLA, GANGNEUNG, CHINA_NORTH, CHINA_SOUTH, PORTUGAL, FRANCE, USA_PACIFIC_COAST, USA_GRAND_CANYON)
 }

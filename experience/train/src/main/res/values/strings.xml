@@ -132,4 +132,15 @@
     <string name="place_sorrento_valley">Sorrento Valley</string>
     <string name="place_rose_canyon">Rose Canyon</string>
     <string name="place_old_town_san_diego">San Diego Old Town</string>
+
+    <string name="region_usa_grand_canyon">Grand Canyon, Arizona</string>
+    <string name="vehicle_heritage_train">Heritage train</string>
+    <string name="station_williams_depot">Williams Depot</string>
+    <string name="station_grand_canyon_depot">Grand Canyon Depot</string>
+    <string name="place_red_lake">Red Lake</string>
+    <string name="place_miller_wash">Miller Wash</string>
+    <string name="place_anita">Anita</string>
+    <string name="place_apex">Apex</string>
+    <string name="place_coconino_canyon">Coconino Canyon</string>
+    <string name="grand_canyon_purchase_preview_caption">A short walk from Grand Canyon Depot brings you to the South Rim. Layers of red cliffs stretch into the distance.</string>
 </resources>

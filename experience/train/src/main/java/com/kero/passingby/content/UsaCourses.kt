@@ -56,5 +56,31 @@ object UsaCourses {
         ),
     )
 
-    val ALL = listOf(PACIFIC_COAST)
+    val GRAND_CANYON = Course(
+        "usa-grand-canyon", 10, R.string.region_usa_grand_canyon, R.string.vehicle_heritage_train,
+        listOf(
+            Station(R.string.station_williams_depot, "Williams", "Williams Depot",
+                CityLook(rise = .45f, apt = 0f, mountains = .35f, near = false)),
+            Station(R.string.station_grand_canyon_depot, "Grand Canyon", "Grand Canyon Depot",
+                CityLook(rise = .32f, apt = 0f, near = false)),
+        ),
+        Course.REGIONAL, "course_usa_grand_canyon", snowy = true, Themes.GRAND_CANYON,
+        guide = RouteGuides.USA_GRAND_CANYON,
+        purchasePreview = CoursePurchasePreview(
+            R.drawable.grand_canyon_south_rim,
+            R.string.grand_canyon_purchase_preview_caption,
+            postcardStation = R.string.station_grand_canyon_depot,
+        ),
+        features = listOf(
+            Feature(Feature.Kind.PRAIRIE, 0, .15f, .70f),
+            Feature(Feature.Kind.DRY_WASH, 0, 34.8f / 65f, 36f / 65f),
+            Feature(Feature.Kind.LIMESTONE_CANYON, 0, 54f / 65f, 58f / 65f),
+        ),
+        landmarks = listOf(
+            LandmarkSpot.atStation(LandmarkKind.WILLIAMS_DEPOT, 0, -85f),
+            LandmarkSpot.atStation(LandmarkKind.GRAND_CANYON_DEPOT, 1, 85f),
+        ),
+    )
+
+    val ALL = listOf(PACIFIC_COAST, GRAND_CANYON)
 }

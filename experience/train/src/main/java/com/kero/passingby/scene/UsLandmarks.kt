@@ -9,7 +9,7 @@ import android.graphics.RectF
 import kotlin.math.max
 
 /** Bake at one scene unit per pixel and preserve the hard tile, timber and stucco edges at any density. */
-internal class CaliforniaLandmarks {
+internal class UsLandmarks {
     private val sprites = java.util.EnumMap<LandmarkKind, Bitmap>(LandmarkKind::class.java)
     var bitmapBytes = 0L
         private set
@@ -32,6 +32,8 @@ internal class CaliforniaLandmarks {
                 LandmarkKind.SANTA_FE_DEPOT -> Sprite(151, 60).apply { santaFeDepot() }.bitmap
                 LandmarkKind.SAN_CLEMENTE_PIER -> Sprite(239, 90).apply { timberPier() }.bitmap
                 LandmarkKind.ANAHEIM_ARTIC -> anaheimArticBitmap()
+                LandmarkKind.WILLIAMS_DEPOT -> ArizonaDepotArt(174, 57).apply { williams() }.bitmap
+                LandmarkKind.GRAND_CANYON_DEPOT -> ArizonaDepotArt(169, 66).apply { grandCanyon() }.bitmap
                 else -> return
             }
             sprites[kind] = bitmap

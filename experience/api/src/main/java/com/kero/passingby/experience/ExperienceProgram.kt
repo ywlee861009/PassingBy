@@ -13,7 +13,12 @@ interface JourneyStation { val name: Int; val local: String; val roman: String }
 /** UI catalog metadata, without terrain, audio or rendering data. */
 data class CourseReference(val title: String, val url: String)
 
-data class CoursePurchasePreview(@DrawableRes val image: Int, @StringRes val caption: Int)
+data class CoursePurchasePreview(
+    @DrawableRes val image: Int,
+    @StringRes val caption: Int,
+    /** Station at which the traveler can open this illustration as a destination postcard. */
+    @StringRes val postcardStation: Int? = null,
+)
 
 interface JourneyCourse {
     val id: String
@@ -33,6 +38,8 @@ interface JourneyCourse {
     val flyby: Boolean get() = false
     val free: Boolean get() = productId == null
     fun ordered(direction: Int): List<JourneyStation> = if (direction < 0) stations.asReversed() else stations
+    fun arrivalPostcard(direction: Int): CoursePurchasePreview? =
+        purchasePreview?.takeIf { it.postcardStation == ordered(direction).last().name }
     fun title(res: Resources, direction: Int): String {
         val stops = ordered(direction)
         return "${res.getString(stops.first().name)} → ${res.getString(stops.last().name)}"

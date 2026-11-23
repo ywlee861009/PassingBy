@@ -30,13 +30,20 @@ class TrainFrameMetricsTest {
             val output = InstrumentationRegistry.getArguments().getString("additionalTestOutputDir")
                 ?.let(::File) ?: File(inst.targetContext.getExternalFilesDir(null), "handoff-validation")
             output.mkdirs()
-            val csv = File(output, "coastal-hardware-frames.csv")
+            val csv = File(output, "train-hardware-frames.csv")
             csv.writeText("course,scene,frames,p50_total_ms,p95_total_ms,deadline_frames,missed_deadlines,dropped_reports\n")
-            for (course in listOf(PortugalCourses.NORTE_DOURO, UsaCourses.PACIFIC_COAST)) {
-                val sea = course.features.first { it.kind == Feature.Kind.SEA }
-                val coast = course.landmarks.firstOrNull { it.kind == LandmarkKind.SAN_CLEMENTE_PIER }?.pos
-                    ?: (sea.seg + (sea.from + sea.to) * .5)
-                for ((name, position) in listOf("city" to .025, "coast" to coast)) {
+            val douro = PortugalCourses.NORTE_DOURO
+            val sea = douro.features.first { it.kind == Feature.Kind.SEA }
+            val coast = UsaCourses.PACIFIC_COAST
+            val pier = coast.landmarks.first { it.kind == LandmarkKind.SAN_CLEMENTE_PIER }
+            val canyon = UsaCourses.GRAND_CANYON
+            val scenes = mapOf(
+                douro to listOf("city" to .025, "coast" to (sea.seg + (sea.from + sea.to) * .5)),
+                coast to listOf("city" to .025, "coast" to pier.pos),
+                canyon to listOf("pine-forest" to .08, "miller-wash" to (35.5 / 65), "coconino-canyon" to (56.0 / 65)),
+            )
+            for ((course, samples) in scenes) {
+                for ((name, position) in samples) {
                     val finished = CountDownLatch(1)
                     val durations = LongArray(180)
                     var warmup = 0

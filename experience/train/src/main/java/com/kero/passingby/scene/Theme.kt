@@ -93,6 +93,8 @@ enum class LandmarkKind(
     ANAHEIM_ARTIC(Scenery.MID, top = true, tone = Tone.IRON),
     SAN_CLEMENTE_PIER(Scenery.MID, water = true),
     SANTA_FE_DEPOT(Scenery.MID, top = true, tone = Tone.STONE),
+    WILLIAMS_DEPOT(Scenery.MID, top = true, tone = Tone.STONE),
+    GRAND_CANYON_DEPOT(Scenery.MID, top = true),
 }
 
 /** 랜드마크 재질 색. LAYER는 원경이면 레이어 색(안개), 중경이면 철재색. */
@@ -132,6 +134,9 @@ interface Zones {
     /** 수평선까지 이어지는 바다(0~1). */
     val seaRanges: DoubleArray
     val seaRamp: Double
+    fun prairie(x: Double): Float = 0f
+    fun dryWash(x: Double): Float = 0f
+    fun limestoneCanyon(x: Double): Float = 0f
     fun sea(x: Double): Float
     /** 중경 높이에서 맞은편 언덕이 보이는 강·호수(0~1). */
     fun river(x: Double): Float

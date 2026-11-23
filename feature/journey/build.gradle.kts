@@ -11,6 +11,10 @@ android {
 
 dependencies {
     testImplementation(libs.junit)
+    androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.junit)
+    androidTestImplementation(project(":journey:data"))
+    androidTestImplementation(project(":experience:train"))
     implementation(project(":journey:domain"))
     implementation(project(":experience:api"))
     implementation(project(":platform:billing"))

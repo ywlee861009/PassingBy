@@ -19,6 +19,8 @@ ALLOWED = {
     'platform/billing': {'platform/telemetry'},
     'platform/telemetry': set(),
 }
+# The destination postcard instrumentation drives the real train provider and session store.
+ANDROID_TEST_ALLOWED = {'feature/journey': {'experience/train', 'journey/data'}}
 
 def main():
     failures = []
@@ -30,10 +32,14 @@ def main():
     for module, allowed in ALLOWED.items():
         folder = ROOT / module
         build = (folder / 'build.gradle.kts').read_text()
-        dependencies = {p.replace(':', '/') for p in re.findall(r'project\("\:([\w:]+)"\)', build)}
+        dependencies = set()
+        for match in re.finditer(r'(?:(androidTestImplementation)\s*\(\s*)?project\(":([\w:]+)"\)', build):
+            dependency = match[2].replace(':', '/')
+            dependencies.add(dependency)
+            test_only = match[1] and dependency in ANDROID_TEST_ALLOWED.get(module, set())
+            if dependency not in allowed and not test_only:
+                failures.append(f'{module}: forbidden dependency on {dependency}')
         graph[module] = dependencies
-        for dependency in dependencies - allowed:
-            failures.append(f'{module}: forbidden dependency on {dependency}')
         for source in (folder / 'src/main').rglob('*.kt'):
             text = source.read_text()
             relative = source.relative_to(ROOT)

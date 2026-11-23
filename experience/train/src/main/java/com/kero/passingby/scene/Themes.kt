@@ -278,6 +278,24 @@ object Themes {
         SignStyle(Color.rgb(37, 72, 93), Color.rgb(250, 246, 227), Color.rgb(221, 155, 81)),
     )
 
+    /** Williams–South Rim. The plateau painter supplies grass, forest and limestone terrain. */
+    val GRAND_CANYON = Theme(
+        "grand-canyon",
+        arrayOf(
+            TerrainLayer(.035, .59f, .19f, 1.0 / 330, .5, 201, Palette.FAR, .46f, .3f,
+                daylightTint = Color.rgb(125, 133, 153)),
+            TerrainLayer(.075, .67f, .15f, 1.0 / 225, .28, 219, Palette.FAR, .26f, .24f,
+                daylightTint = Color.rgb(129, 141, 124)),
+            TerrainLayer(.2, .77f, .09f, 1.0 / 195, .18, 251, Palette.MID, .16f, .16f,
+                daylightTint = Color.rgb(150, 148, 110)),
+            TerrainLayer(.55, .885f, .048f, 1.0 / 180, .15, 263, Palette.NEAR, .04f, 0f,
+                daylightTint = Color.rgb(160, 143, 99)),
+        ),
+        CityScenery.far, CityScenery.mid, CityScenery.near, Scenery.cityStreetTrees,
+        CALIFORNIA.house, BarrierStyle.NONE,
+        SignStyle(Color.rgb(72, 61, 43), Color.rgb(247, 226, 184), Color.rgb(168, 121, 69)),
+    )
+
     private fun TerrainLayer.reseeded(shift: Int) =
         TerrainLayer(speed, base, amp, freq, ridge, seed + shift, colorKey, haze, mist, spriteHaze, objects, shape, daylightTint)
 

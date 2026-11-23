@@ -40,9 +40,9 @@ internal class LandmarkPainter {
     }
     private val path = Path().apply { fillType = Path.FillType.EVEN_ODD }
     private val rect = RectF()
-    private val california = CaliforniaLandmarks()
-    val bitmapBytes: Long get() = california.bitmapBytes
-    fun release() = california.release()
+    private val usLandmarks = UsLandmarks()
+    val bitmapBytes: Long get() = usLandmarks.bitmapBytes
+    fun release() = usLandmarks.release()
 
     // ── 명암 ──
     /** 그늘에 섞는 하늘 위쪽 색, 볕 색, 명암 세기(먼 원경은 안개로 약하다), 밤 정도. */
@@ -106,8 +106,9 @@ internal class LandmarkPainter {
             LandmarkKind.PART_DIEU -> partDieu(canvas, cx, by, u, col)
             LandmarkKind.PAPAL_PALACE -> papalPalace(canvas, cx, by, u, col, lit)
             LandmarkKind.LA_UNION_STATION, LandmarkKind.ANAHEIM_ARTIC,
-            LandmarkKind.SAN_CLEMENTE_PIER, LandmarkKind.SANTA_FE_DEPOT ->
-                california.draw(canvas, p, kind, cx, by, u)
+            LandmarkKind.SAN_CLEMENTE_PIER, LandmarkKind.SANTA_FE_DEPOT,
+            LandmarkKind.WILLIAMS_DEPOT, LandmarkKind.GRAND_CANYON_DEPOT ->
+                usLandmarks.draw(canvas, p, kind, cx, by, u)
             LandmarkKind.BROKEN_BRIDGE -> brokenBridge(canvas, cx, by, u)
         }
         fill.shader = null

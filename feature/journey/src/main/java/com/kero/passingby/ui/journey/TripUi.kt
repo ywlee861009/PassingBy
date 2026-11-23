@@ -180,6 +180,20 @@ internal fun PurchasePreview(preview: CoursePurchasePreview, compact: Boolean) {
     }
 }
 
+@Composable
+internal fun DestinationPostcard(postcard: CoursePurchasePreview, onDismiss: () -> Unit) {
+    val image = painterResource(postcard.image)
+    Image(
+        painter = image,
+        contentDescription = null,
+        modifier = Modifier.fillMaxWidth()
+            .aspectRatio(image.intrinsicSize.width / image.intrinsicSize.height)
+            .clip(RoundedCornerShape(10.dp)),
+    )
+    BasicText(stringResource(postcard.caption), style = PbType.body.copy(color = Pb.Ink))
+    QuietButton(stringResource(R.string.close), onDismiss, Modifier.fillMaxWidth())
+}
+
 /** 카드 안 작은 글자 버튼. 누르는 영역은 48dp를 지킨다. */
 @Composable
 private fun SmallLink(text: String, onClick: () -> Unit) {
@@ -206,6 +220,7 @@ fun ArrivalCard(
     onGetOff: () -> Unit,
     onShare: () -> Unit,
     modifier: Modifier = Modifier,
+    onViewPostcard: (() -> Unit)? = null,
 ) {
     Sheet(paper, modifier) {
         BasicText(stringResource(R.string.arrived_at, terminus), style = PbType.voice.copy(color = Pb.Ink))
@@ -217,7 +232,8 @@ fun ArrivalCard(
         PrimaryButton(stringResource(R.string.rest_and_continue, REST_MINUTES), onRest, Modifier.fillMaxWidth())
         QuietButton(stringResource(R.string.get_off_here), onGetOff, Modifier.fillMaxWidth())
         // 다 왔을 때가 친구에게 알려 주고 싶은 순간이라 여기에 둔다. 두 버튼보다 눈에 덜 띄게 작은 글자로.
-        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
+            if (onViewPostcard != null) SmallLink(stringResource(R.string.view_arrival_postcard), onViewPostcard)
             SmallLink(stringResource(R.string.share_app), onShare)
         }
     }
