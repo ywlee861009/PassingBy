@@ -1,0 +1,11 @@
+<resources>
+    <string name="app_update_available">新しいバージョンがあります</string>
+    <string name="app_update_download">アップデートをダウンロード</string>
+    <string name="app_update_requesting">アップデートを確認しています…</string>
+    <string name="app_update_downloading">アップデートをダウンロードしています…</string>
+    <string name="app_update_ready">アップデートの準備ができました</string>
+    <string name="app_update_install">再起動して更新</string>
+    <string name="app_update_installing">アップデートをインストールしています…</string>
+    <string name="app_update_later">あとで</string>
+    <string name="app_update_failed">アプリを更新できませんでした。</string>
+</resources>

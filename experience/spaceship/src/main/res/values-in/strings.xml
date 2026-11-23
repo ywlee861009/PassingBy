@@ -1,0 +1,28 @@
+<resources>
+    <string name="space_vehicle">Kapal penjelajah</string>
+    <string name="body_earth">Bumi</string>
+    <string name="body_moon">Bulan</string>
+    <string name="body_mercury">Merkurius</string>
+    <string name="body_venus">Venus</string>
+    <string name="body_mars">Mars</string>
+    <string name="body_jupiter">Jupiter</string>
+    <string name="body_saturn">Saturnus</string>
+    <string name="body_uranus">Uranus</string>
+    <string name="body_neptune">Neptunus</string>
+    <string name="body_pluto">Pluto</string>
+    <string name="body_proxima_b">Proxima Centauri b</string>
+    <string name="body_trappist_e">TRAPPIST-1 e</string>
+    <string name="body_trappist_f">TRAPPIST-1 f</string>
+    <string name="body_trappist_g">TRAPPIST-1 g</string>
+    <string name="body_lhs1140_b">LHS 1140 b</string>
+    <string name="body_toi700_e">TOI-700 e</string>
+    <string name="body_toi700_d">TOI-700 d</string>
+    <string name="body_cancri_e">55 Cancri e</string>
+    <string name="space_solar_note">Perjalanan rekaan di antara benda langit yang nyata. Skala, durasi, dan lintasannya disesuaikan dengan sesi fokus Anda.</string>
+    <string name="space_pluto_route">Perjalanan ke Pluto</string>
+    <string name="route_pluto">Bumi → Bulan → Jupiter → Saturnus → Pluto. Lewati Bulan dan planet raksasa menuju Pluto, dengan benda langit kecil dan bintang jatuh di sepanjang jalan.</string>
+    <string name="body_black_hole">Lubang hitam</string>
+    <string name="space_black_hole_route">Perjalanan ke lubang hitam</string>
+    <string name="route_black_hole">Bumi → Bulan → Saturnus → Neptunus → Lubang hitam. Tinggalkan planet-planet dan amati piringan akresi yang bercahaya dari kejauhan.</string>
+    <string name="space_black_hole_note">Perjalanan rekaan ke lubang hitam fiktif. Amati dari kejauhan. Skala, waktu, dan cahaya merupakan interpretasi artistik.</string>
+</resources>

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="season_spring">বসন্ত</string>
+    <string name="season_summer">গ্রীষ্ম</string>
+    <string name="season_autumn">শরৎ</string>
+    <string name="season_winter">শীত</string>
+    <string name="random">যেকোনোটি</string>
+    <string name="time_dawn">ভোর</string>
+    <string name="time_day">দিন</string>
+    <string name="time_dusk">সূর্যাস্ত</string>
+    <string name="time_night">রাত</string>
+    <string name="weather_clear">পরিষ্কার</string>
+    <string name="weather_drizzle">গুঁড়ি গুঁড়ি বৃষ্টি</string>
+    <string name="weather_shower">এক পশলা বৃষ্টি</string>
+    <string name="weather_light_snow">হালকা তুষারপাত</string>
+    <string name="weather_heavy_snow">ভারী তুষারপাত</string>
+    <string name="nonstop">কোথাও থামে না</string>
+    <string name="stops_line">স্টপ: %1$s</string>
+    <string name="mode_train">ট্রেন</string>
+    <string name="mode_train_description">জানালার পাশে বসে ট্রেনের শব্দ শুনুন আর চেনা দৃশ্যগুলো পেরিয়ে যেতে দেখুন।</string>
+    <string name="mode_airplane">বিমান</string>
+    <string name="mode_airplane_description">মেঘের সাগরের ওপরে জানালার পাশে একটি শান্ত আসন।</string>
+    <string name="mode_ship">জাহাজ</string>
+    <string name="mode_ship_description">গোল জানালা দিয়ে দিগন্তের দ্বীপ আর ধীরে বয়ে চলা ঢেউ দেখুন।</string>
+    <string name="mode_spaceship">মহাকাশযান</string>
+    <string name="mode_spaceship_description">পৃথিবী থেকে যাত্রা করে সৌরজগতের বাস্তব গ্রহ ও উপগ্রহ ঘুরে দেখুন। যাত্রার গতি আপনার মনোযোগের সময়ের সঙ্গে মিলবে।</string>
+    <string name="voyage_waypoints">%1$s হয়ে</string>
+</resources>

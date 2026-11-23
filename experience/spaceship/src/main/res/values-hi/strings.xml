@@ -1,0 +1,28 @@
+<resources>
+    <string name="space_vehicle">अन्वेषण यान</string>
+    <string name="body_earth">पृथ्वी</string>
+    <string name="body_moon">चंद्रमा</string>
+    <string name="body_mercury">बुध</string>
+    <string name="body_venus">शुक्र</string>
+    <string name="body_mars">मंगल</string>
+    <string name="body_jupiter">बृहस्पति</string>
+    <string name="body_saturn">शनि</string>
+    <string name="body_uranus">अरुण</string>
+    <string name="body_neptune">वरुण</string>
+    <string name="body_pluto">प्लूटो</string>
+    <string name="body_proxima_b">प्रॉक्सिमा सेंटॉरी b</string>
+    <string name="body_trappist_e">TRAPPIST-1 e</string>
+    <string name="body_trappist_f">TRAPPIST-1 f</string>
+    <string name="body_trappist_g">TRAPPIST-1 g</string>
+    <string name="body_lhs1140_b">LHS 1140 b</string>
+    <string name="body_toi700_e">TOI-700 e</string>
+    <string name="body_toi700_d">TOI-700 d</string>
+    <string name="body_cancri_e">55 Cancri e</string>
+    <string name="space_solar_note">असली खगोलीय पिंडों के बीच एक काल्पनिक सफ़र। पैमाना, समय और रास्ते आपके एकाग्रता सत्र के अनुसार ढाले गए हैं।</string>
+    <string name="space_pluto_route">प्लूटो तक का सफ़र</string>
+    <string name="route_pluto">पृथ्वी → चंद्रमा → बृहस्पति → शनि → प्लूटो। चंद्रमा और विशाल ग्रहों को पार करके प्लूटो तक पहुँचें। रास्ते में छोटे खगोलीय पिंड और टूटते तारे दिखेंगे।</string>
+    <string name="body_black_hole">ब्लैक होल</string>
+    <string name="space_black_hole_route">ब्लैक होल तक का सफ़र</string>
+    <string name="route_black_hole">पृथ्वी → चंद्रमा → शनि → वरुण → ब्लैक होल। ग्रहों को पीछे छोड़कर दूर से ब्लैक होल के चारों ओर घूमती चमकदार डिस्क देखें।</string>
+    <string name="space_black_hole_note">एक काल्पनिक ब्लैक होल का कल्पित सफ़र। उसे दूर से देखें। यहाँ पैमाने, समय और रोशनी को कलात्मक रूप दिया गया है।</string>
+</resources>

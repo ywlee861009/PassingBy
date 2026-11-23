@@ -1,0 +1,11 @@
+<resources>
+    <string name="app_update_available">Đã có phiên bản mới</string>
+    <string name="app_update_download">Tải bản cập nhật</string>
+    <string name="app_update_requesting">Đang kiểm tra bản cập nhật…</string>
+    <string name="app_update_downloading">Đang tải bản cập nhật…</string>
+    <string name="app_update_ready">Bản cập nhật đã sẵn sàng để cài đặt</string>
+    <string name="app_update_install">Khởi động lại để cập nhật</string>
+    <string name="app_update_installing">Đang cài bản cập nhật…</string>
+    <string name="app_update_later">Để sau</string>
+    <string name="app_update_failed">Hiện chưa thể cập nhật ứng dụng.</string>
+</resources>

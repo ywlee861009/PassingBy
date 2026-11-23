@@ -1,0 +1,8 @@
+<resources>
+    <string name="channel_trip">กำลังเดินทาง</string>
+    <string name="channel_trip_desc">แสดงเวลาที่เหลือขณะรถไฟวิ่ง</string>
+    <string name="channel_alert">แจ้งเตือนเมื่อถึงจุดหมาย</string>
+    <string name="channel_alert_desc">แจ้งเมื่อถึงปลายทางหรือหมดเวลาพัก</string>
+    <string name="notification_time_remaining">เวลาที่เหลือ</string>
+    <string name="notification_time_paused">หยุดชั่วคราว · เวลาที่เหลือ</string>
+</resources>

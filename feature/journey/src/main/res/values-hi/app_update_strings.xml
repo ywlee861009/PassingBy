@@ -1,0 +1,11 @@
+<resources>
+    <string name="app_update_available">नया वर्शन उपलब्ध है</string>
+    <string name="app_update_download">अपडेट डाउनलोड करें</string>
+    <string name="app_update_requesting">अपडेट की जाँच हो रही है…</string>
+    <string name="app_update_downloading">अपडेट डाउनलोड हो रहा है…</string>
+    <string name="app_update_ready">अपडेट इंस्टॉल करने के लिए तैयार है</string>
+    <string name="app_update_install">अपडेट के लिए ऐप फिर से चालू करें</string>
+    <string name="app_update_installing">अपडेट इंस्टॉल हो रहा है…</string>
+    <string name="app_update_later">बाद में</string>
+    <string name="app_update_failed">अभी ऐप अपडेट नहीं हो सका।</string>
+</resources>

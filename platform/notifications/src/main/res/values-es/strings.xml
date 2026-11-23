@@ -1,0 +1,8 @@
+<resources>
+    <string name="channel_trip">Viaje en curso</string>
+    <string name="channel_trip_desc">Muestra el tiempo restante mientras el tren está en marcha.</string>
+    <string name="channel_alert">Avisos de llegada</string>
+    <string name="channel_alert_desc">Te avisa al llegar a la parada final o al terminar el descanso.</string>
+    <string name="notification_time_remaining">Tiempo restante</string>
+    <string name="notification_time_paused">En pausa · Tiempo restante</string>
+</resources>

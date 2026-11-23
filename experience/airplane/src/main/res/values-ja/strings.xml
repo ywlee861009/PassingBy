@@ -1,0 +1,7 @@
+<resources>
+    <string name="air_region">黄海上空</string>
+    <string name="air_vehicle">飛行機</string>
+    <string name="air_incheon">仁川</string>
+    <string name="air_yellow_sea">黄海</string>
+    <string name="air_jeju">済州</string>
+</resources>

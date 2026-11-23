@@ -1,0 +1,7 @@
+<resources>
+    <string name="ship_region">दक्षिणी समुद्र</string>
+    <string name="ship_vehicle">फ़ेरी</string>
+    <string name="ship_busan">बुसान</string>
+    <string name="ship_strait">कोरिया जलडमरूमध्य</string>
+    <string name="ship_jeju">जेजू</string>
+</resources>

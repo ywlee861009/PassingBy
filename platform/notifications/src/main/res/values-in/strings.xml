@@ -1,0 +1,8 @@
+<resources>
+    <string name="channel_trip">Perjalanan berlangsung</string>
+    <string name="channel_trip_desc">Menampilkan sisa waktu selama perjalanan.</string>
+    <string name="channel_alert">Notifikasi kedatangan</string>
+    <string name="channel_alert_desc">Memberi tahu saat Anda tiba di perhentian terakhir atau saat istirahat selesai.</string>
+    <string name="notification_time_remaining">Sisa waktu</string>
+    <string name="notification_time_paused">Dijeda · Sisa waktu</string>
+</resources>

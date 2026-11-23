@@ -1,0 +1,28 @@
+<resources>
+    <string name="space_vehicle">探査船</string>
+    <string name="body_earth">地球</string>
+    <string name="body_moon">月</string>
+    <string name="body_mercury">水星</string>
+    <string name="body_venus">金星</string>
+    <string name="body_mars">火星</string>
+    <string name="body_jupiter">木星</string>
+    <string name="body_saturn">土星</string>
+    <string name="body_uranus">天王星</string>
+    <string name="body_neptune">海王星</string>
+    <string name="body_pluto">冥王星</string>
+    <string name="body_proxima_b">プロキシマ・ケンタウリ b</string>
+    <string name="body_trappist_e">TRAPPIST-1 e</string>
+    <string name="body_trappist_f">TRAPPIST-1 f</string>
+    <string name="body_trappist_g">TRAPPIST-1 g</string>
+    <string name="body_lhs1140_b">LHS 1140 b</string>
+    <string name="body_toi700_e">TOI-700 e</string>
+    <string name="body_toi700_d">TOI-700 d</string>
+    <string name="body_cancri_e">かに座55番星 e</string>
+    <string name="space_solar_note">実在する天体を巡る架空の旅です。距離や移動時間、航路は集中時間に合わせて調整しています。</string>
+    <string name="space_pluto_route">冥王星への旅</string>
+    <string name="route_pluto">地球 → 月 → 木星 → 土星 → 冥王星。月や巨大惑星のそばを通って冥王星へ。道中で小さな天体や流れ星にも出会います。</string>
+    <string name="body_black_hole">ブラックホール</string>
+    <string name="space_black_hole_route">ブラックホールへの旅</string>
+    <string name="route_black_hole">地球 → 月 → 土星 → 海王星 → ブラックホール。惑星を後にして、明るく輝く降着円盤を遠くから眺めます。</string>
+    <string name="space_black_hole_note">架空のブラックホールを遠くから観測する、想像上の旅です。距離や時間、光の見え方には演出が含まれています。</string>
+</resources>

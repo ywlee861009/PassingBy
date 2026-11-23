@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="season_spring">Mùa xuân</string>
+    <string name="season_summer">Mùa hè</string>
+    <string name="season_autumn">Mùa thu</string>
+    <string name="season_winter">Mùa đông</string>
+    <string name="random">Ngẫu nhiên</string>
+    <string name="time_dawn">Rạng đông</string>
+    <string name="time_day">Ban ngày</string>
+    <string name="time_dusk">Hoàng hôn</string>
+    <string name="time_night">Ban đêm</string>
+    <string name="weather_clear">Trời quang</string>
+    <string name="weather_drizzle">Mưa phùn</string>
+    <string name="weather_shower">Mưa rào</string>
+    <string name="weather_light_snow">Tuyết rơi nhẹ</string>
+    <string name="weather_heavy_snow">Tuyết rơi dày</string>
+    <string name="nonstop">Không dừng giữa đường</string>
+    <string name="stops_line">Dừng tại %1$s</string>
+    <string name="mode_train">Tàu hỏa</string>
+    <string name="mode_train_description">Khung cảnh quen thuộc, tiếng bánh xe trên đường ray và một chỗ ngồi bên cửa sổ.</string>
+    <string name="mode_airplane">Máy bay</string>
+    <string name="mode_airplane_description">Chỗ ngồi yên tĩnh bên cửa sổ, phía trên biển mây.</string>
+    <string name="mode_ship">Tàu thủy</string>
+    <string name="mode_ship_description">Những hòn đảo nơi chân trời và sóng lững lờ ngoài ô cửa tròn.</string>
+    <string name="mode_spaceship">Tàu vũ trụ</string>
+    <string name="mode_spaceship_description">Rời Trái Đất để ghé thăm các thiên thể có thật trong Hệ Mặt Trời. Chuyến đi được điều chỉnh theo thời gian tập trung của bạn.</string>
+    <string name="voyage_waypoints">Qua %1$s</string>
+</resources>

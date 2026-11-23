@@ -1,0 +1,7 @@
+<resources>
+    <string name="ship_region">ทะเลทางใต้</string>
+    <string name="ship_vehicle">เรือข้ามฟาก</string>
+    <string name="ship_busan">ปูซาน</string>
+    <string name="ship_strait">ช่องแคบเกาหลี</string>
+    <string name="ship_jeju">เชจู</string>
+</resources>

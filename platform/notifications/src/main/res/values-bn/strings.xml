@@ -1,0 +1,8 @@
+<resources>
+    <string name="channel_trip">যাত্রা চলছে</string>
+    <string name="channel_trip_desc">যাত্রার সময় কতটা সময় বাকি, তা দেখায়।</string>
+    <string name="channel_alert">পৌঁছানোর বিজ্ঞপ্তি</string>
+    <string name="channel_alert_desc">শেষ স্টপে পৌঁছালে বা বিরতি শেষ হলে জানায়।</string>
+    <string name="notification_time_remaining">বাকি সময়</string>
+    <string name="notification_time_paused">স্থগিত · বাকি সময়</string>
+</resources>

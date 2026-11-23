@@ -1,0 +1,28 @@
+<resources>
+    <string name="space_vehicle">ยานสำรวจ</string>
+    <string name="body_earth">โลก</string>
+    <string name="body_moon">ดวงจันทร์</string>
+    <string name="body_mercury">ดาวพุธ</string>
+    <string name="body_venus">ดาวศุกร์</string>
+    <string name="body_mars">ดาวอังคาร</string>
+    <string name="body_jupiter">ดาวพฤหัสบดี</string>
+    <string name="body_saturn">ดาวเสาร์</string>
+    <string name="body_uranus">ดาวยูเรนัส</string>
+    <string name="body_neptune">ดาวเนปจูน</string>
+    <string name="body_pluto">ดาวพลูโต</string>
+    <string name="body_proxima_b">พร็อกซิมา เซนทอรี บี</string>
+    <string name="body_trappist_e">TRAPPIST-1 e</string>
+    <string name="body_trappist_f">TRAPPIST-1 f</string>
+    <string name="body_trappist_g">TRAPPIST-1 g</string>
+    <string name="body_lhs1140_b">LHS 1140 b</string>
+    <string name="body_toi700_e">TOI-700 e</string>
+    <string name="body_toi700_d">TOI-700 d</string>
+    <string name="body_cancri_e">55 Cancri e</string>
+    <string name="space_solar_note">การเดินทางในจินตนาการท่ามกลางดวงดาวจริง มาตราส่วน เวลา และวิถีโคจรปรับให้เข้ากับช่วงเวลาจดจ่อของคุณ</string>
+    <string name="space_pluto_route">เดินทางสู่ดาวพลูโต</string>
+    <string name="route_pluto">โลก → ดวงจันทร์ → ดาวพฤหัสบดี → ดาวเสาร์ → ดาวพลูโต เดินทางผ่านดวงจันทร์และดาวเคราะห์ยักษ์ก่อนถึงดาวพลูโต ระหว่างทางจะพบดาวดวงเล็ก ๆ และดาวตก</string>
+    <string name="body_black_hole">หลุมดำ</string>
+    <string name="space_black_hole_route">เดินทางสู่หลุมดำ</string>
+    <string name="route_black_hole">โลก → ดวงจันทร์ → ดาวเสาร์ → ดาวเนปจูน → หลุมดำ เดินทางเลยดาวเคราะห์ออกไป แล้วชมจานพอกพูนมวลที่เรืองแสงจากระยะไกล</string>
+    <string name="space_black_hole_note">การเดินทางในจินตนาการสู่หลุมดำสมมติ คุณจะเฝ้ามองจากระยะไกล โดยมาตราส่วน เวลา และแสงเป็นการตีความทางศิลปะ</string>
+</resources>

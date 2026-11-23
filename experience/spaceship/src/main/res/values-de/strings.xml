@@ -1,0 +1,28 @@
+<resources>
+    <string name="space_vehicle">Forschungsraumschiff</string>
+    <string name="body_earth">Erde</string>
+    <string name="body_moon">Mond</string>
+    <string name="body_mercury">Merkur</string>
+    <string name="body_venus">Venus</string>
+    <string name="body_mars">Mars</string>
+    <string name="body_jupiter">Jupiter</string>
+    <string name="body_saturn">Saturn</string>
+    <string name="body_uranus">Uranus</string>
+    <string name="body_neptune">Neptun</string>
+    <string name="body_pluto">Pluto</string>
+    <string name="body_proxima_b">Proxima Centauri b</string>
+    <string name="body_trappist_e">TRAPPIST-1 e</string>
+    <string name="body_trappist_f">TRAPPIST-1 f</string>
+    <string name="body_trappist_g">TRAPPIST-1 g</string>
+    <string name="body_lhs1140_b">LHS 1140 b</string>
+    <string name="body_toi700_e">TOI-700 e</string>
+    <string name="body_toi700_d">TOI-700 d</string>
+    <string name="body_cancri_e">55 Cancri e</string>
+    <string name="space_solar_note">Eine erdachte Reise zu realen Himmelskörpern. Maßstab, Reisedauer und Flugbahnen sind auf deine Fokuszeit abgestimmt.</string>
+    <string name="space_pluto_route">Reise zum Pluto</string>
+    <string name="route_pluto">Erde → Mond → Jupiter → Saturn → Pluto. Flieg am Mond und an den Riesenplaneten vorbei bis zum Pluto. Unterwegs siehst du kleine Himmelskörper und Sternschnuppen.</string>
+    <string name="body_black_hole">Schwarzes Loch</string>
+    <string name="space_black_hole_route">Reise zu einem Schwarzen Loch</string>
+    <string name="route_black_hole">Erde → Mond → Saturn → Neptun → Schwarzes Loch. Lass die Planeten hinter dir und beobachte aus der Ferne die leuchtende Akkretionsscheibe.</string>
+    <string name="space_black_hole_note">Eine erdachte Reise zu einem fiktiven Schwarzen Loch. Beobachte es aus der Ferne. Maßstab, Zeit und Licht sind künstlerisch gestaltet.</string>
+</resources>

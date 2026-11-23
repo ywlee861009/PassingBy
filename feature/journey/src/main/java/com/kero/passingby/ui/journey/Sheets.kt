@@ -63,6 +63,7 @@ import java.util.Locale
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -408,14 +409,12 @@ fun SettingsSheetContent(
 
     // 언어 이름은 그 언어로 쓴다. 잘못 골라 읽을 수 없게 돼도 되돌릴 수 있게.
     SectionTitle(stringResource(R.string.language))
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        for (l in AppLanguage.entries) {
-            val label = when (l) {
-                AppLanguage.SYSTEM -> stringResource(R.string.language_system)
-                AppLanguage.KOREAN -> "한국어"
-                AppLanguage.ENGLISH -> "English"
+    for (row in AppLanguage.entries.chunked(3)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            for (option in row) {
+                val label = option.nativeName ?: stringResource(R.string.language_system)
+                Choice(label, option == language) { onLanguage(option) }
             }
-            Choice(label, l == language) { onLanguage(l) }
         }
     }
 
@@ -449,14 +448,15 @@ private fun RowScope.Choice(label: String, on: Boolean, onClick: () -> Unit) {
     Box(
         Modifier
             .weight(1f)
-            .height(44.dp)
+            .heightIn(min = 44.dp)
             .clip(CircleShape)
             .background(if (on) Pb.Ink else Color.Transparent)
             .border(1.dp, if (on) Pb.Ink else Pb.Line, CircleShape)
-            .selectable(on, role = Role.RadioButton, onClick = onClick),
+            .selectable(on, role = Role.RadioButton, onClick = onClick)
+            .padding(horizontal = 4.dp, vertical = 4.dp),
         contentAlignment = Alignment.Center,
     ) {
-        BasicText(label, style = PbType.body.copy(color = if (on) Pb.Paper else Pb.Ink))
+        BasicText(label, style = PbType.body.copy(color = if (on) Pb.Paper else Pb.Ink, textAlign = TextAlign.Center))
     }
 }
 

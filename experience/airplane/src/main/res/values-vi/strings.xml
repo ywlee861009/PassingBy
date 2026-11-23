@@ -1,0 +1,7 @@
+<resources>
+    <string name="air_region">Trên vùng trời Hoàng Hải</string>
+    <string name="air_vehicle">Máy bay</string>
+    <string name="air_incheon">Incheon</string>
+    <string name="air_yellow_sea">Hoàng Hải</string>
+    <string name="air_jeju">Jeju</string>
+</resources>

@@ -1,0 +1,11 @@
+<resources>
+    <string name="app_update_available">Versi baru tersedia</string>
+    <string name="app_update_download">Unduh pembaruan</string>
+    <string name="app_update_requesting">Memeriksa pembaruan…</string>
+    <string name="app_update_downloading">Mengunduh pembaruan…</string>
+    <string name="app_update_ready">Pembaruan siap dipasang</string>
+    <string name="app_update_install">Mulai ulang untuk memperbarui</string>
+    <string name="app_update_installing">Memasang pembaruan…</string>
+    <string name="app_update_later">Nanti</string>
+    <string name="app_update_failed">Aplikasi belum dapat diperbarui saat ini.</string>
+</resources>

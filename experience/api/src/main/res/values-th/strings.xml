@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="season_spring">ฤดูใบไม้ผลิ</string>
+    <string name="season_summer">ฤดูร้อน</string>
+    <string name="season_autumn">ฤดูใบไม้ร่วง</string>
+    <string name="season_winter">ฤดูหนาว</string>
+    <string name="random">สุ่ม</string>
+    <string name="time_dawn">รุ่งเช้า</string>
+    <string name="time_day">กลางวัน</string>
+    <string name="time_dusk">พระอาทิตย์ตก</string>
+    <string name="time_night">กลางคืน</string>
+    <string name="weather_clear">ท้องฟ้าโปร่ง</string>
+    <string name="weather_drizzle">ฝนปรอย</string>
+    <string name="weather_shower">ฝนตกเป็นช่วง ๆ</string>
+    <string name="weather_light_snow">หิมะตกเล็กน้อย</string>
+    <string name="weather_heavy_snow">หิมะตกหนัก</string>
+    <string name="nonstop">ไม่แวะจอด</string>
+    <string name="stops_line">จอดที่ %1$s</string>
+    <string name="mode_train">รถไฟ</string>
+    <string name="mode_train_description">วิวที่คุ้นตา เสียงรางรถไฟ และที่นั่งริมหน้าต่าง</string>
+    <string name="mode_airplane">เครื่องบิน</string>
+    <string name="mode_airplane_description">ที่นั่งริมหน้าต่างอันเงียบสงบเหนือทะเลเมฆ</string>
+    <string name="mode_ship">เรือ</string>
+    <string name="mode_ship_description">เกาะตรงเส้นขอบฟ้ากับคลื่นที่ไหวเอื่อย ๆ นอกช่องหน้าต่าง</string>
+    <string name="mode_spaceship">ยานอวกาศ</string>
+    <string name="mode_spaceship_description">ออกจากโลกไปเยือนดวงดาวจริงในระบบสุริยะ ตามเวลาที่คุณตั้งไว้สำหรับการจดจ่อ</string>
+    <string name="voyage_waypoints">ผ่าน %1$s</string>
+</resources>

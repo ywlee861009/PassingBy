@@ -1,0 +1,7 @@
+<resources>
+    <string name="ship_region">দক্ষিণের সমুদ্র</string>
+    <string name="ship_vehicle">ফেরি</string>
+    <string name="ship_busan">বুসান</string>
+    <string name="ship_strait">কোরিয়া প্রণালী</string>
+    <string name="ship_jeju">জেজু</string>
+</resources>

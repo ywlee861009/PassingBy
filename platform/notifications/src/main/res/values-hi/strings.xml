@@ -1,0 +1,8 @@
+<resources>
+    <string name="channel_trip">सफ़र जारी है</string>
+    <string name="channel_trip_desc">सफ़र के दौरान बचा हुआ समय दिखाता है।</string>
+    <string name="channel_alert">आगमन की सूचनाएँ</string>
+    <string name="channel_alert_desc">आखिरी पड़ाव पर पहुँचने या ब्रेक खत्म होने पर सूचना देता है।</string>
+    <string name="notification_time_remaining">बचा हुआ समय</string>
+    <string name="notification_time_paused">रुका हुआ · बचा हुआ समय</string>
+</resources>

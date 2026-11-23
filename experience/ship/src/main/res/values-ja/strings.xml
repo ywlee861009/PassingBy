@@ -1,0 +1,7 @@
+<resources>
+    <string name="ship_region">南の海</string>
+    <string name="ship_vehicle">フェリー</string>
+    <string name="ship_busan">釜山</string>
+    <string name="ship_strait">朝鮮海峡</string>
+    <string name="ship_jeju">済州</string>
+</resources>

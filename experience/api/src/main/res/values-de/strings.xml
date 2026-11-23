@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="season_spring">Frühling</string>
+    <string name="season_summer">Sommer</string>
+    <string name="season_autumn">Herbst</string>
+    <string name="season_winter">Winter</string>
+    <string name="random">Zufällig</string>
+    <string name="time_dawn">Morgendämmerung</string>
+    <string name="time_day">Tag</string>
+    <string name="time_dusk">Sonnenuntergang</string>
+    <string name="time_night">Nacht</string>
+    <string name="weather_clear">Klar</string>
+    <string name="weather_drizzle">Nieselregen</string>
+    <string name="weather_shower">Regenschauer</string>
+    <string name="weather_light_snow">Leichter Schneefall</string>
+    <string name="weather_heavy_snow">Starker Schneefall</string>
+    <string name="nonstop">Ohne Zwischenhalt</string>
+    <string name="stops_line">Hält in %1$s</string>
+    <string name="mode_train">Zug</string>
+    <string name="mode_train_description">Vertraute Landschaften, das Rattern der Schienen und ein Platz am Fenster.</string>
+    <string name="mode_airplane">Flugzeug</string>
+    <string name="mode_airplane_description">Ein ruhiger Fensterplatz über einem Meer aus Wolken.</string>
+    <string name="mode_ship">Schiff</string>
+    <string name="mode_ship_description">Inseln am Horizont und sanfte Wellen vor dem Bullauge.</string>
+    <string name="mode_spaceship">Raumschiff</string>
+    <string name="mode_spaceship_description">Starte von der Erde und besuch echte Himmelskörper im Sonnensystem. Die Reisedauer richtet sich nach deiner Fokuszeit.</string>
+    <string name="voyage_waypoints">Über %1$s</string>
+</resources>

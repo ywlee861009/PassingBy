@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="season_spring">वसंत</string>
+    <string name="season_summer">गर्मी</string>
+    <string name="season_autumn">पतझड़</string>
+    <string name="season_winter">सर्दी</string>
+    <string name="random">कोई भी</string>
+    <string name="time_dawn">भोर</string>
+    <string name="time_day">दिन</string>
+    <string name="time_dusk">सूर्यास्त</string>
+    <string name="time_night">रात</string>
+    <string name="weather_clear">साफ़</string>
+    <string name="weather_drizzle">बूँदाबाँदी</string>
+    <string name="weather_shower">बारिश की बौछार</string>
+    <string name="weather_light_snow">हल्की बर्फ़बारी</string>
+    <string name="weather_heavy_snow">भारी बर्फ़बारी</string>
+    <string name="nonstop">बिना रुके</string>
+    <string name="stops_line">पड़ाव: %1$s</string>
+    <string name="mode_train">ट्रेन</string>
+    <string name="mode_train_description">खिड़की के पास बैठकर पटरियों की आवाज़ सुनें और जाने-पहचाने नज़ारे देखें।</string>
+    <string name="mode_airplane">हवाई जहाज़</string>
+    <string name="mode_airplane_description">बादलों के समंदर के ऊपर, खिड़की के पास एक सुकून भरी सीट।</string>
+    <string name="mode_ship">जहाज़</string>
+    <string name="mode_ship_description">गोल खिड़की से दूर क्षितिज पर द्वीप और पास में धीरे-धीरे उठती लहरें देखें।</string>
+    <string name="mode_spaceship">अंतरिक्ष यान</string>
+    <string name="mode_spaceship_description">पृथ्वी से निकलकर सौरमंडल के असली खगोलीय पिंडों तक जाएँ। सफ़र आपके एकाग्रता सत्र के समय के अनुसार चलता है।</string>
+    <string name="voyage_waypoints">%1$s के रास्ते</string>
+</resources>

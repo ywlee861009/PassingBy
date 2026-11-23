@@ -102,12 +102,12 @@ android {
         }
     }
     androidResources {
-        // 앱 문구는 영어(기본)와 한국어뿐이다. 라이브러리의 다른 언어 문구를 빼서 한 화면에 언어가 섞이지 않게 한다.
-        localeFilters += listOf("en", "ko")
+        // 라이브러리 문구도 앱이 지원하는 언어만 패키징한다.
+        // Android 리소스의 인도네시아어 한정자는 BCP 47의 id 대신 in을 사용한다.
+        localeFilters += listOf("en", "ko", "hi", "bn", "es", "de", "ja", "in", "vi", "th")
     }
     bundle {
-        // 앱 안에서 언어를 고를 수 있으므로 언어별로 나누지 않는다. 나누면 Play가 기기 언어 리소스만 설치해,
-        // 영어 기기에서 한국어를 골라도 한국어 문구가 없어 영어로 보인다.
+        // 기기 언어와 다른 언어도 앱에서 바로 고를 수 있도록 모든 번역을 함께 설치한다.
         language {
             enableSplit = false
         }

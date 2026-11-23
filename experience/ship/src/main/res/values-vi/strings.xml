@@ -1,0 +1,7 @@
+<resources>
+    <string name="ship_region">Vùng biển phía nam</string>
+    <string name="ship_vehicle">Phà</string>
+    <string name="ship_busan">Busan</string>
+    <string name="ship_strait">Eo biển Triều Tiên</string>
+    <string name="ship_jeju">Jeju</string>
+</resources>

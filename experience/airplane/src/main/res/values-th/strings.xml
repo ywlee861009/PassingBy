@@ -1,0 +1,7 @@
+<resources>
+    <string name="air_region">เหนือทะเลเหลือง</string>
+    <string name="air_vehicle">เครื่องบิน</string>
+    <string name="air_incheon">อินช็อน</string>
+    <string name="air_yellow_sea">ทะเลเหลือง</string>
+    <string name="air_jeju">เชจู</string>
+</resources>

@@ -1,0 +1,8 @@
+<resources>
+    <string name="channel_trip">旅の途中</string>
+    <string name="channel_trip_desc">列車の走行中に残り時間を表示します。</string>
+    <string name="channel_alert">到着のお知らせ</string>
+    <string name="channel_alert_desc">終点への到着や休憩の終了をお知らせします。</string>
+    <string name="notification_time_remaining">残り時間</string>
+    <string name="notification_time_paused">一時停止中 · 残り時間</string>
+</resources>

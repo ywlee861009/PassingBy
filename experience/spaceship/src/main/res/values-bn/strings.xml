@@ -1,0 +1,28 @@
+<resources>
+    <string name="space_vehicle">অনুসন্ধানী মহাকাশযান</string>
+    <string name="body_earth">পৃথিবী</string>
+    <string name="body_moon">চাঁদ</string>
+    <string name="body_mercury">বুধ</string>
+    <string name="body_venus">শুক্র</string>
+    <string name="body_mars">মঙ্গল</string>
+    <string name="body_jupiter">বৃহস্পতি</string>
+    <string name="body_saturn">শনি</string>
+    <string name="body_uranus">ইউরেনাস</string>
+    <string name="body_neptune">নেপচুন</string>
+    <string name="body_pluto">প্লুটো</string>
+    <string name="body_proxima_b">প্রক্সিমা সেন্টোরি b</string>
+    <string name="body_trappist_e">TRAPPIST-1 e</string>
+    <string name="body_trappist_f">TRAPPIST-1 f</string>
+    <string name="body_trappist_g">TRAPPIST-1 g</string>
+    <string name="body_lhs1140_b">LHS 1140 b</string>
+    <string name="body_toi700_e">TOI-700 e</string>
+    <string name="body_toi700_d">TOI-700 d</string>
+    <string name="body_cancri_e">55 Cancri e</string>
+    <string name="space_solar_note">বাস্তব মহাজাগতিক বস্তুর মাঝে এক কল্পিত যাত্রা। আপনার মনোযোগের সময়ের সঙ্গে মিলিয়ে আকার, সময় আর গতিপথ সাজানো হয়েছে।</string>
+    <string name="space_pluto_route">প্লুটোর পথে</string>
+    <string name="route_pluto">পৃথিবী → চাঁদ → বৃহস্পতি → শনি → প্লুটো। চাঁদ আর বিশাল গ্রহগুলো পেরিয়ে প্লুটোয় পৌঁছান। পথে ছোট ছোট মহাজাগতিক বস্তু আর ছুটে যাওয়া উল্কা দেখুন।</string>
+    <string name="body_black_hole">কৃষ্ণগহ্বর</string>
+    <string name="space_black_hole_route">কৃষ্ণগহ্বরের পথে</string>
+    <string name="route_black_hole">পৃথিবী → চাঁদ → শনি → নেপচুন → কৃষ্ণগহ্বর। গ্রহগুলো পেরিয়ে দূর থেকে কৃষ্ণগহ্বরের চারপাশের উজ্জ্বল অভিবৃদ্ধি চাকতি দেখুন।</string>
+    <string name="space_black_hole_note">এক কল্পিত কৃষ্ণগহ্বরের দিকে যাত্রা। দূর থেকে দেখুন। আকার, সময় ও আলো শিল্পীর কল্পনায় ফুটিয়ে তোলা হয়েছে।</string>
+</resources>

@@ -1,0 +1,8 @@
+<resources>
+    <string name="channel_trip">Đang trên đường</string>
+    <string name="channel_trip_desc">Hiển thị thời gian còn lại trong chuyến đi.</string>
+    <string name="channel_alert">Thông báo đến nơi</string>
+    <string name="channel_alert_desc">Báo khi bạn đến điểm dừng cuối hoặc khi hết giờ nghỉ.</string>
+    <string name="notification_time_remaining">Thời gian còn lại</string>
+    <string name="notification_time_paused">Tạm dừng · Thời gian còn lại</string>
+</resources>

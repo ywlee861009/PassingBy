@@ -1,6 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Android 13 이상의 시스템 설정 → 앱 언어에 보일 언어. values 폴더와 build.gradle의 localeFilters와 맞춘다. -->
+<!-- Android 13 이상의 시스템 설정 → 앱 언어에 보일 BCP 47 언어 태그. -->
 <locale-config xmlns:android="http://schemas.android.com/apk/res/android">
     <locale android:name="en" />
     <locale android:name="ko" />
+    <locale android:name="hi" />
+    <locale android:name="bn" />
+    <locale android:name="es" />
+    <locale android:name="de" />
+    <locale android:name="ja" />
+    <locale android:name="id" />
+    <locale android:name="vi" />
+    <locale android:name="th" />
 </locale-config>

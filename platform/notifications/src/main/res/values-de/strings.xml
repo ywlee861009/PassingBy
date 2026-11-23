@@ -1,0 +1,8 @@
+<resources>
+    <string name="channel_trip">Unterwegs</string>
+    <string name="channel_trip_desc">Zeigt während der Reise die verbleibende Zeit an.</string>
+    <string name="channel_alert">Ankunftsmeldungen</string>
+    <string name="channel_alert_desc">Meldet sich, wenn du am Ziel bist oder deine Pause endet.</string>
+    <string name="notification_time_remaining">Verbleibende Zeit</string>
+    <string name="notification_time_paused">Pausiert · Verbleibende Zeit</string>
+</resources>

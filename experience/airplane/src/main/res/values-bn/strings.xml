@@ -1,0 +1,7 @@
+<resources>
+    <string name="air_region">পীত সাগরের ওপরে</string>
+    <string name="air_vehicle">বিমান</string>
+    <string name="air_incheon">ইনচন</string>
+    <string name="air_yellow_sea">পীত সাগর</string>
+    <string name="air_jeju">জেজু</string>
+</resources>

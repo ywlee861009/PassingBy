@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="season_spring">春</string>
+    <string name="season_summer">夏</string>
+    <string name="season_autumn">秋</string>
+    <string name="season_winter">冬</string>
+    <string name="random">ランダム</string>
+    <string name="time_dawn">夜明け</string>
+    <string name="time_day">昼</string>
+    <string name="time_dusk">夕暮れ</string>
+    <string name="time_night">夜</string>
+    <string name="weather_clear">晴れ</string>
+    <string name="weather_drizzle">小雨</string>
+    <string name="weather_shower">にわか雨</string>
+    <string name="weather_light_snow">小雪</string>
+    <string name="weather_heavy_snow">大雪</string>
+    <string name="nonstop">途中停車なし</string>
+    <string name="stops_line">停車駅：%1$s</string>
+    <string name="mode_train">列車</string>
+    <string name="mode_train_description">レールの音を聞きながら、窓辺の席で見慣れた風景を眺めます。</string>
+    <string name="mode_airplane">飛行機</string>
+    <string name="mode_airplane_description">静かな窓側の席から、眼下に広がる雲海を眺めます。</string>
+    <string name="mode_ship">船</string>
+    <string name="mode_ship_description">丸窓の向こうに、水平線の島々とゆるやかな波が広がります。</string>
+    <string name="mode_spaceship">宇宙船</string>
+    <string name="mode_spaceship_description">地球を出発し、集中時間に合わせて太陽系に実在する天体を巡ります。</string>
+    <string name="voyage_waypoints">経由：%1$s</string>
+</resources>

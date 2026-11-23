@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="season_spring">Primavera</string>
+    <string name="season_summer">Verano</string>
+    <string name="season_autumn">Otoño</string>
+    <string name="season_winter">Invierno</string>
+    <string name="random">Al azar</string>
+    <string name="time_dawn">Amanecer</string>
+    <string name="time_day">Día</string>
+    <string name="time_dusk">Atardecer</string>
+    <string name="time_night">Noche</string>
+    <string name="weather_clear">Cielo despejado</string>
+    <string name="weather_drizzle">Llovizna</string>
+    <string name="weather_shower">Chubascos</string>
+    <string name="weather_light_snow">Nevada ligera</string>
+    <string name="weather_heavy_snow">Nevada intensa</string>
+    <string name="nonstop">Sin paradas</string>
+    <string name="stops_line">Paradas en %1$s</string>
+    <string name="mode_train">Tren</string>
+    <string name="mode_train_description">Paisajes familiares, vías y un asiento junto a la ventana.</string>
+    <string name="mode_airplane">Avión</string>
+    <string name="mode_airplane_description">Un asiento tranquilo junto a la ventana, sobre un mar de nubes.</string>
+    <string name="mode_ship">Barco</string>
+    <string name="mode_ship_description">Islas en el horizonte y olas suaves al otro lado del ojo de buey.</string>
+    <string name="mode_spaceship">Nave espacial</string>
+    <string name="mode_spaceship_description">Parte de la Tierra y visita mundos reales del sistema solar al ritmo de tu sesión de concentración.</string>
+    <string name="voyage_waypoints">Vía %1$s</string>
+</resources>

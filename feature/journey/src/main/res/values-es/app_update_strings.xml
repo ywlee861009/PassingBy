@@ -1,0 +1,11 @@
+<resources>
+    <string name="app_update_available">Hay una versión nueva disponible</string>
+    <string name="app_update_download">Descargar actualización</string>
+    <string name="app_update_requesting">Buscando la actualización…</string>
+    <string name="app_update_downloading">Descargando la actualización…</string>
+    <string name="app_update_ready">Actualización lista para instalar</string>
+    <string name="app_update_install">Reiniciar para actualizar</string>
+    <string name="app_update_installing">Instalando la actualización…</string>
+    <string name="app_update_later">Más tarde</string>
+    <string name="app_update_failed">No se pudo actualizar la app en este momento.</string>
+</resources>

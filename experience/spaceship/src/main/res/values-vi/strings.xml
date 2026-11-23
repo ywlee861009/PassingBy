@@ -1,0 +1,28 @@
+<resources>
+    <string name="space_vehicle">Tàu thám hiểm</string>
+    <string name="body_earth">Trái Đất</string>
+    <string name="body_moon">Mặt Trăng</string>
+    <string name="body_mercury">Sao Thủy</string>
+    <string name="body_venus">Sao Kim</string>
+    <string name="body_mars">Sao Hỏa</string>
+    <string name="body_jupiter">Sao Mộc</string>
+    <string name="body_saturn">Sao Thổ</string>
+    <string name="body_uranus">Sao Thiên Vương</string>
+    <string name="body_neptune">Sao Hải Vương</string>
+    <string name="body_pluto">Sao Diêm Vương</string>
+    <string name="body_proxima_b">Proxima Centauri b</string>
+    <string name="body_trappist_e">TRAPPIST-1 e</string>
+    <string name="body_trappist_f">TRAPPIST-1 f</string>
+    <string name="body_trappist_g">TRAPPIST-1 g</string>
+    <string name="body_lhs1140_b">LHS 1140 b</string>
+    <string name="body_toi700_e">TOI-700 e</string>
+    <string name="body_toi700_d">TOI-700 d</string>
+    <string name="body_cancri_e">55 Cancri e</string>
+    <string name="space_solar_note">Chuyến đi tưởng tượng qua các thiên thể có thật. Tỷ lệ, thời gian và đường bay được điều chỉnh theo phiên tập trung của bạn.</string>
+    <string name="space_pluto_route">Hành trình đến Sao Diêm Vương</string>
+    <string name="route_pluto">Trái Đất → Mặt Trăng → Sao Mộc → Sao Thổ → Sao Diêm Vương. Bay qua Mặt Trăng và các hành tinh khổng lồ để đến Sao Diêm Vương. Trên đường, bạn sẽ thấy những thiên thể nhỏ và sao băng.</string>
+    <string name="body_black_hole">Lỗ đen</string>
+    <string name="space_black_hole_route">Hành trình đến lỗ đen</string>
+    <string name="route_black_hole">Trái Đất → Mặt Trăng → Sao Thổ → Sao Hải Vương → Lỗ đen. Bỏ lại các hành tinh phía sau và quan sát đĩa bồi tụ phát sáng từ xa.</string>
+    <string name="space_black_hole_note">Chuyến đi tưởng tượng đến một lỗ đen hư cấu. Hãy quan sát từ xa. Tỷ lệ, thời gian và ánh sáng được thể hiện theo cách nghệ thuật.</string>
+</resources>

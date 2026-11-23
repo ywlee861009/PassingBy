@@ -1,0 +1,7 @@
+<resources>
+    <string name="ship_region">Vor Koreas Südküste</string>
+    <string name="ship_vehicle">Fähre</string>
+    <string name="ship_busan">Busan</string>
+    <string name="ship_strait">Koreastraße</string>
+    <string name="ship_jeju">Jeju</string>
+</resources>

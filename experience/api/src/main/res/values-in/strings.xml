@@ -1,0 +1,27 @@
+<resources>
+    <string name="season_spring">Musim semi</string>
+    <string name="season_summer">Musim panas</string>
+    <string name="season_autumn">Musim gugur</string>
+    <string name="season_winter">Musim dingin</string>
+    <string name="random">Acak</string>
+    <string name="time_dawn">Fajar</string>
+    <string name="time_day">Siang</string>
+    <string name="time_dusk">Senja</string>
+    <string name="time_night">Malam</string>
+    <string name="weather_clear">Cerah</string>
+    <string name="weather_drizzle">Gerimis</string>
+    <string name="weather_shower">Hujan</string>
+    <string name="weather_light_snow">Salju ringan</string>
+    <string name="weather_heavy_snow">Salju lebat</string>
+    <string name="nonstop">Tanpa henti</string>
+    <string name="stops_line">Berhenti di %1$s</string>
+    <string name="mode_train">Kereta</string>
+    <string name="mode_train_description">Pemandangan yang akrab, suara rel, dan kursi dekat jendela.</string>
+    <string name="mode_airplane">Pesawat</string>
+    <string name="mode_airplane_description">Kursi dekat jendela yang tenang di atas lautan awan.</string>
+    <string name="mode_ship">Kapal</string>
+    <string name="mode_ship_description">Pulau di cakrawala dan ombak pelan di balik jendela kapal.</string>
+    <string name="mode_spaceship">Pesawat antariksa</string>
+    <string name="mode_spaceship_description">Berangkat dari Bumi dan kunjungi benda langit sungguhan di tata surya selama sesi fokus Anda.</string>
+    <string name="voyage_waypoints">Melalui %1$s</string>
+</resources>

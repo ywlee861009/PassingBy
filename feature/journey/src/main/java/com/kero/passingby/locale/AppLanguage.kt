@@ -10,15 +10,23 @@ import java.util.Locale
 
 /**
  * 앱 언어. 기본은 기기 언어를 따르고([SYSTEM]), 설정에서 고르면 그 언어로 고정한다.
- * 기기 언어가 한국어·영어가 아니면 기본 문구(영어)로 보인다.
+ * 지원하는 기기 언어가 없으면 기본 문구(영어)로 보인다.
  *
  * Android 13 이상은 시스템의 앱별 언어(LocaleManager)에 맡긴다. 시스템 설정 → 앱 언어와 같은 값이고, 바꾸면 시스템이 화면을 다시 만든다.
  * 그 아래는 직접 저장해 두고, 액티비티를 만들 때([wrap])와 알림 문구를 만들 때([localized]) 덮어씌운다.
  */
-enum class AppLanguage(val tag: String?) {
-    SYSTEM(null),
-    KOREAN("ko"),
-    ENGLISH("en");
+enum class AppLanguage(val tag: String?, val nativeName: String?) {
+    SYSTEM(null, null),
+    KOREAN("ko", "한국어"),
+    ENGLISH("en", "English"),
+    HINDI("hi", "हिंदी"),
+    BENGALI("bn", "বাংলা"),
+    SPANISH("es", "Español"),
+    GERMAN("de", "Deutsch"),
+    JAPANESE("ja", "日本語"),
+    INDONESIAN("id", "Indonesia"),
+    VIETNAMESE("vi", "Tiếng Việt"),
+    THAI("th", "ไทย");
 
     companion object {
         private const val PREFS = "language"
@@ -27,7 +35,7 @@ enum class AppLanguage(val tag: String?) {
         fun current(ctx: Context): AppLanguage {
             val tag = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 ctx.getSystemService(LocaleManager::class.java)?.applicationLocales
-                    ?.takeUnless { it.isEmpty }?.get(0)?.language
+                    ?.get(0)?.toLanguageTag()?.substringBefore('-')
             } else {
                 ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY, null)
             }

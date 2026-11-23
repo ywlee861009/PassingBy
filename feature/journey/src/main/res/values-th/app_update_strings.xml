@@ -1,0 +1,11 @@
+<resources>
+    <string name="app_update_available">มีเวอร์ชันใหม่</string>
+    <string name="app_update_download">ดาวน์โหลดอัปเดต</string>
+    <string name="app_update_requesting">กำลังตรวจสอบอัปเดต…</string>
+    <string name="app_update_downloading">กำลังดาวน์โหลดอัปเดต…</string>
+    <string name="app_update_ready">อัปเดตพร้อมติดตั้ง</string>
+    <string name="app_update_install">เปิดแอปใหม่เพื่ออัปเดต</string>
+    <string name="app_update_installing">กำลังติดตั้งอัปเดต…</string>
+    <string name="app_update_later">ไว้ทีหลัง</string>
+    <string name="app_update_failed">อัปเดตแอปไม่ได้ในขณะนี้</string>
+</resources>

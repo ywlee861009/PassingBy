@@ -1,0 +1,28 @@
+<resources>
+    <string name="space_vehicle">Nave de exploración</string>
+    <string name="body_earth">Tierra</string>
+    <string name="body_moon">Luna</string>
+    <string name="body_mercury">Mercurio</string>
+    <string name="body_venus">Venus</string>
+    <string name="body_mars">Marte</string>
+    <string name="body_jupiter">Júpiter</string>
+    <string name="body_saturn">Saturno</string>
+    <string name="body_uranus">Urano</string>
+    <string name="body_neptune">Neptuno</string>
+    <string name="body_pluto">Plutón</string>
+    <string name="body_proxima_b">Próxima Centauri b</string>
+    <string name="body_trappist_e">TRAPPIST-1 e</string>
+    <string name="body_trappist_f">TRAPPIST-1 f</string>
+    <string name="body_trappist_g">TRAPPIST-1 g</string>
+    <string name="body_lhs1140_b">LHS 1140 b</string>
+    <string name="body_toi700_e">TOI-700 e</string>
+    <string name="body_toi700_d">TOI-700 d</string>
+    <string name="body_cancri_e">55 Cancri e</string>
+    <string name="space_solar_note">Un viaje imaginario entre mundos reales. La escala, los tiempos y las trayectorias se adaptan a tu sesión de concentración.</string>
+    <string name="space_pluto_route">Viaje a Plutón</string>
+    <string name="route_pluto">Tierra → Luna → Júpiter → Saturno → Plutón. Pasa junto a la Luna y los planetas gigantes de camino a Plutón, entre pequeños mundos y estrellas fugaces.</string>
+    <string name="body_black_hole">Agujero negro</string>
+    <string name="space_black_hole_route">Viaje a un agujero negro</string>
+    <string name="route_black_hole">Tierra → Luna → Saturno → Neptuno → Agujero negro. Deja atrás los planetas y observa desde lejos un disco de acreción resplandeciente.</string>
+    <string name="space_black_hole_note">Un viaje imaginario a un agujero negro ficticio. Lo observas desde lejos. La escala, los tiempos y la luz son interpretaciones artísticas.</string>
+</resources>
