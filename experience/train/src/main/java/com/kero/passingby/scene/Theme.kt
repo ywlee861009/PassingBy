@@ -137,6 +137,8 @@ interface Zones {
     fun prairie(x: Double): Float = 0f
     fun dryWash(x: Double): Float = 0f
     fun limestoneCanyon(x: Double): Float = 0f
+    /** Bright Angel 절벽의 노출 정도(0~1). */
+    fun redCliffs(x: Double): Float = 0f
     fun sea(x: Double): Float
     /** 중경 높이에서 맞은편 언덕이 보이는 강·호수(0~1). */
     fun river(x: Double): Float

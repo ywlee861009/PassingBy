@@ -75,6 +75,9 @@ object UsaCourses {
             Feature(Feature.Kind.PRAIRIE, 0, .15f, .70f),
             Feature(Feature.Kind.DRY_WASH, 0, 34.8f / 65f, 36f / 65f),
             Feature(Feature.Kind.LIMESTONE_CANYON, 0, 54f / 65f, 58f / 65f),
+            // Distant red strata lead into the open view at Bright Angel Fault (milepost 63.3).
+            Feature(Feature.Kind.RED_CLIFF_APPROACH, 0, .53f, .95f),
+            Feature(Feature.Kind.RED_CLIFFS, 0, .95f, .978f),
         ),
         landmarks = listOf(
             LandmarkSpot.atStation(LandmarkKind.WILLIAMS_DEPOT, 0, -85f),

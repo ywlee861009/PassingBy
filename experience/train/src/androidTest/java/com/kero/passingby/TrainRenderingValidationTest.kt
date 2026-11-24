@@ -2,6 +2,7 @@ package com.kero.passingby
 
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.graphics.Color
 import android.os.Debug
 import android.os.SystemClock
 import androidx.test.platform.app.InstrumentationRegistry
@@ -182,20 +183,112 @@ class TrainRenderingValidationTest {
                 val zones = CourseZones(plan, course, direction, 0.0)
                 state.zones = zones
                 fun at(fraction: Double) = plan.segDist * if (direction > 0) fraction else 1.0 - fraction
+                for (fraction in listOf(0.0, .48, 1.0)) {
+                    assertEquals("Red cliffs outside the approach at $fraction", 0f, zones.redCliffs(at(fraction)), .001f)
+                }
+                assertTrue(zones.redCliffs(at(.515)) > 0f)
                 for ((scene, fraction) in listOf("forest" to .08, "prairie" to .38,
                     "miller-wash" to (35.5 / 65), "coconino-canyon" to (56.0 / 65))) {
                     val x = at(fraction)
                     when (scene) {
                         "forest" -> assertEquals(0f, zones.prairie(x), .001f)
                         "prairie" -> assertEquals(1f, zones.prairie(x), .001f)
-                        "miller-wash" -> assertEquals(1f, zones.dryWash(x), .001f)
-                        "coconino-canyon" -> assertEquals(1f, zones.limestoneCanyon(x), .001f)
+                        "miller-wash" -> {
+                            assertEquals(1f, zones.dryWash(x), .001f)
+                            assertTrue(zones.redCliffs(x) in 0.01f..0.3f)
+                        }
+                        "coconino-canyon" -> {
+                            assertEquals(1f, zones.limestoneCanyon(x), .001f)
+                            assertTrue(zones.redCliffs(x) in 0.01f..0.3f)
+                        }
                     }
                     state.setTravel(x, 0.0)
                     capture(renderer, state, "${course.id}-$scene-$direction", TimeOfDay.DAY, Weather.CLEAR, true)
                 }
             }
         } finally { renderer.release() }
+    }
+
+    @Test fun brightAngelRedCliffsAreVisibleThroughTheTrainWindowInBothDirections() {
+        val course = UsaCourses.GRAND_CANYON
+        val plan = CoursePlan(1500.0, course.stations.size, course.cruise)
+        val state = SceneState().apply {
+            theme = course.theme
+            mode = RenderMode.BAKED
+            windowFrame = true
+            autoWeather = false
+            weather = Weather.CLEAR
+            snapWeather()
+            urban = UrbanField { x -> plan.at(x) }
+        }
+        val renderer = SceneRenderer(state)
+        try {
+            for (direction in listOf(1, -1)) {
+                val zones = CourseZones(plan, course, direction, 0.0)
+                val withoutCliffs = object : Zones by zones {
+                    override fun redCliffs(x: Double) = 0f
+                }
+                val stops = course.ordered(direction)
+                state.setStations(DoubleArray(stops.size) { plan.stationDistance(it) },
+                    Array(stops.size) { stops[it].local }, Array(stops.size) { stops[it].roman })
+                val faultFraction = 63.3 / 65.0
+                val progress = if (direction > 0) faultFraction else 1.0 - faultFraction
+                val distance = plan.segDist * progress
+                state.setTravel(distance, 0.0)
+                assertTrue("Bright Angel is fully visible in direction $direction", zones.redCliffs(distance) > .95f)
+                for (fixedTime in listOf(TimeOfDay.DAY, null)) {
+                    // The default sky is dark near the end of the ride and just turning at the start.
+                    state.setTimeOfDay(fixedTime)
+                    state.update(0f, progress.toFloat())
+                    state.snapTimeOfDay()
+                    state.update(0f, progress.toFloat())
+                    val automatic = fixedTime == null
+                    val expectedTime = if (direction > 0) TimeOfDay.NIGHT else TimeOfDay.DAWN
+                    assertEquals(fixedTime ?: expectedTime, state.timeOfDay)
+                    for (landscape in listOf(false, true)) {
+                        val width = if (landscape) 1280 else 720
+                        val height = if (landscape) 720 else 1280
+                        val orientation = if (landscape) "landscape" else "portrait"
+                        val lighting = if (automatic) "auto" else "day"
+                        val label = "${course.id}-bright-angel-$direction-$orientation-$lighting"
+                        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+                        try {
+                            val canvas = Canvas(bitmap)
+                            state.zones = zones
+                            renderer.render(canvas, width, height)
+                            awaitPlateauArtwork(renderer)
+                            renderer.render(canvas, width, height)
+                            File(output, "$label.png").outputStream().use {
+                                assertTrue(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it))
+                            }
+                            val cliffs = windowPixels(bitmap)
+                            state.zones = withoutCliffs
+                            renderer.render(canvas, width, height)
+                            val baseline = windowPixels(bitmap)
+                            val redGreenGap = if (automatic) 12 else 24
+                            val redBlueGap = if (automatic) 8 else 36
+                            val visibleRock = cliffs.indices.count { i ->
+                                val pixel = cliffs[i]
+                                val red = Color.red(pixel)
+                                pixel != baseline[i] && red - Color.green(pixel) >= redGreenGap &&
+                                    red - Color.blue(pixel) >= redBlueGap
+                            }
+                            assertTrue("$label red cliff pixels: $visibleRock", visibleRock >= cliffs.size / 25)
+                        } finally { bitmap.recycle() }
+                    }
+                }
+            }
+        } finally { renderer.release() }
+    }
+
+    private fun windowPixels(bitmap: Bitmap): IntArray {
+        // Sample inside the glass so the window trim cannot count as red rock.
+        val opening = TrainWindowFrame().apply { layout(bitmap.width, bitmap.height) }.opening
+        val left = (opening.left + opening.width() * .1f).toInt()
+        val top = (opening.top + opening.height() * .1f).toInt()
+        val width = (opening.width() * .8f).toInt()
+        val height = (opening.height() * .8f).toInt()
+        return IntArray(width * height).also { bitmap.getPixels(it, 0, width, left, top, width, height) }
     }
 
     private fun verifyLandmarks(course: Course, prefix: String) {

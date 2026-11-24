@@ -27,14 +27,18 @@ internal class CoconinoPlateau {
         }
     }
     private val foothills = Array(2) { bakeFoothills(it) }
+    private val canyonWalls = Array(2) { bakeCanyonWall(it == Scenery.FAR_A) }
     private val ground = Array(2) { depth -> Array(Habitat.entries.size) { bakeGround(depth, Habitat.entries[it]) } }
     private val pine = Array(7) { tree(true, 2411 + it) }
     private val juniper = Array(6) { tree(false, 2343 + it) }
-    val bytes = foothills.sumOf { it.allocationByteCount.toLong() } + ground.sumOf { band -> band.sumOf { it.allocationByteCount.toLong() } } +
+    val bytes = foothills.sumOf { it.allocationByteCount.toLong() } + canyonWalls.sumOf { it.allocationByteCount.toLong() } +
+        ground.sumOf { band -> band.sumOf { it.allocationByteCount.toLong() } } +
         pine.sumOf { it.allocationByteCount.toLong() } + juniper.sumOf { it.allocationByteCount.toLong() }
     private val paint = Paint()
+    private val cliffPaint = Paint()
     private val dst = RectF()
     private var previousMultiply = 0
+    private var previousCliffMultiply = 0
     private var previousAdd = 0
 
     fun update(p: Palette) {
@@ -43,10 +47,14 @@ internal class CoconinoPlateau {
         val haze = .11f + .75f * night
         val ambient = mix(p.c[Palette.HAZE], p.c[Palette.TREE], night)
         val multiply = mix(Color.WHITE, Color.BLACK, (haze + snow * .30f).coerceAtMost(.95f))
+        // The high sandstone faces hold more light than the shaded valley floor at night.
+        val cliffMultiply = mix(Color.WHITE, Color.BLACK, (haze - .18f * night + snow * .19f).coerceAtMost(.95f))
         val add = mix(mix(Color.BLACK, ambient, haze), p.c[Palette.SNOW_WHITE], snow * .32f)
-        if (multiply != previousMultiply || add != previousAdd) {
+        if (multiply != previousMultiply || cliffMultiply != previousCliffMultiply || add != previousAdd) {
             paint.colorFilter = LightingColorFilter(multiply, add)
+            cliffPaint.colorFilter = LightingColorFilter(cliffMultiply, add)
             previousMultiply = multiply
+            previousCliffMultiply = cliffMultiply
             previousAdd = add
         }
     }
@@ -122,18 +130,31 @@ internal class CoconinoPlateau {
         canvas.drawBitmap(bitmap, null, dst, paint)
     }
 
-    fun drawFoothills(canvas: Canvas, layout: SceneLayout, off: Double, layer: Int) {
-        val bitmap = foothills[layer]
+    fun drawFoothills(canvas: Canvas, layout: SceneLayout, off: Double, layer: Int, cliffs: Float) {
+        val far = layer == Scenery.FAR_A
+        val panorama = ((cliffs - .22f) / .78f).coerceAtLeast(0f)
+        // Distant rock breaks the low skyline first; the full wall opens up near Bright Angel.
+        val wallAlpha = if (far) .88f * (cliffs / .22f).coerceAtMost(1f) + .12f * panorama else panorama
+        val wallHeight = if (far) .62f + .38f * panorama else 1f
+        val bottom = layout.yAt(if (far) .76f else .84f)
+        if (wallAlpha < 1f) drawStrip(canvas, layout, off, foothills[layer], bottom, paint, 1f - wallAlpha)
+        if (wallAlpha > 0f) drawStrip(canvas, layout, off, canyonWalls[layer], bottom, cliffPaint, wallAlpha, wallHeight)
+    }
+
+    private fun drawStrip(
+        canvas: Canvas, layout: SceneLayout, off: Double, bitmap: Bitmap, bottom: Float,
+        ink: Paint, alpha: Float, height: Float = 1f,
+    ) {
         val tileW = bitmap.width.toDouble()
         val u = layout.u
-        val bottom = layout.yAt(if (layer == Scenery.FAR_A) .76f else .84f)
-        val top = bottom - bitmap.height * u
+        val top = bottom - bitmap.height * u * height
+        ink.alpha = (alpha * 255).roundToInt()
         var tile = floor(off / tileW).toInt()
         while ((tile * tileW - off) * u < layout.w) {
             val left = ((tile * tileW - off) * u).roundToInt().toFloat()
             val right = (((tile + 1) * tileW - off) * u).roundToInt().toFloat()
             dst.set(left, top, right, bottom)
-            blit(canvas, bitmap, 1f)
+            canvas.drawBitmap(bitmap, null, dst, ink)
             tile++
         }
     }
@@ -210,6 +231,70 @@ internal class CoconinoPlateau {
             }
         }
         return image
+    }
+
+    private class Mesa(val center: Int, val top: Int, val crown: Int, val base: Int) {
+        fun crest(x: Int): Float {
+            val distance = abs(x - center)
+            val wrapped = minOf(distance, CLIFF_WIDTH - distance)
+            val slope = ((wrapped - crown).toFloat() / (base - crown)).coerceIn(0f, 1f)
+            // Steep upper wall, a shelf, then the broader slope of fallen rock.
+            val drop = when {
+                slope < .20f -> slope * 2.55f
+                slope < .46f -> .51f + (slope - .20f) * .46f
+                else -> .63f + (slope - .46f) * .685f
+            }
+            return top + (CLIFF_HEIGHT - top) * drop
+        }
+    }
+
+    /** Continuous far rim, with separated, steeper mesas nearer the train. */
+    private fun bakeCanyonWall(far: Boolean): Bitmap {
+        val seed = if (far) 1027 else 1109
+        val mesas = if (far) listOf(
+            Mesa(25, 22, 70, 155), Mesa(235, 37, 54, 133), Mesa(446, 19, 64, 136),
+            Mesa(655, 47, 70, 133), Mesa(856, 30, 55, 131),
+        ) else listOf(
+            Mesa(62, 34, 43, 122), Mesa(268, 70, 25, 103), Mesa(489, 45, 58, 138),
+            Mesa(724, 24, 50, 138), Mesa(899, 89, 18, 78),
+        )
+        val skyline = IntArray(CLIFF_WIDTH) { x ->
+            val f = x.toDouble() / CLIFF_WIDTH
+            val ridge = mesas.minOf { it.crest(x) }
+            val rim = if (far) minOf(ridge, 93 + 36 * texture(f, .6, 7, seed)) else ridge
+            val erosion = 10 * texture(f, .3, 24, seed + 1) + 4 * texture(f, .2, 67, seed + 2)
+            (rim + erosion).roundToInt().coerceAtMost(CLIFF_HEIGHT)
+        }
+        val colors = if (far) intArrayOf(0xE9AE87, 0xCA826F, 0xB67064, 0xD58D73, 0xA95E59,
+            0xB97566, 0x92505A, 0xAF6A66, 0x805061, 0x9D6366) else
+            intArrayOf(0xF4BB8B, 0xDF8758, 0xBB583B, 0xE29061, 0xAD4E37,
+                0xCA6746, 0x943C36, 0xB55540, 0x783940, 0x9F493A)
+        val bandEnds = intArrayOf(40, 52, 69, 78, 99, 118, 141, 166, 194, CLIFF_HEIGHT)
+        val bands = IntArray(CLIFF_HEIGHT) { y -> rgb(colors[bandEnds.indexOfFirst { y < it }]) }
+        val shade = rgb(if (far) 0x584357 else 0x462639)
+        val glint = rgb(if (far) 0xF4C4A1 else 0xFFD29A)
+        val pixels = IntArray(CLIFF_WIDTH * CLIFF_HEIGHT)
+        for (x in 0 until CLIFF_WIDTH) {
+            val f = x.toDouble() / CLIFF_WIDTH
+            val tilt = (skyline[(x + 5) % CLIFF_WIDTH] - skyline[Math.floorMod(x - 5, CLIFF_WIDTH)]) / 85f
+            val dip = (14 * texture(f, .6, 8, seed + 3) - 7).roundToInt()
+            for (y in skyline[x] until CLIFF_HEIGHT) {
+                val depth = y - skyline[x]
+                val row = (y + dip).coerceIn(1, CLIFF_HEIGHT - 1)
+                val face = f - depth * .00048
+                val folds = texture(face, y * .014, 29, seed + 4)
+                val fissures = texture(face, y * .027, 91, seed + 5)
+                val shadow = (.32f - .26f * folds + .19f * fissures + tilt).coerceIn(.02f, .54f)
+                var color = mix(bands[row], shade, shadow)
+                if (bands[row] != bands[row - 1] || depth < 2) color = mix(color, glint, .32f)
+                val chip = hash01(y * CLIFF_WIDTH + x, seed + 6)
+                if (chip > .94f) color = mix(color, glint, .16f)
+                pixels[y * CLIFF_WIDTH + x] = color
+            }
+        }
+        return Bitmap.createBitmap(CLIFF_WIDTH, CLIFF_HEIGHT, Bitmap.Config.ARGB_8888).apply {
+            setPixels(pixels, 0, CLIFF_WIDTH, 0, 0, CLIFF_WIDTH, CLIFF_HEIGHT)
+        }
     }
 
     private fun bakeGround(depth: Int, habitat: Habitat): Bitmap {
@@ -379,6 +464,8 @@ internal class CoconinoPlateau {
         const val NEAR = 1
         private const val W = 768
         private const val H = 83
+        private const val CLIFF_WIDTH = 1024
+        private const val CLIFF_HEIGHT = 238
         private fun rgb(hex: Int) = hex or Color.BLACK
     }
 }

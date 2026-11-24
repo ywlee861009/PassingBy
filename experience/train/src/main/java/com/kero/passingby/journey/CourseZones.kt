@@ -27,10 +27,15 @@ class CourseZones(plan: CoursePlan, private val course: Course, direction: Int, 
     private val prairies = ranges(course, Feature.Kind.PRAIRIE)
     private val dryWashes = ranges(course, Feature.Kind.DRY_WASH)
     private val limestoneCanyons = ranges(course, Feature.Kind.LIMESTONE_CANYON)
+    private val redCliffApproach = ranges(course, Feature.Kind.RED_CLIFF_APPROACH)
+    private val redCliffVista = ranges(course, Feature.Kind.RED_CLIFFS)
+    private val redCliffRamp = .02 * segDist
 
     override fun prairie(x: Double): Float = weight(prairies, x)
     override fun dryWash(x: Double): Float = weight(dryWashes, x)
     override fun limestoneCanyon(x: Double): Float = weight(limestoneCanyons, x)
+    override fun redCliffs(x: Double): Float =
+        max(weight(redCliffApproach, x) * .22f, weight(redCliffVista, x, redCliffRamp))
 
     private val rivers = ranges(course, Feature.Kind.RIVER)
     private val fieldList = course.features.filter { it.kind == Feature.Kind.FIELD }
@@ -158,22 +163,22 @@ class CourseZones(plan: CoursePlan, private val course: Course, direction: Int, 
         }
     }
 
-    private fun weight(r: DoubleArray, x: Double): Float {
+    private fun weight(r: DoubleArray, x: Double, fade: Double = ramp): Float {
         var w = 0f
         var i = 0
         while (i < r.size) {
-            w = max(w, trapezoid(x, r[i], r[i + 1]))
+            w = max(w, trapezoid(x, r[i], r[i + 1], fade))
             i += 2
         }
         return w
     }
 
-    /** 범위 안은 1, 양 끝에서 [ramp]에 걸쳐 0으로 부드럽게 줄어든다. */
-    private fun trapezoid(x: Double, a: Double, b: Double): Float {
-        if (x < a - ramp || x > b + ramp) return 0f
+    /** 범위 안은 1, 양 끝에서 [fade]에 걸쳐 0으로 부드럽게 줄어든다. */
+    private fun trapezoid(x: Double, a: Double, b: Double, fade: Double = ramp): Float {
+        if (x < a - fade || x > b + fade) return 0f
         val t = when {
-            x < a -> 1 - (a - x) / ramp
-            x > b -> 1 - (x - b) / ramp
+            x < a -> 1 - (a - x) / fade
+            x > b -> 1 - (x - b) / fade
             else -> 1.0
         }
         return (t * t * (3 - 2 * t)).toFloat()

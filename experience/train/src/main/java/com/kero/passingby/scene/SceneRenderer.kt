@@ -483,6 +483,7 @@ class SceneRenderer(private val state: SceneState) : ExperienceRenderer {
     private fun drawPlateau(canvas: Canvas, p: Palette) {
         val art = plateau
         art?.update(p)
+        val cliffs = state.zones.redCliffs(state.distanceU)
         val tilesReady = appliedMode == RenderMode.TILES && ensureTiles()
         for (i in layers.indices) {
             val l = layers[i]
@@ -490,7 +491,7 @@ class SceneRenderer(private val state: SceneState) : ExperienceRenderer {
                 if (tilesReady) drawTiles(canvas, i, l)
                 else drawTerrain(canvas, i, state.distanceU * l.speed, layerColor(l, p), l.mist, p)
             } else if (i < Scenery.MID) {
-                art.drawFoothills(canvas, layout, state.distanceU * l.speed, i)
+                art.drawFoothills(canvas, layout, state.distanceU * l.speed, i, cliffs)
             } else {
                 art.draw(canvas, layout, state, if (i == Scenery.MID) CoconinoPlateau.MID else CoconinoPlateau.NEAR)
             }
