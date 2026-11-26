@@ -14,6 +14,7 @@ import com.kero.passingby.content.RouteGuides
 import com.kero.passingby.content.UsaCourses
 import com.kero.passingby.journey.CoursePlan
 import com.kero.passingby.journey.CourseZones
+import com.kero.passingby.journey.WindowEventKind
 import com.kero.passingby.scene.*
 import com.kero.passingby.experience.*
 import java.io.File
@@ -348,6 +349,78 @@ class TrainRenderingValidationTest {
                 }
             } finally { renderer.release() }
         }
+    }
+
+    @Test fun glassEventsAreVisibleInOpenAirAndThroughTunnels() {
+        val state = eventScene()
+        val renderer = SceneRenderer(state)
+        val bitmap = Bitmap.createBitmap(720, 1280, Bitmap.Config.ARGB_8888)
+        try {
+            val canvas = Canvas(bitmap)
+            val tunnel = object : Zones by Zones.NONE {
+                override val tunnels = doubleArrayOf(20.0, 1900.0)
+            }
+            for (zones in listOf(Zones.NONE, tunnel)) {
+                state.zones = zones
+                state.windowEvent = null
+                renderer.render(canvas, bitmap.width, bitmap.height)
+                val before = windowPixels(bitmap)
+                val wall = bitmap.getPixel(0, 0)
+                for (event in listOf(WindowEventKind.GLASS_GLINT, WindowEventKind.WINDOW_DROPS)) {
+                    state.windowEvent = event
+                    state.windowEventProgress = .5f
+                    renderer.render(canvas, bitmap.width, bitmap.height)
+                    assertTrue("$event is visible with tunnels=${zones.tunnels.isNotEmpty()}",
+                        !before.contentEquals(windowPixels(bitmap)))
+                    assertEquals("$event stays within the window", wall, bitmap.getPixel(0, 0))
+                }
+            }
+        } finally {
+            bitmap.recycle()
+            renderer.release()
+        }
+    }
+
+    @Test fun meteorBreaksTheSceneryAndThenRestoresTheWindow() {
+        val state = eventScene()
+        val renderer = SceneRenderer(state)
+        val bitmap = Bitmap.createBitmap(1280, 720, Bitmap.Config.ARGB_8888)
+        try {
+            val canvas = Canvas(bitmap)
+            renderer.render(canvas, bitmap.width, bitmap.height)
+            val before = windowPixels(bitmap)
+            val wall = bitmap.getPixel(0, 0)
+            state.windowEvent = WindowEventKind.METEOR
+            for ((label, progress) in listOf("approach" to .27f, "impact" to .58f, "clearing" to .81f)) {
+                state.windowEventProgress = progress
+                renderer.render(canvas, bitmap.width, bitmap.height)
+                val after = windowPixels(bitmap)
+                val changed = before.indices.count { before[it] != after[it] }
+                assertTrue("meteor $label changes the window ($changed pixels)", changed > 100)
+                if (label == "impact") assertTrue("terrain visibly breaks across the window", changed > before.size / 5)
+                assertEquals(wall, bitmap.getPixel(0, 0))
+                File(output, "window-event-meteor-$label.png").outputStream().use {
+                    assertTrue(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it))
+                }
+            }
+            state.windowEventProgress = 1f
+            renderer.render(canvas, bitmap.width, bitmap.height)
+            assertArrayEquals(before, windowPixels(bitmap))
+        } finally {
+            bitmap.recycle()
+            renderer.release()
+        }
+    }
+
+    private fun eventScene() = SceneState().apply {
+        mode = RenderMode.DIRECT
+        setTimeOfDay(TimeOfDay.DAY)
+        snapTimeOfDay()
+        autoWeather = false
+        weather = Weather.CLEAR
+        snapWeather()
+        setTravel(1000.0, Course.REGIONAL)
+        update(0f, .4f)
     }
 
     private fun windowPixels(bitmap: Bitmap): IntArray {

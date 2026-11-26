@@ -3,13 +3,14 @@ package com.kero.passingby.audio
 import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
+import com.kero.passingby.journey.WindowEventKind
+import com.kero.passingby.telemetry.Telemetry
 import kotlin.math.PI
 import kotlin.math.exp
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sin
 import kotlin.random.Random
-import com.kero.passingby.telemetry.Telemetry
 
 /**
  * 객차 안 환경음을 코드로 합성한다(음원 파일 없음).
@@ -21,6 +22,7 @@ import com.kero.passingby.telemetry.Telemetry
  * - 빗방울: 비 세기만큼 유리에 톡톡 떨어지는 짧은 소리.
  * - 터널: 울림이 커지고 바람이 먹먹해진다.
  * - 차임: 중간 역에 설 때 두 음 "띵-동"(실제 역 안내음이 아닌 일반 음).
+ * - 차창 이벤트: 장면에 맞는 작은 물방울 소리, 바람, 멀리서 오는 울림.
  * - 리미터: 터널에서 음량을 크게 두면 울림 봉우리가 1을 넘어 잘리며 찌직거린다.
  *   소리를 [LOOK] 샘플(약 6ms) 늦게 내보내며 다가오는 봉우리를 미리 보고 부드럽게 줄인다.
  *
@@ -43,6 +45,7 @@ class AmbientSound {
 
     @Volatile private var playing = false
     @Volatile private var chimeRequest = false
+    @Volatile private var windowEvent = 0L
     private var thread: Thread? = null
 
     /** 재생을 시작한다. 막 꺼지며 소리가 줄어드는 중이면 그 스레드가 다시 커진다. */
@@ -60,11 +63,20 @@ class AmbientSound {
     /** 소리를 천천히 줄이고 끝나면 스레드가 스스로 멈춘다. */
     fun stop() {
         playing = false
+        windowEvent = 0L
     }
 
     /** 중간 역 정차 차임을 한 번 울린다. */
     fun chime() {
         chimeRequest = true
+    }
+
+    /** 한 번 울리는 요청 대신 여정 진행도를 전달해 일시정지·복귀 때 첫 소리가 다시 나지 않게 한다. */
+    internal fun setWindowEvent(kind: WindowEventKind?, progress: Float) {
+        // Pack the kind and progress together so the audio thread sees a consistent frame.
+        windowEvent = if (kind == null) 0L else {
+            ((kind.ordinal + 1L) shl 32) or (progress.toRawBits().toLong() and 0xFFFFFFFFL)
+        }
     }
 
     private fun run() {
@@ -116,13 +128,18 @@ class AmbientSound {
             var fade = 0f
             // 리미터: 내보내기 전 소리와 지금 배율
             val limiter = LookaheadLimiter(LOOK, RATE)
+            val eventSound = WindowEventSound(RATE)
             output.play()
             while (true) {
                 if (!playing && fade <= .001f) {
                     fadedOut = true
                     break
                 }
-                val target = if (playing) 1f else 0f
+                val active = playing
+                val target = if (active) 1f else 0f
+                val eventFrame = if (active) windowEvent else 0L
+                val eventKind = WindowEventKind.entries.getOrNull((eventFrame ushr 32).toInt() - 1)
+                val hasCue = eventSound.update(eventKind, Float.fromBits(eventFrame.toInt()))
                 for (i in 0 until BLOCK) {
                     val k = 1f / (RATE * .35f)
                     sp += (speed - sp) * k
@@ -179,7 +196,8 @@ class AmbientSound {
                         if (chimeT > 2.2) chimeT = -1.0
                     }
 
-                    val s = (rumble * .9f + wind + rail + rainTick + hum + chime) * vol * fade
+                    val cue = if (hasCue) eventSound.sample(white - lowWind, lowWind, lowRumble, hum) else 0f
+                    val s = (rumble * .9f + wind + rail + rainTick + hum + chime + cue) * vol * fade
                     // 리미터: 앞으로 LOOK 샘플 안의 가장 큰 봉우리가 CEIL을 넘지 않게 배율을 미리 낮추고 0.5초에 걸쳐 되돌린다.
                     out[i] = limiter.process(s)
                 }

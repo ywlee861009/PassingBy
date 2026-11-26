@@ -5,6 +5,7 @@ import com.kero.passingby.experience.TimeOfDay
 import com.kero.passingby.experience.Weather
 import com.kero.passingby.experience.RenderMode
 import com.kero.passingby.experience.SceneKind
+import com.kero.passingby.journey.WindowEventKind
 
 import kotlin.math.abs
 import kotlin.math.max
@@ -115,6 +116,8 @@ class SceneState : com.kero.passingby.experience.ExperienceScene {
     /** 위치마다 달라지는 바다·밭·터널·다리·랜드마크. */
     var zones: Zones = Zones.NONE
     var windowFrame = true
+    internal var windowEvent: WindowEventKind? = null
+    internal var windowEventProgress = 0f
 
     /** 역 위치(세계 단위)와 이름판 글자. 여정이 계획을 바꿀 때 정한다. 렌더러가 플랫폼과 이름판을 그린다. */
     var stationX = DoubleArray(0)

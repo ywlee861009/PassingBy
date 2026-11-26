@@ -4,6 +4,7 @@ import com.kero.passingby.experience.Season
 import com.kero.passingby.experience.RenderMode
 
 import com.kero.passingby.experience.ExperienceRenderer
+import com.kero.passingby.journey.WindowEventKind
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.DashPathEffect
@@ -85,6 +86,8 @@ class SceneRenderer(private val state: SceneState) : ExperienceRenderer {
     private var skyKeyBot = 0
     private var shaderLayoutValid = false
     private val celestialPainter = CelestialPainter()
+    private val windowEvents = WindowEventPainter()
+    private val meteorEvent = MeteorEventPainter()
     private val spritePaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
     private val windowPaint = Paint().apply { color = WINDOW_COLOR }
     private val groundPaint = Paint()
@@ -236,16 +239,36 @@ class SceneRenderer(private val state: SceneState) : ExperienceRenderer {
         drawSky(canvas, p)
         celestialPainter.draw(canvas, layout, p, state.elapsedSec)
         drawClouds(canvas, p)
+        val event = state.windowEvent
+        val progress = state.windowEventProgress
+        val terrainAlpha = if (event == WindowEventKind.METEOR) meteorEvent.terrainAlpha(progress) else 255
+        if (terrainAlpha > 0) {
+            if (terrainAlpha < 255) canvas.saveLayerAlpha(0f, 0f, w.toFloat(), h.toFloat(), terrainAlpha)
+            drawTrackside(canvas, p)
+            if (terrainAlpha < 255) canvas.restore()
+        }
+        when (event) {
+            null, WindowEventKind.METEOR, WindowEventKind.GLASS_GLINT, WindowEventKind.WINDOW_DROPS -> Unit
+            else -> windowEvents.draw(canvas, layout, p, event, progress)
+        }
+        drawFalling(canvas, p)
+        drawTunnels(canvas, p)
+        when (event) {
+            WindowEventKind.GLASS_GLINT, WindowEventKind.WINDOW_DROPS -> windowEvents.draw(canvas, layout, p, event, progress)
+            WindowEventKind.METEOR -> meteorEvent.draw(canvas, layout, p, progress)
+            else -> Unit
+        }
+        canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), vignettePaint)
+        drawGlassWeather(canvas, p)
+    }
+
+    private fun drawTrackside(canvas: Canvas, p: Palette) {
         drawLand(canvas, p)
         if (state.theme !== Themes.GRAND_CANYON && state.theme !== Themes.DARJEELING && state.theme !== Themes.PAMBAN) {
             drawPoles(canvas, p)
         }
         drawStations(canvas, p)
         drawTruss(canvas, p)
-        drawFalling(canvas, p)
-        drawTunnels(canvas, p)
-        canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), vignettePaint)
-        drawGlassWeather(canvas, p)
     }
 
     override fun release() {

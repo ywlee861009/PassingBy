@@ -9,6 +9,8 @@ import com.kero.passingby.journey.SessionPhase
 import com.kero.passingby.journey.SessionSnapshot
 import com.kero.passingby.journey.SessionState
 import com.kero.passingby.journey.WeatherDirector
+import com.kero.passingby.journey.WindowEventPlan
+import com.kero.passingby.journey.WindowEventPlanner
 import com.kero.passingby.scene.*
 import com.kero.passingby.session.JourneyStore
 import kotlin.random.Random
@@ -31,11 +33,14 @@ internal class TrainProgram(private val store: JourneyStore) : ExperienceProgram
     override val renderer: ExperienceRenderer get() = drawing ?: SceneRenderer(scene).also { drawing = it }
     private var audio: AmbientSound? = null
     private var level = store.soundLevel.coerceIn(0, 2)
+    private var windowEventSoundEnabled = false
     private var baseDistance = 0.0
     private var weatherSeed = Random.nextInt()
     private var choice = SeasonChoice.fromId(store.seasonChoiceId)
     private var plan = CoursePlan(store.minutes * 60.0, course.stations.size, course.cruise)
     private var weather = WeatherDirector(weatherSeed, course.snowy, choice.resolve(weatherSeed))
+    private val eventSky = Palette()
+    private var windowEventPlan: WindowEventPlan? = null
     private val planField = UrbanField { x -> plan.at(x - baseDistance) }
     private var land: SceneKind? = null
     override var stationMarks = FloatArray(0)
@@ -55,6 +60,11 @@ internal class TrainProgram(private val store: JourneyStore) : ExperienceProgram
         scene.theme = course.theme
         scene.snowy = course.snowy
         scene.zones = CourseZones(plan, course, direction, baseDistance)
+        windowEventPlan = WindowEventPlanner(plan, scene.zones, course.id, baseDistance) { progress ->
+            SkyCycle.paletteAt(progress, eventSky)
+        }.select(weatherSeed)
+        scene.windowEvent = null
+        scene.windowEventProgress = 0f
         val stops = course.ordered(direction)
         scene.setStations(DoubleArray(stops.size) { baseDistance + plan.stationDistance(it) },
             Array(stops.size) { stops[it].local }, Array(stops.size) { stops[it].roman })
@@ -110,11 +120,27 @@ internal class TrainProgram(private val store: JourneyStore) : ExperienceProgram
         scene.autoSnow = weather.snowAt(t)
         val sky = if (phase == SessionPhase.ARRIVED || phase == SessionPhase.RESTING) 1f else (t / plan.durationSec).toFloat()
         scene.update(dt, sky)
+        updateWindowEvent(t, phase)
         audio?.let {
             it.speed = (scene.speed / course.cruise).toFloat()
             it.rain = scene.rainAmount
             it.tunnel = if (inTunnel(scene.distanceU)) 1f else 0f
             it.clack = if (course.cruise < Course.FAST) .9f else .45f
+            val event = if (windowEventSoundEnabled && phase == SessionPhase.RUNNING) scene.windowEvent else null
+            it.setWindowEvent(event, scene.windowEventProgress)
+        }
+    }
+
+    private fun updateWindowEvent(seconds: Double, phase: SessionPhase) {
+        val event = windowEventPlan
+        val progress = if (phase == SessionPhase.RUNNING || phase == SessionPhase.PAUSED) event?.progressAt(seconds) else null
+        if (event != null && progress != null) {
+            // Choose the compatible artwork when first entering the interval and finish that same scene.
+            if (scene.windowEvent == null) scene.windowEvent = event.kindAt(scene.timeOfDay)
+            scene.windowEventProgress = progress
+        } else {
+            scene.windowEvent = null
+            scene.windowEventProgress = 0f
         }
     }
 
@@ -145,7 +171,8 @@ internal class TrainProgram(private val store: JourneyStore) : ExperienceProgram
     }
 
     override fun setVisible(visible: Boolean, sound: Boolean) {
-        if (visible && sound) {
+        windowEventSoundEnabled = visible && sound
+        if (windowEventSoundEnabled) {
             val current = audio ?: AmbientSound().also { audio = it; it.volume = LEVELS[level] }
             current.start()
         } else audio?.stop()
