@@ -30,12 +30,19 @@ class CourseZones(plan: CoursePlan, private val course: Course, direction: Int, 
     private val redCliffApproach = ranges(course, Feature.Kind.RED_CLIFF_APPROACH)
     private val redCliffVista = ranges(course, Feature.Kind.RED_CLIFFS)
     private val redCliffRamp = .02 * segDist
+    override val batasiaRanges = ranges(course, Feature.Kind.BATASIA_LOOP)
+    override val pambanRanges = ranges(course, Feature.Kind.PAMBAN_CROSSING)
+    // The lift span is about 70% of the way across from Mandapam (CRS railway authorization).
+    override val pambanLiftProgress get() = if (reverse) .30f else .70f
+    private val pambanRamp = .012 * segDist
 
     override fun prairie(x: Double): Float = weight(prairies, x)
     override fun dryWash(x: Double): Float = weight(dryWashes, x)
     override fun limestoneCanyon(x: Double): Float = weight(limestoneCanyons, x)
     override fun redCliffs(x: Double): Float =
         max(weight(redCliffApproach, x) * .22f, weight(redCliffVista, x, redCliffRamp))
+    override fun batasia(x: Double): Float = weight(batasiaRanges, x)
+    override fun pambanCrossing(x: Double): Float = weight(pambanRanges, x, pambanRamp)
 
     private val rivers = ranges(course, Feature.Kind.RIVER)
     private val fieldList = course.features.filter { it.kind == Feature.Kind.FIELD }

@@ -209,5 +209,38 @@ object RouteGuides {
         ),
     )
 
-    val ALL = listOf(GYEONGBU, TOKAIDO, JEOLLA, GANGNEUNG, CHINA_NORTH, CHINA_SOUTH, PORTUGAL, FRANCE, USA_PACIFIC_COAST, USA_GRAND_CANYON)
+    // Indian Railways station distances, rebased from Kurseong at km 49.48.
+    val INDIA_DARJEELING = RouteGuide(
+        stops = listOf(
+            RoutePlace(R.string.station_kurseong, 0.0),
+            RoutePlace(R.string.station_ghum, 24.55),
+            RoutePlace(R.string.station_darjeeling, 30.58),
+        ),
+        via = listOf(
+            RoutePlace(R.string.place_tung, 7.44),
+            RoutePlace(R.string.place_sonada, 15.49),
+            RoutePlace(R.string.place_batasia_loop, 25.72),
+        ),
+    )
+
+    // Southern Railway chainages rebased from Mandapam at km 651.398. The new bridge is km 655.079–657.157.
+    internal const val PAMBAN_ROUTE_KM = 17.522
+    internal const val PAMBAN_BRIDGE_START_KM = 3.681
+    internal const val PAMBAN_BRIDGE_END_KM = 5.759
+
+    val INDIA_PAMBAN = RouteGuide(
+        stops = listOf(
+            RoutePlace(R.string.station_mandapam, 0.0),
+            RoutePlace(R.string.station_rameswaram, PAMBAN_ROUTE_KM),
+        ),
+        via = listOf(
+            RoutePlace(R.string.place_pamban_bridge, (PAMBAN_BRIDGE_START_KM + PAMBAN_BRIDGE_END_KM) / 2),
+            RoutePlace(R.string.place_pamban, 6.34),
+        ),
+    )
+
+    val ALL = listOf(
+        GYEONGBU, TOKAIDO, JEOLLA, GANGNEUNG, CHINA_NORTH, CHINA_SOUTH, PORTUGAL, FRANCE, USA_PACIFIC_COAST,
+        USA_GRAND_CANYON, INDIA_DARJEELING, INDIA_PAMBAN,
+    )
 }

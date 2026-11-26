@@ -143,4 +143,21 @@
     <string name="place_apex">Apex</string>
     <string name="place_coconino_canyon">Hẻm núi Coconino</string>
     <string name="grand_canyon_purchase_preview_caption">Từ ga Grand Canyon, đi bộ một đoạn ngắn là đến rìa phía nam (South Rim). Những lớp vách đá đỏ trải dài đến tận chân trời.</string>
+
+    <string name="region_india_darjeeling">Đường sắt Himalaya Darjeeling, Ấn Độ</string>
+    <string name="vehicle_mountain_train">Tàu miền núi</string>
+    <string name="station_kurseong">Kurseong</string>
+    <string name="station_ghum">Ghum</string>
+    <string name="station_darjeeling">Darjeeling</string>
+    <string name="place_tung">Tung</string>
+    <string name="place_sonada">Sonada</string>
+    <string name="place_batasia_loop">Vòng xoắn Batasia</string>
+    <string name="darjeeling_purchase_preview_caption">Qua những ngôi làng ven sườn núi và đồi chè, đỉnh Kangchenjunga hiện ra tại vòng xoắn Batasia.</string>
+
+    <string name="region_india_pamban">Tuyến vượt biển Pamban, Ấn Độ</string>
+    <string name="station_mandapam">Mandapam</string>
+    <string name="station_rameswaram">Rameswaram</string>
+    <string name="place_pamban_bridge">Cầu đường sắt Pamban mới</string>
+    <string name="place_pamban">Pamban</string>
+    <string name="pamban_purchase_preview_caption">Vượt qua làn nước xanh ngọc của eo biển Pamban giữa hai tháp nâng của cây cầu đường sắt mới.</string>
 </resources>

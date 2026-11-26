@@ -9,6 +9,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.kero.passingby.audio.AmbientSound
 import com.kero.passingby.audio.LookaheadLimiter
 import com.kero.passingby.content.Course
+import com.kero.passingby.content.IndiaCourses
 import com.kero.passingby.content.RouteGuides
 import com.kero.passingby.content.UsaCourses
 import com.kero.passingby.journey.CoursePlan
@@ -281,6 +282,74 @@ class TrainRenderingValidationTest {
         } finally { renderer.release() }
     }
 
+    @Test fun indiaLandscapesAreVisibleThroughTheTrainWindowInBothDirections() {
+        for (course in IndiaCourses.ALL) {
+            val plan = CoursePlan(1500.0, course.stations.size, course.cruise)
+            val darjeeling = course === IndiaCourses.DARJEELING
+            val state = SceneState().apply {
+                theme = course.theme
+                mode = RenderMode.DIRECT
+                autoWeather = false
+                weather = Weather.CLEAR
+                snapWeather()
+                setTimeOfDay(TimeOfDay.DAY)
+                snapTimeOfDay()
+                urban = UrbanField { x -> plan.at(x) }
+            }
+            val renderer = SceneRenderer(state)
+            try {
+                for (direction in listOf(1, -1)) {
+                    val zones = CourseZones(plan, course, direction, 0.0)
+                    val range = if (darjeeling) zones.batasiaRanges else zones.pambanRanges
+                    assertEquals("${course.id}: one landscape range", 2, range.size)
+                    val position = if (darjeeling) .5 else zones.pambanLiftProgress.toDouble()
+                    val distance = range[0] + (range[1] - range[0]) * position
+                    assertEquals(1f, if (darjeeling) zones.batasia(distance) else zones.pambanCrossing(distance), .001f)
+                    val baselineZones = object : Zones by zones {
+                        override fun batasia(x: Double) = 0f
+                        override fun pambanCrossing(x: Double) = 0f
+                    }
+                    val stops = course.ordered(direction)
+                    state.setStations(DoubleArray(stops.size) { plan.stationDistance(it) },
+                        Array(stops.size) { stops[it].local }, Array(stops.size) { stops[it].roman })
+                    state.setTravel(distance, 0.0)
+                    state.update(0f, (distance / plan.totalDistance).toFloat())
+                    state.windowFrame = true
+                    for (landscape in listOf(false, true)) {
+                        val width = if (landscape) 1280 else 720
+                        val height = if (landscape) 720 else 1280
+                        val orientation = if (landscape) "landscape" else "portrait"
+                        val label = "${course.id}-feature-$direction-$orientation"
+                        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+                        try {
+                            val canvas = Canvas(bitmap)
+                            state.zones = zones
+                            renderer.render(canvas, width, height)
+                            if (darjeeling) {
+                                awaitArtwork(renderer, "darjeelingBake")
+                                renderer.render(canvas, width, height)
+                            }
+                            File(output, "$label.png").outputStream().use {
+                                assertTrue(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it))
+                            }
+                            val feature = windowPixels(bitmap)
+                            state.zones = baselineZones
+                            renderer.render(canvas, width, height)
+                            val baseline = windowPixels(bitmap)
+                            val changed = feature.indices.count { feature[it] != baseline[it] }
+                            assertTrue("$label visible feature pixels: $changed", changed >= feature.size / 25)
+                        } finally { bitmap.recycle() }
+                    }
+                    if (direction == 1) {
+                        state.zones = zones
+                        state.windowFrame = false
+                        capture(renderer, state, "${course.id}-purchase-preview", TimeOfDay.DAY, Weather.CLEAR, true)
+                    }
+                }
+            } finally { renderer.release() }
+        }
+    }
+
     private fun windowPixels(bitmap: Bitmap): IntArray {
         // Sample inside the glass so the window trim cannot count as red rock.
         val opening = TrainWindowFrame().apply { layout(bitmap.width, bitmap.height) }.opening
@@ -364,8 +433,10 @@ class TrainRenderingValidationTest {
         bitmap.recycle()
     }
 
-    private fun awaitPlateauArtwork(renderer: SceneRenderer) {
-        val bake = SceneRenderer::class.java.getDeclaredField("plateauBake").apply { isAccessible = true }
+    private fun awaitPlateauArtwork(renderer: SceneRenderer) = awaitArtwork(renderer, "plateauBake")
+
+    private fun awaitArtwork(renderer: SceneRenderer, property: String) {
+        val bake = SceneRenderer::class.java.getDeclaredField(property).apply { isAccessible = true }
         (bake.get(renderer) as CompletableFuture<*>).get(5, TimeUnit.SECONDS)
     }
 

@@ -143,4 +143,21 @@
     <string name="place_apex">에이펙스</string>
     <string name="place_coconino_canyon">코코니노 협곡</string>
     <string name="grand_canyon_purchase_preview_caption">그랜드 캐니언역에서 사우스림까지 조금 걸으면 붉은 절벽이 층층이 펼쳐져요.</string>
+
+    <string name="region_india_darjeeling">인도 다르질링 히말라야 철도</string>
+    <string name="vehicle_mountain_train">산악열차</string>
+    <string name="station_kurseong">쿠르성</string>
+    <string name="station_ghum">굼</string>
+    <string name="station_darjeeling">다르질링</string>
+    <string name="place_tung">퉁</string>
+    <string name="place_sonada">소나다</string>
+    <string name="place_batasia_loop">바타시아 루프</string>
+    <string name="darjeeling_purchase_preview_caption">산비탈 마을과 차밭을 지나 바타시아 루프를 돌면 칸첸중가 설산이 펼쳐져요.</string>
+
+    <string name="region_india_pamban">인도 팜반 해상 철도</string>
+    <string name="station_mandapam">만다팜</string>
+    <string name="station_rameswaram">라메스와람</string>
+    <string name="place_pamban_bridge">신 팜반 철교</string>
+    <string name="place_pamban">팜반</string>
+    <string name="pamban_purchase_preview_caption">신 팜반 철교의 승강탑 사이로 청록빛 해협을 건너요.</string>
 </resources>

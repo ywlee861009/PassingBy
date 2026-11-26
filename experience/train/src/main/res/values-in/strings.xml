@@ -140,4 +140,21 @@
     <string name="place_apex">Apex</string>
     <string name="place_coconino_canyon">Ngarai Coconino</string>
     <string name="grand_canyon_purchase_preview_caption">Berjalanlah sebentar dari Stasiun Grand Canyon untuk mencapai South Rim. Tebing merah berlapis membentang hingga ke kejauhan.</string>
+
+    <string name="region_india_darjeeling">Jalur Kereta Himalaya Darjeeling, India</string>
+    <string name="vehicle_mountain_train">Kereta pegunungan</string>
+    <string name="station_kurseong">Kurseong</string>
+    <string name="station_ghum">Ghum</string>
+    <string name="station_darjeeling">Darjeeling</string>
+    <string name="place_tung">Tung</string>
+    <string name="place_sonada">Sonada</string>
+    <string name="place_batasia_loop">Tikungan Batasia</string>
+    <string name="darjeeling_purchase_preview_caption">Lewati desa di lereng dan kebun teh sebelum Kangchenjunga tampak di Tikungan Batasia.</string>
+
+    <string name="region_india_pamban">Penyeberangan Laut Pamban, India</string>
+    <string name="station_mandapam">Mandapam</string>
+    <string name="station_rameswaram">Rameswaram</string>
+    <string name="place_pamban_bridge">Jembatan Kereta Pamban Baru</string>
+    <string name="place_pamban">Pamban</string>
+    <string name="pamban_purchase_preview_caption">Lintasi perairan biru kehijauan Selat Pamban di antara menara pengangkat jembatan kereta baru.</string>
 </resources>

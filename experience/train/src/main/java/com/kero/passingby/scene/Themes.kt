@@ -296,6 +296,60 @@ object Themes {
         SignStyle(Color.rgb(72, 61, 43), Color.rgb(247, 226, 184), Color.rgb(168, 121, 69)),
     )
 
+    private val INDIA_SIGN = SignStyle(Color.rgb(239, 191, 61), Color.rgb(45, 37, 29), Color.rgb(185, 116, 42))
+
+    /** Tea-covered Himalayan foothills with small, brightly painted ridge towns. */
+    val DARJEELING = Theme(
+        "darjeeling",
+        arrayOf(
+            TerrainLayer(.035, .65f, .26f, 1.0 / 280, .72, 311, Palette.FAR, .49f, .34f,
+                daylightTint = Color.rgb(98, 130, 139)),
+            TerrainLayer(.075, .70f, .25f, 1.0 / 174, .56, 328, Palette.MID, .27f, .32f,
+                daylightTint = Color.rgb(88, 126, 106)),
+            TerrainLayer(.2, .80f, .13f, 1.0 / 162, .24, 341, Palette.MID, .10f, .18f, spriteHaze = .32f,
+                objects = ObjectRule(58.0, 4.9, 17f, 34f, town = true, sink = 2f,
+                    kinds = arrayOf(SpriteKind.PINE, SpriteKind.ROUND, SpriteKind.BAMBOO)),
+                daylightTint = Color.rgb(107, 146, 86)),
+            TerrainLayer(.55, .885f, .035f, 1.0 / 208, .12, 359, Palette.NEAR, 0f, 0f,
+                objects = ObjectRule(102.0, 2.0, 32f, 71f, town = false, sink = 4f,
+                    kinds = arrayOf(SpriteKind.PINE, SpriteKind.BAMBOO, SpriteKind.BUSH, SpriteKind.BUSH)),
+                daylightTint = Color.rgb(122, 151, 92)),
+        ),
+        CityLayer(.075, .70f, 27.0, 3, 13f, 24f, 14f, 46f, 371, WindowStyle.DOTS, 4.5f, 3.6f, facades = PASTEL),
+        CityLayer(.2, .80f, 38.0, 2, 15f, 30f, 13f, 39f, 373, WindowStyle.GRID, 3.6f, 3.8f, facades = PASTEL),
+        CityLayer(.55, .885f, 48.0, 2, 17f, 31f, 10f, 22f, 379, WindowStyle.SHOP, 4.6f, 4.2f, facades = PASTEL),
+        ObjectRule(100.0, 1.3, 34f, 73f, town = false, sink = 5f, kinds = arrayOf(SpriteKind.PINE, SpriteKind.ROUND)),
+        HouseStyle(RoofStyle.GABLE, PASTEL,
+            intArrayOf(0xFF626D73.toInt(), 0xFF9E574B.toInt(), 0xFF416B60.toInt())),
+        BarrierStyle.NONE, INDIA_SIGN,
+    )
+
+    /** Low scrub and palms around the sandy shores of Rameswaram Island. */
+    val PAMBAN = Theme(
+        "pamban",
+        arrayOf(
+            TerrainLayer(.035, .71f, .045f, 1.0 / 390, .13, 401, Palette.FAR, .45f, .24f,
+                daylightTint = Color.rgb(140, 165, 143)),
+            TerrainLayer(.075, .74f, .045f, 1.0 / 280, .08, 409, Palette.MID, .25f, .21f,
+                daylightTint = Color.rgb(132, 162, 112)),
+            TerrainLayer(.2, .80f, .031f, 1.0 / 234, 0.0, 419, Palette.MID, .10f, .17f, spriteHaze = .22f,
+                objects = ObjectRule(85.0, 3.5, 16f, 34f, town = true, sink = 2f,
+                    kinds = arrayOf(SpriteKind.FAN_PALM, SpriteKind.ROUND, SpriteKind.COASTAL_SCRUB)),
+                daylightTint = Color.rgb(168, 172, 106)),
+            TerrainLayer(.55, .89f, .019f, 1.0 / 250, 0.0, 431, Palette.NEAR, 0f, 0f,
+                objects = ObjectRule(99.0, 2.4, 31f, 76f, town = false, sink = 4f,
+                    kinds = arrayOf(SpriteKind.FAN_PALM, SpriteKind.FAN_PALM, SpriteKind.COASTAL_SCRUB)),
+                daylightTint = Color.rgb(192, 176, 123)),
+        ),
+        CityLayer(.075, .74f, 44.0, 2, 12f, 26f, 10f, 34f, 433, WindowStyle.DOTS, 4.5f, 3.6f, facades = PASTEL),
+        CityLayer(.2, .80f, 56.0, 2, 18f, 34f, 11f, 29f, 439, WindowStyle.GRID, 3.6f, 3.8f, facades = PASTEL),
+        CityLayer(.55, .89f, 54.0, 2, 19f, 35f, 10f, 20f, 443, WindowStyle.SHOP, 4.6f, 4.2f, facades = PASTEL),
+        ObjectRule(110.0, 1.5, 35f, 68f, town = false, sink = 4f, kinds = arrayOf(SpriteKind.FAN_PALM, SpriteKind.ROUND)),
+        HouseStyle(RoofStyle.FLAT, PASTEL,
+            intArrayOf(0xFFBC895F.toInt(), 0xFF9D6854.toInt(), 0xFFE0CC9A.toInt())),
+        BarrierStyle.NONE, INDIA_SIGN,
+    )
+
     private fun TerrainLayer.reseeded(shift: Int) =
         TerrainLayer(speed, base, amp, freq, ridge, seed + shift, colorKey, haze, mist, spriteHaze, objects, shape, daylightTint)
 

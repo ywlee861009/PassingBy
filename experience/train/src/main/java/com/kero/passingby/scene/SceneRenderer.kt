@@ -67,7 +67,8 @@ class SceneRenderer(private val state: SceneState) : ExperienceRenderer {
         private set
 
     override val bitmapBytes: Long
-        get() = sprites.bytes + (pacificShore?.bytes ?: 0L) + (plateau?.bytes ?: 0L) + landmarkPainter.bitmapBytes + bakers.sumOf { it.bytes } + (tileSet?.bytes ?: 0L)
+        get() = sprites.bytes + (pacificShore?.bytes ?: 0L) + (plateau?.bytes ?: 0L) +
+            (darjeelingVista?.bytes ?: 0L) + landmarkPainter.bitmapBytes + bakers.sumOf { it.bytes } + (tileSet?.bytes ?: 0L)
 
     // 재사용 객체
     private val terrainPath = Path()
@@ -163,6 +164,9 @@ class SceneRenderer(private val state: SceneState) : ExperienceRenderer {
     private val plateau: CoconinoPlateau? get() = plateauBake?.getNow(null)
     private var shoreBake: CompletableFuture<PacificShore>? = null
     private val pacificShore: PacificShore? get() = shoreBake?.getNow(null)
+    private var darjeelingBake: CompletableFuture<DarjeelingVista>? = null
+    private val darjeelingVista: DarjeelingVista? get() = darjeelingBake?.getNow(null)
+    private var pamban: PambanCrossing? = null
     private val waterPaint = Paint()
     private var waterKeyA = 0
     private var waterKeyB = 0
@@ -233,7 +237,9 @@ class SceneRenderer(private val state: SceneState) : ExperienceRenderer {
         celestialPainter.draw(canvas, layout, p, state.elapsedSec)
         drawClouds(canvas, p)
         drawLand(canvas, p)
-        if (state.theme !== Themes.GRAND_CANYON) drawPoles(canvas, p)
+        if (state.theme !== Themes.GRAND_CANYON && state.theme !== Themes.DARJEELING && state.theme !== Themes.PAMBAN) {
+            drawPoles(canvas, p)
+        }
         drawStations(canvas, p)
         drawTruss(canvas, p)
         drawFalling(canvas, p)
@@ -248,6 +254,9 @@ class SceneRenderer(private val state: SceneState) : ExperienceRenderer {
         plateauBake = null
         shoreBake?.cancel(false)
         shoreBake = null
+        darjeelingBake?.cancel(false)
+        darjeelingBake = null
+        pamban = null
         landmarkPainter.release()
         tileGeneration++
         executor.shutdownNow()
@@ -290,7 +299,10 @@ class SceneRenderer(private val state: SceneState) : ExperienceRenderer {
         plateauBake = if (t === Themes.GRAND_CANYON) CompletableFuture.supplyAsync(::CoconinoPlateau, executor) else null
         shoreBake?.cancel(false)
         shoreBake = if (t === Themes.CALIFORNIA) CompletableFuture.supplyAsync(::PacificShore, executor) else null
-        if (t === Themes.CALIFORNIA) sprites.prepareFanPalms()
+        darjeelingBake?.cancel(false)
+        darjeelingBake = if (t === Themes.DARJEELING) CompletableFuture.supplyAsync(::DarjeelingVista, executor) else null
+        pamban = if (t === Themes.PAMBAN) PambanCrossing() else null
+        if (t === Themes.CALIFORNIA || t === Themes.PAMBAN) sprites.prepareFanPalms()
         landmarkPainter.release()
         for (b in bakers) b.release()
         layers = t.layers
@@ -413,6 +425,40 @@ class SceneRenderer(private val state: SceneState) : ExperienceRenderer {
         }
     }
 
+    private fun drawLand(canvas: Canvas, p: Palette) {
+        val d = state.distanceU
+        val zones = state.zones
+        val crossing = pamban
+        if (crossing != null && zones.pambanRanges.isNotEmpty()) {
+            val amount = zones.pambanCrossing(d)
+            if (amount > 0f) {
+                val start = zones.pambanRanges[0]
+                val end = zones.pambanRanges[1]
+                if (amount < 1f) {
+                    drawGroundLandscape(canvas, p)
+                    canvas.saveLayerAlpha(0f, 0f, layout.w.toFloat(), layout.h.toFloat(), (amount * 255f).toInt())
+                }
+                crossing.draw(canvas, layout, p, d, state.elapsedSec, start, end, zones.pambanLiftProgress)
+                if (amount < 1f) canvas.restore()
+                return
+            }
+        }
+
+        val vista = darjeelingVista
+        val batasia = if (vista == null) 0f else zones.batasia(d)
+        if (vista != null && batasia > 0f && zones.batasiaRanges.isNotEmpty()) {
+            val start = zones.batasiaRanges[0]
+            val end = zones.batasiaRanges[1]
+            val center = (start + end) * .5
+            val offset = ((d - center) * 2 / (end - start)).coerceIn(-1.0, 1.0) * 95
+            vista.drawMassif(canvas, layout, p, offset, batasia)
+            drawGroundLandscape(canvas, p)
+            vista.drawLoop(canvas, layout, p, d, center, batasia)
+        } else {
+            drawGroundLandscape(canvas, p)
+        }
+    }
+
     /**
      * 지면 풍경. 도시화 정도에 따라 시골 사물과 도시 건물이 위치마다 섞인다.
      *
@@ -421,7 +467,7 @@ class SceneRenderer(private val state: SceneState) : ExperienceRenderer {
      *   각 건물 레이어의 바닥선이 짝이 되는 지형의 가장 낮은 능선보다 아래라 건물이 뜨지 않는다.
      * - 나무·집·건물·풀·방음벽은 각자 자기 위치의 도시화 정도로 있을지 없을지 정한다.
      */
-    private fun drawLand(canvas: Canvas, p: Palette) {
+    private fun drawGroundLandscape(canvas: Canvas, p: Palette) {
         if (state.theme === Themes.GRAND_CANYON) {
             drawPlateau(canvas, p)
             return

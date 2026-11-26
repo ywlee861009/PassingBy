@@ -143,4 +143,21 @@
     <string name="place_apex">Apex</string>
     <string name="place_coconino_canyon">Coconino Canyon</string>
     <string name="grand_canyon_purchase_preview_caption">A short walk from Grand Canyon Depot brings you to the South Rim. Layers of red cliffs stretch into the distance.</string>
+
+    <string name="region_india_darjeeling">Darjeeling Himalayan Railway, India</string>
+    <string name="vehicle_mountain_train">Mountain train</string>
+    <string name="station_kurseong">Kurseong</string>
+    <string name="station_ghum">Ghum</string>
+    <string name="station_darjeeling">Darjeeling</string>
+    <string name="place_tung">Tung</string>
+    <string name="place_sonada">Sonada</string>
+    <string name="place_batasia_loop">Batasia Loop</string>
+    <string name="darjeeling_purchase_preview_caption">Pass hillside villages and tea gardens before Kangchenjunga comes into view at the Batasia Loop.</string>
+
+    <string name="region_india_pamban">Pamban Sea Crossing, India</string>
+    <string name="station_mandapam">Mandapam</string>
+    <string name="station_rameswaram">Rameswaram</string>
+    <string name="place_pamban_bridge">New Pamban Rail Bridge</string>
+    <string name="place_pamban">Pamban</string>
+    <string name="pamban_purchase_preview_caption">Cross the turquoise Pamban Strait between the lift towers of the new railway bridge.</string>
 </resources>

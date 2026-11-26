@@ -78,7 +78,7 @@ class Course(
          * 나라별 파일이 이 클래스를 만들므로 처음 쓸 때 모아야 초기화 순서가 꼬이지 않는다.
          */
         val ALL: List<Course> by lazy {
-            listOf(KoreaCourses.ALL, JapanCourses.ALL, ChinaCourses.ALL, PortugalCourses.ALL, FranceCourses.ALL, UsaCourses.ALL)
+            listOf(KoreaCourses.ALL, JapanCourses.ALL, ChinaCourses.ALL, PortugalCourses.ALL, FranceCourses.ALL, UsaCourses.ALL, IndiaCourses.ALL)
                 .flatten()
                 .sortedBy { it.number }
                 .also(::validate)
@@ -115,7 +115,7 @@ class Feature(
 ) {
     enum class Kind {
         SEA, RIVER, FIELD, TUNNEL, BRIDGE, PRAIRIE, DRY_WASH, LIMESTONE_CANYON,
-        RED_CLIFF_APPROACH, RED_CLIFFS,
+        RED_CLIFF_APPROACH, RED_CLIFFS, BATASIA_LOOP, PAMBAN_CROSSING,
     }
 }
 

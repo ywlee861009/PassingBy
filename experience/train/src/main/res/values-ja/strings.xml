@@ -143,4 +143,21 @@
     <string name="place_apex">エイペックス</string>
     <string name="place_coconino_canyon">ココニノキャニオン</string>
     <string name="grand_canyon_purchase_preview_caption">グランドキャニオン駅から少し歩くと、サウスリムに着きます。赤い地層が重なる断崖が遠くまで連なります。</string>
+
+    <string name="region_india_darjeeling">インド ダージリン・ヒマラヤ鉄道</string>
+    <string name="vehicle_mountain_train">山岳鉄道</string>
+    <string name="station_kurseong">クルセオン</string>
+    <string name="station_ghum">グーム</string>
+    <string name="station_darjeeling">ダージリン</string>
+    <string name="place_tung">トゥン</string>
+    <string name="place_sonada">ソナダ</string>
+    <string name="place_batasia_loop">バタシア・ループ</string>
+    <string name="darjeeling_purchase_preview_caption">山あいの村と茶畑を抜け、バタシア・ループでカンチェンジュンガの雪峰が姿を見せます。</string>
+
+    <string name="region_india_pamban">インド パンバン海峡横断</string>
+    <string name="station_mandapam">マンダパム</string>
+    <string name="station_rameswaram">ラーメーシュワラム</string>
+    <string name="place_pamban_bridge">新パンバン鉄道橋</string>
+    <string name="place_pamban">パンバン</string>
+    <string name="pamban_purchase_preview_caption">新しい鉄道橋の昇降塔の間を通り、青緑色の海が広がるパンバン海峡を渡ります。</string>
 </resources>

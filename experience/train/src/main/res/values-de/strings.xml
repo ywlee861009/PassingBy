@@ -143,4 +143,21 @@
     <string name="place_apex">Apex</string>
     <string name="place_coconino_canyon">Coconino Canyon</string>
     <string name="grand_canyon_purchase_preview_caption">Vom Grand Canyon Depot führt ein kurzer Spaziergang zum South Rim. Die roten Felsschichten reichen bis in die Ferne.</string>
+
+    <string name="region_india_darjeeling">Darjeeling-Himalaya-Bahn, Indien</string>
+    <string name="vehicle_mountain_train">Gebirgsbahn</string>
+    <string name="station_kurseong">Kurseong</string>
+    <string name="station_ghum">Ghum</string>
+    <string name="station_darjeeling">Darjeeling</string>
+    <string name="place_tung">Tung</string>
+    <string name="place_sonada">Sonada</string>
+    <string name="place_batasia_loop">Batasia-Schleife</string>
+    <string name="darjeeling_purchase_preview_caption">Vorbei an Bergdörfern und Teegärten öffnet sich an der Batasia-Schleife der Blick auf den Kangchendzönga.</string>
+
+    <string name="region_india_pamban">Pamban-Meeresquerung, Indien</string>
+    <string name="station_mandapam">Mandapam</string>
+    <string name="station_rameswaram">Rameswaram</string>
+    <string name="place_pamban_bridge">Neue Pamban-Eisenbahnbrücke</string>
+    <string name="place_pamban">Pamban</string>
+    <string name="pamban_purchase_preview_caption">Überquere zwischen den Hubtürmen der neuen Eisenbahnbrücke das türkisfarbene Wasser der Pamban-Meerenge.</string>
 </resources>

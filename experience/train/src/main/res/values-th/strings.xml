@@ -142,4 +142,21 @@
     <string name="place_apex">เอเพ็กซ์</string>
     <string name="place_coconino_canyon">โคโคนิโนแคนยอน</string>
     <string name="grand_canyon_purchase_preview_caption">เดินไม่ไกลจากสถานีแกรนด์แคนยอนก็ถึงขอบผาฝั่งใต้ เห็นชั้นผาหินสีแดงทอดยาวไปไกลสุดสายตา</string>
+
+    <string name="region_india_darjeeling">รถไฟหิมาลัยดาร์จีลิง อินเดีย</string>
+    <string name="vehicle_mountain_train">รถไฟภูเขา</string>
+    <string name="station_kurseong">คูร์ซอง</string>
+    <string name="station_ghum">กุม</string>
+    <string name="station_darjeeling">ดาร์จีลิง</string>
+    <string name="place_tung">ตุง</string>
+    <string name="place_sonada">โซนาดา</string>
+    <string name="place_batasia_loop">บาตาเซียลูป</string>
+    <string name="darjeeling_purchase_preview_caption">ผ่านหมู่บ้านบนไหล่เขาและไร่ชา ก่อนเห็นยอดเขากันเชนชุงกาที่บาตาเซียลูป</string>
+
+    <string name="region_india_pamban">เส้นทางรถไฟข้ามทะเลปัมบัน อินเดีย</string>
+    <string name="station_mandapam">มันดาปัม</string>
+    <string name="station_rameswaram">ราเมศวรัม</string>
+    <string name="place_pamban_bridge">สะพานรถไฟปัมบันแห่งใหม่</string>
+    <string name="place_pamban">ปัมบัน</string>
+    <string name="pamban_purchase_preview_caption">ข้ามช่องแคบปัมบันสีฟ้าอมเขียวผ่านระหว่างหอยกของสะพานรถไฟแห่งใหม่</string>
 </resources>

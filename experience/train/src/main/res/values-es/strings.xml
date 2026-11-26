@@ -142,4 +142,21 @@
     <string name="place_apex">Apex</string>
     <string name="place_coconino_canyon">Cañón Coconino</string>
     <string name="grand_canyon_purchase_preview_caption">A pocos pasos de la estación del Gran Cañón está el Borde Sur. Las capas de acantilados rojos se extienden a lo lejos.</string>
+
+    <string name="region_india_darjeeling">Ferrocarril del Himalaya de Darjeeling, India</string>
+    <string name="vehicle_mountain_train">Tren de montaña</string>
+    <string name="station_kurseong">Kurseong</string>
+    <string name="station_ghum">Ghum</string>
+    <string name="station_darjeeling">Darjeeling</string>
+    <string name="place_tung">Tung</string>
+    <string name="place_sonada">Sonada</string>
+    <string name="place_batasia_loop">Bucle de Batasia</string>
+    <string name="darjeeling_purchase_preview_caption">Pasa por pueblos de montaña y plantaciones de té hasta que el Kanchenjunga se abra a la vista en el bucle de Batasia.</string>
+
+    <string name="region_india_pamban">Cruce marítimo de Pamban, India</string>
+    <string name="station_mandapam">Mandapam</string>
+    <string name="station_rameswaram">Rameswaram</string>
+    <string name="place_pamban_bridge">Nuevo puente ferroviario de Pamban</string>
+    <string name="place_pamban">Pamban</string>
+    <string name="pamban_purchase_preview_caption">Cruza las aguas turquesas del estrecho de Pamban entre las torres de elevación del nuevo puente ferroviario.</string>
 </resources>

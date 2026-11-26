@@ -1,5 +1,6 @@
 package com.kero.passingby.content
 
+import com.kero.passingby.experience.train.R
 import com.kero.passingby.experience.RouteCaption
 import com.kero.passingby.journey.CoursePlan
 import org.junit.Assert.*
@@ -94,6 +95,23 @@ class RouteGuideTest {
             assertEquals(passing, route.captionAt(outboundFraction, 1))
             assertEquals(passing, route.captionAt(1.0 - outboundFraction, -1))
         }
+    }
+
+    @Test fun indiaLandmarksAreAnnouncedOnTheAppropriateSegmentInBothDirections() {
+        val hills = RouteGuides.INDIA_DARJEELING
+        val coast = RouteGuides.INDIA_PAMBAN
+        assertEquals(listOf(R.string.station_kurseong, R.string.station_ghum, R.string.station_darjeeling),
+            hills.stops.map { it.name })
+        assertEquals(listOf(R.string.station_mandapam, R.string.station_rameswaram), coast.stops.map { it.name })
+        val loopPosition = 1.0 + 1.17 / 6.03
+        val loop = RouteCaption(R.string.place_batasia_loop, RouteCaption.Kind.PASSING)
+        assertEquals(loop, hills.captionAt(loopPosition, 1))
+        assertEquals(loop, hills.captionAt(2.0 - loopPosition, -1))
+        val bridgePosition = 4.72 / 17.522
+        val bridge = RouteCaption(R.string.place_pamban_bridge, RouteCaption.Kind.PASSING)
+        assertEquals(bridge, coast.captionAt(bridgePosition, 1))
+        assertEquals(bridge, coast.captionAt(1.0 - bridgePosition, -1))
+        assertEquals(2.078, RouteGuides.PAMBAN_BRIDGE_END_KM - RouteGuides.PAMBAN_BRIDGE_START_KM, 1e-9)
     }
 
     @Test fun malformedRouteDataFailsBeforeItCanShowIncorrectLocations() {

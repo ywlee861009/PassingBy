@@ -139,6 +139,12 @@ interface Zones {
     fun limestoneCanyon(x: Double): Float = 0f
     /** Bright Angel 절벽의 노출 정도(0~1). */
     fun redCliffs(x: Double): Float = 0f
+    /** 바타시아 전망과 팜반 철교가 시작하고 끝나는 세계 위치. */
+    val batasiaRanges: DoubleArray get() = NO_RANGES
+    val pambanRanges: DoubleArray get() = NO_RANGES
+    val pambanLiftProgress: Float get() = .70f
+    fun batasia(x: Double): Float = 0f
+    fun pambanCrossing(x: Double): Float = 0f
     fun sea(x: Double): Float
     /** 중경 높이에서 맞은편 언덕이 보이는 강·호수(0~1). */
     fun river(x: Double): Float
@@ -164,6 +170,7 @@ interface Zones {
     fun maxLift(layer: Int): Float
 
     companion object {
+        private val NO_RANGES = DoubleArray(0)
         val NONE = object : Zones {
             override val seaRanges = DoubleArray(0)
             override val seaRamp = 0.0

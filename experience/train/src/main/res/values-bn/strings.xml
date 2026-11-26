@@ -143,4 +143,21 @@
     <string name="place_apex">এপেক্স</string>
     <string name="place_coconino_canyon">কোকোনিনো ক্যানিয়ন</string>
     <string name="grand_canyon_purchase_preview_caption">গ্র্যান্ড ক্যানিয়ন ডিপো থেকে একটু হাঁটলেই সাউথ রিম। স্তরে স্তরে লাল পাথরের খাড়া দেয়াল দিগন্ত পর্যন্ত ছড়িয়ে আছে।</string>
+
+    <string name="region_india_darjeeling">ভারতের দার্জিলিং হিমালয়ান রেলওয়ে</string>
+    <string name="vehicle_mountain_train">পাহাড়ি ট্রেন</string>
+    <string name="station_kurseong">কার্শিয়াং</string>
+    <string name="station_ghum">ঘুম</string>
+    <string name="station_darjeeling">দার্জিলিং</string>
+    <string name="place_tung">তুং</string>
+    <string name="place_sonada">সোনাদা</string>
+    <string name="place_batasia_loop">বাতাসিয়া লুপ</string>
+    <string name="darjeeling_purchase_preview_caption">পাহাড়ি গ্রাম ও চা-বাগান পেরিয়ে বাতাসিয়া লুপে কাঞ্চনজঙ্ঘার বরফঢাকা চূড়া দেখা যায়।</string>
+
+    <string name="region_india_pamban">ভারতের পাম্বান সমুদ্রপথ</string>
+    <string name="station_mandapam">মণ্ডপম</string>
+    <string name="station_rameswaram">রামেশ্বরম</string>
+    <string name="place_pamban_bridge">নতুন পাম্বান রেলসেতু</string>
+    <string name="place_pamban">পাম্বান</string>
+    <string name="pamban_purchase_preview_caption">নতুন রেলসেতুর উত্তোলন টাওয়ারের মাঝ দিয়ে পাম্বান প্রণালীর ফিরোজা জল পেরিয়ে চলুন।</string>
 </resources>

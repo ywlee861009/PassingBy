@@ -142,4 +142,21 @@
     <string name="place_apex">ऐपेक्स</string>
     <string name="place_coconino_canyon">कोकोनीनो कैन्यन</string>
     <string name="grand_canyon_purchase_preview_caption">ग्रैंड कैन्यन डिपो से थोड़ी दूर पैदल चलकर साउथ रिम पहुँचें। लाल चट्टानों की परतें दूर तक फैली हैं।</string>
+
+    <string name="region_india_darjeeling">दार्जिलिंग हिमालयन रेलवे, भारत</string>
+    <string name="vehicle_mountain_train">पहाड़ी ट्रेन</string>
+    <string name="station_kurseong">कर्सियांग</string>
+    <string name="station_ghum">घूम</string>
+    <string name="station_darjeeling">दार्जिलिंग</string>
+    <string name="place_tung">तुंग</string>
+    <string name="place_sonada">सोनादा</string>
+    <string name="place_batasia_loop">बतासिया लूप</string>
+    <string name="darjeeling_purchase_preview_caption">पहाड़ी गाँवों और चाय बागानों से गुज़रकर बतासिया लूप पर कंचनजंगा के बर्फ़ीले शिखर दिखाई देते हैं।</string>
+
+    <string name="region_india_pamban">पंबन समुद्री रेल मार्ग, भारत</string>
+    <string name="station_mandapam">मंडपम</string>
+    <string name="station_rameswaram">रामेश्वरम</string>
+    <string name="place_pamban_bridge">नया पंबन रेल पुल</string>
+    <string name="place_pamban">पंबन</string>
+    <string name="pamban_purchase_preview_caption">नए रेल पुल के लिफ़्ट टावरों के बीच से गुज़रते हुए पंबन जलडमरूमध्य के फ़िरोज़ी पानी को पार करें।</string>
 </resources>
